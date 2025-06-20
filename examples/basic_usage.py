@@ -1,9 +1,9 @@
 from openwebui_chat_client import OpenWebUIClient
 
 # --- Configuration ---
-BASE_URL = "http://localhost:3000"  # Replace with your OpenWebUI server URL
+BASE_URL = "http://localhost:3003"  # Replace with your OpenWebUI server URL
 # Obtain your JWT token or API key for authentication from your account settings.
-AUTH_TOKEN = "YOUR_AUTH_TOKEN" 
+AUTH_TOKEN = "YOUR_AUTH_TOKEN"
 MODEL_ID = "gpt-4.1"
 
 def run_demo():
@@ -20,13 +20,13 @@ def run_demo():
         chat_title="OOP Principles Discussion"
     )
     
-    # continue the conversation with a follow-up question
-    if message_id:
-        print(f"Message ID: {message_id}")
-    response, _ = client.chat(
-        question="Can you explain encapsulation in more detail?",
-        chat_title="OOP Principles Discussion",
-    )
+    # # continue the conversation with a follow-up question
+    # if message_id:
+    #     print(f"Message ID: {message_id}")
+    # response, _ = client.chat(
+    #     question="Can you explain encapsulation in more detail?",
+    #     chat_title="OOP Principles Discussion",
+    # )
 
     if response:
         print(f"AI Response: {response}")

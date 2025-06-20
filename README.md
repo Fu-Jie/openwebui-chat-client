@@ -7,6 +7,8 @@ An intelligent, stateful Python client for the [Open WebUI](https://github.com/o
 
 **openwebui-chat-client** is designed for developers and automation engineers who need to programmatically interact with Open WebUI. It treats conversations as unique entities identified by their titles, allowing you to robustly create, manage, and continue chats, handle multimodal inputs, and organize your workflows with ease.
 
+
+
 ## ✨ Features
 
 -   **Global Title Uniqueness**: Manage conversations using a unique title, regardless of their folder location.
@@ -32,11 +34,11 @@ First, obtain your API token from your Open WebUI instance.
 from openwebui_chat_client import OpenWebUIClient
 
 # 1. Configure your client
-#    Ensure the model you choose supports your intended use (e.g., 'llava:latest' for images).
+#    Ensure the model you choose supports your intended use (e.g., 'gpt-4.1' for images).
 client = OpenWebUIClient(
     base_url="http://localhost:3000",
     token="YOUR_AUTH_TOKEN",
-    default_model_id="llava:latest"
+    default_model_id="gpt-4.1"
 )
 
 # 2. Start or continue a text-based conversation
@@ -60,6 +62,14 @@ response, message_id = client.chat(
 if response:
     print(f"AI: {response}")
 ```
+
+## 🖼️ Example Conversation
+
+- The screenshot below shows a conversation managed by the `openwebui-chat-client` demonstrating chat organization and multimodal support.
+
+![Screenshot of a conversation managed by the client](./examples/ui.png)
+
+
 
 ### Configuration
 
