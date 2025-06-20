@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "openwebui-client"
-version = "0.1.0"
+name = "openwebui-chat-client"
+version = "0.1.1"
 authors = [
     { name="fujie", email="fj1945@live.cn" },
 ]
@@ -29,6 +29,6 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/https://github.com/Fu-Jie/openwebui-client"
-"Bug Tracker" = "https://github.com/https://github.com/Fu-Jie/openwebui-client/issues"
-"Documentation" = "https://github.com/https://github.com/Fu-Jie/openwebui-client#readme"
+Homepage = "https://github.com/Fu-Jie/openwebui-chat-client"
+"Bug Tracker" = "https://github.com/Fu-Jie/openwebui-chat-client/issues"
+"Documentation" = "https://github.com/Fu-Jie/openwebui-chat-client#readme"

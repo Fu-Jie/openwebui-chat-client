@@ -1,11 +1,11 @@
-# openwebui-client
+# openwebui-chat-client
 
-[![PyPI version](https://badge.fury.io/py/openwebui-client.svg)](https://badge.fury.io/py/openwebui-client)
+[![PyPI version](https://badge.fury.io/py/openwebui-chat-client.svg)](https://badge.fury.io/py/openwebui-chat-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An intelligent, stateful Python client for the [Open WebUI](https://github.com/open-webui/open-webui) API.
 
-**openwebui-client** is designed for developers and automation engineers who need to programmatically interact with Open WebUI. It treats conversations as unique entities identified by their titles, allowing you to robustly create, manage, and continue chats, handle multimodal inputs, and organize your workflows with ease.
+**openwebui-chat-client** is designed for developers and automation engineers who need to programmatically interact with Open WebUI. It treats conversations as unique entities identified by their titles, allowing you to robustly create, manage, and continue chats, handle multimodal inputs, and organize your workflows with ease.
 
 ## ✨ Features
 
@@ -21,7 +21,7 @@ An intelligent, stateful Python client for the [Open WebUI](https://github.com/o
 Install the package directly from PyPI:
 
 ```bash
-pip install openwebui-client
+pip install openwebui-chat-client
 ```
 
 ## 🚀 Quick Start
@@ -29,12 +29,12 @@ pip install openwebui-client
 First, obtain your API token from your Open WebUI instance.
 
 ```python
-from openwebui_client import OpenWebUIClient
+from openwebui_chat_client import OpenWebUIClient
 
 # 1. Configure your client
 #    Ensure the model you choose supports your intended use (e.g., 'llava:latest' for images).
 client = OpenWebUIClient(
-    base_url="http://localhost:8080",
+    base_url="http://localhost:3000",
     token="YOUR_AUTH_TOKEN",
     default_model_id="llava:latest"
 )
@@ -73,7 +73,7 @@ if response:
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/https://github.com/Fu-Jie/openwebui-client/issues).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Fu-Jie/openwebui-chat-client/issues).
 
 ## 📄 License
 

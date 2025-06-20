@@ -1,7 +1,7 @@
-from openwebui_client import OpenWebUIClient
+from openwebui_chat_client import OpenWebUIClient
 
 # --- Configuration ---
-BASE_URL = "http://localhost:3003"
+BASE_URL = "http://localhost:3000"  # Replace with your OpenWebUI server URL
 # Obtain your JWT token or API key for authentication from your account settings.
 AUTH_TOKEN = "YOUR_AUTH_TOKEN" 
 MODEL_ID = "gpt-4.1"
