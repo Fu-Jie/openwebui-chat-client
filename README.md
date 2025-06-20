@@ -2,84 +2,108 @@
 
 [![PyPI version](https://badge.fury.io/py/openwebui-chat-client.svg)](https://badge.fury.io/py/openwebui-chat-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Versions](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
 
-An intelligent, stateful Python client for the [Open WebUI](https://github.com/open-webui/open-webui) API.
+An intelligent, stateful Python client for the [Open WebUI](https://github.com/open-webui/open-webui) API, designed for robust automation and seamless integration.
 
-**openwebui-chat-client** is designed for developers and automation engineers who need to programmatically interact with Open WebUI. It treats conversations as unique entities identified by their titles, allowing you to robustly create, manage, and continue chats, handle multimodal inputs, and organize your workflows with ease.
+**openwebui-chat-client** empowers developers and automation engineers to programmatically control the full lifecycle of conversations in Open WebUI. It treats conversations as unique entities identified by their titles, allowing you to reliably create, manage, and continue chats, handle both single and parallel multi-model conversations, process multimodal inputs, and organize your workflows with ease.
 
-
+---
 
 ## ✨ Features
 
--   **Global Title Uniqueness**: Manage conversations using a unique title, regardless of their folder location.
--   **Smart Session Continuation**: Automatically finds and continues the most recently updated conversation with a given title, or creates a new one if it doesn't exist.
--   **Dynamic Folder Management**: Automatically creates folders and moves chats to organize your projects, e.g., from "In Progress" to "Completed".
--   **Stateful Client Session**: Caches active conversations within a single client instance to boost performance by avoiding redundant API searches.
--   **Multimodal Support**: Seamlessly send both text and local images in your prompts to multimodal models like LLaVA.
--   **Clean, Object-Oriented Design**: All logic is encapsulated in the `OpenWebUIClient` class for easy integration into your projects.
+- **Global Title Uniqueness**: Manage conversations using a unique title as a stable identifier.
+- **Smart Session Continuation**: Automatically finds and continues existing conversations or creates new ones.
+- **Multi-Model Parallel Chat**: Send a single prompt to multiple models simultaneously.
+- **Dynamic Folder Management**: Automatically create folders and move chats to manage workflows.
+- **Stateful Client Session**: Caches active conversations to boost performance.
+- **Multimodal Support**: Send text and local images to multimodal models.
+- **Clean, Object-Oriented Design**: Encapsulated in the `OpenWebUIClient` class.
+- **Professional Logging**: Uses Python's standard `logging` module.
 
 ## 🛠️ Installation
 
-Install the package directly from PyPI:
+Install the package from PyPI:
 
 ```bash
 pip install openwebui-chat-client
 ```
 
+> To install directly from the official PyPI repository, bypassing any local mirrors, use:
+> `pip install --index-url https://pypi.org/simple/ openwebui-chat-client`
+
 ## 🚀 Quick Start
 
-First, obtain your API token from your Open WebUI instance.
+### 1. Set Environment Variables
+
+For security, it is highly recommended to configure the client using environment variables rather than hardcoding values in your script.
+
+**On Linux or macOS:**
+
+```bash
+export OUI_BASE_URL="http://localhost:3000"
+export OUI_AUTH_TOKEN="your_api_key_from_open_webui"
+```
+
+**On Windows (PowerShell):**
+
+```powershell
+$env:OUI_BASE_URL="http://localhost:3000"
+$env:OUI_AUTH_TOKEN="your_api_key_from_open_webui"
+```
+
+### 2. Run the Client
+
+Create a Python file (e.g., `main.py`) with the following code:
 
 ```python
+import logging
+import os
 from openwebui_chat_client import OpenWebUIClient
 
-# 1. Configure your client
-#    Ensure the model you choose supports your intended use (e.g., 'gpt-4.1' for images).
+# --- Configure Logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# --- Load Configuration from Environment ---
+BASE_URL = os.getenv("OUI_BASE_URL", "http://localhost:3000")
+AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN")
+
+if not AUTH_TOKEN:
+    raise ValueError("OUI_AUTH_TOKEN environment variable not set. Please set it to your API key.")
+
+# --- Initialize and Use the Client ---
 client = OpenWebUIClient(
-    base_url="http://localhost:3000",
-    token="YOUR_AUTH_TOKEN",
+    base_url=BASE_URL,
+    token=AUTH_TOKEN,
     default_model_id="gpt-4.1"
 )
 
-# 2. Start or continue a text-based conversation
-response, message_id = client.chat(
-    question="What are the key principles of object-oriented programming?",
-    chat_title="OOP Principles Discussion"
+# Start a multi-model parallel conversation
+models_to_query = ["gpt-4.1", "gemini-2.5-flash"]
+responses = client.parallel_chat(
+    question="What are the top 3 benefits of using Python for data science?",
+    chat_title="Python for Data Science",
+    model_ids=models_to_query
 )
 
-if response:
-    print(f"AI: {response}")
-
-# 3. Continue the same conversation with an image
-#    The client will automatically find the "OOP Principles Discussion" chat.
-response, message_id = client.chat(
-    question="Can you explain this UML diagram?",
-    chat_title="OOP Principles Discussion",
-    folder_name="Software Design",  # The chat will be moved here if not already
-    image_paths=["./path/to/your/diagram.png"]
-)
-
-if response:
-    print(f"AI: {response}")
+if responses:
+    for model, content in responses.items():
+        print(f"\n🤖 [{model}'s Response]:\n{content}")
 ```
 
-## 🖼️ Example Conversation
+### Configuration Details
 
-- The screenshot below shows a conversation managed by the `openwebui-chat-client` demonstrating chat organization and multimodal support.
+- `base_url` / `OUI_BASE_URL`: The URL of your running Open WebUI instance.
+- `token` / `OUI_AUTH_TOKEN`: Your authentication API key.
+- `default_model_id`: The model ID to use for new single-model chats.
 
-![Screenshot of a conversation managed by the client](./examples/ui.png)
+**How to get your API Key:**
 
-
-
-### Configuration
-
--   `base_url`: The URL of your running Open WebUI instance.
--   `token`: Your authentication token. To get it:
-    1.  Log in to Open WebUI.
-    2.  Open browser developer tools (F12) and go to the "Network" tab.
-    3.  Perform any action (e.g., send a message).
-    4.  Find a request to the API, go to "Headers", and copy the value from the `Authorization: Bearer <YOUR_TOKEN>` header.
--   `default_model_id`: The model to use for new conversations.
+1. Log in to your Open WebUI account.
+2. Click on your profile picture/name in the bottom-left corner and go to **Settings**.
+3. In the settings menu, navigate to the **Account** section.
+4. Find the **API Keys** area and **Create a new key**.
+5. Copy the generated key and set it as your `OUI_AUTH_TOKEN` environment variable.
 
 ## 🤝 Contributing
 

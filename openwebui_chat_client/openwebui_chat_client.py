@@ -6,28 +6,19 @@ import base64
 import os
 import logging
 from typing import Optional, List, Tuple, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Set up a logger for the library.
-# The application using this library will configure the handler and level.
 logger = logging.getLogger(__name__)
 
 
 class OpenWebUIClient:
     """
     An intelligent, stateful Python client for the Open WebUI API.
-    It treats chat titles as globally unique identifiers to automatically
-    create or continue conversations, and can place them in specified folders.
+    Supports single-model and multi-model parallel conversations.
     """
 
     def __init__(self, base_url: str, token: str, default_model_id: str):
-        """
-        Initializes the client.
-
-        Args:
-            base_url (str): The base URL of the Open WebUI instance.
-            token (str): The authentication token (Bearer Token), api key, or jwt token.
-            default_model_id (str): The default model ID to use for new chats.
-        """
         self.base_url = base_url
         self.default_model_id = default_model_id
         self.session = requests.Session()
@@ -37,7 +28,10 @@ class OpenWebUIClient:
         self.session_cache: Dict[str, Dict[str, Any]] = {}
         self.chat_id: Optional[str] = None
         self.chat_object_from_server: Optional[Dict[str, Any]] = None
+        # self.model_id is now the 'primary' model for single chats or the last used one
         self.model_id: str = default_model_id
+
+    # --- Public Methods ---
 
     def chat(
         self,
@@ -45,24 +39,20 @@ class OpenWebUIClient:
         chat_title: str,
         folder_name: Optional[str] = None,
         image_paths: Optional[List[str]] = None,
+        model_id: Optional[str] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
         """
-        The main public method: intelligently starts or continues a chat based on its
-        globally unique title and ensures it's in the correct folder.
-
-        Args:
-            question (str): The question text to ask.
-            chat_title (str): The globally unique title for the chat.
-            folder_name (str, optional): The folder where the chat should reside. Defaults to None.
-            image_paths (List[str], optional): A list of local paths to images. Defaults to None.
-
-        Returns:
-            Tuple[Optional[str], Optional[str]]: A tuple of (assistant's response, message ID).
+        Handles a single-model conversation.
         """
+        # Use the provided model_id or the instance's default
+        self.model_id = model_id or self.default_model_id
+
         logger.info("=" * 60)
         logger.info(
-            f"Processing new request: title='{chat_title}', folder='{folder_name}'"
+            f"Processing SINGLE-MODEL request: title='{chat_title}', model='{self.model_id}'"
         )
+        if folder_name:
+            logger.info(f"Folder: '{folder_name}'")
         if image_paths:
             logger.info(f"With images: {image_paths}")
         logger.info("=" * 60)
@@ -82,15 +72,304 @@ class OpenWebUIClient:
 
         return self._ask(question, image_paths)
 
-    # --- Internal Core Logic ---
+    # ******************** NEW: Multi-Model Parallel Chat ********************
+    def parallel_chat(
+        self,
+        question: str,
+        chat_title: str,
+        model_ids: List[str],
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, str]]:
+        """
+        Handles a multi-model parallel conversation.
 
+        Args:
+            question (str): The user's question.
+            chat_title (str): The unique title of the conversation.
+            model_ids (List[str]): A list of model IDs to query in parallel.
+            folder_name (Optional[str]): The folder to place the chat in.
+            image_paths (Optional[List[str]]): A list of local image paths.
+
+        Returns:
+            Optional[Dict[str, str]]: A dictionary of {model_id: response_content}, or None on failure.
+        """
+        if not model_ids:
+            logger.error("`model_ids` list cannot be empty for parallel chat.")
+            return None
+
+        # Set the primary model for UI purposes
+        self.model_id = model_ids[0]
+
+        logger.info("=" * 60)
+        logger.info(
+            f"Processing PARALLEL-MODEL request: title='{chat_title}', models={model_ids}"
+        )
+        logger.info("=" * 60)
+
+        # 1. Find or create the chat session
+        self._find_or_create_chat_by_title(chat_title)
+        if not self.chat_id:
+            logger.error("Chat initialization failed, cannot proceed.")
+            return None
+
+        # 2. Handle folder placement
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.chat_id, folder_id)
+
+        # 3. Construct the single user message object
+        chat_core = self.chat_object_from_server["chat"]
+        user_message_id = str(uuid.uuid4())
+
+        # Determine the parent of the new user message
+        # In a multi-model chat, we need a clear rule. Let's use the currentId.
+        last_message_id = chat_core["history"].get("currentId")
+
+        storage_user_message = {
+            "id": user_message_id,
+            "parentId": last_message_id,
+            "childrenIds": [],
+            "role": "user",
+            "content": question,
+            "files": [],
+            "models": model_ids,
+            "timestamp": int(time.time()),
+        }
+        if image_paths:
+            for path in image_paths:
+                if url := self._encode_image_to_base64(path):
+                    storage_user_message["files"].append({"type": "image", "url": url})
+
+        chat_core["history"]["messages"][user_message_id] = storage_user_message
+        if last_message_id:
+            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
+                user_message_id
+            )
+
+        # 4. Concurrently get responses from all models
+        logger.info(f"Querying {len(model_ids)} models in parallel...")
+        responses = {}
+        with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
+            future_to_model = {
+                executor.submit(
+                    self._get_single_model_response_in_parallel,
+                    chat_core,
+                    model_id,
+                    question,
+                    image_paths,
+                ): model_id
+                for model_id in model_ids
+            }
+            for future in as_completed(future_to_model):
+                model_id = future_to_model[future]
+                try:
+                    responses[model_id] = future.result()
+                except Exception as exc:
+                    logger.error(f"Model '{model_id}' generated an exception: {exc}")
+                    responses[model_id] = None
+
+        successful_responses = {k: v for k, v in responses.items() if v}
+        if not successful_responses:
+            logger.error("All models failed to respond.")
+            # Rollback the user message we added
+            del chat_core["history"]["messages"][user_message_id]
+            return None
+
+        logger.info("Received all responses.")
+
+        # 5. Add all assistant responses to the history tree
+        assistant_message_ids = []
+        for model_id, content in successful_responses.items():
+            assistant_id = str(uuid.uuid4())
+            assistant_message_ids.append(assistant_id)
+            storage_assistant_message = {
+                "id": assistant_id,
+                "parentId": user_message_id,
+                "childrenIds": [],
+                "role": "assistant",
+                "content": content,
+                "model": model_id,
+                "modelName": model_id.split(":")[0],
+                "timestamp": int(time.time()),
+                "done": True,
+            }
+            chat_core["history"]["messages"][assistant_id] = storage_assistant_message
+
+        # Link all assistant messages to the user message
+        chat_core["history"]["messages"][user_message_id][
+            "childrenIds"
+        ] = assistant_message_ids
+
+        # 6. Update chat_core state
+        # Set currentId to the response from the first model in the list
+        chat_core["history"]["currentId"] = assistant_message_ids[0]
+        chat_core["models"] = model_ids
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, assistant_message_ids[0]
+        )
+
+        # 7. Update backend
+        logger.info("Updating chat history on the backend...")
+        if self._update_remote_chat():
+            logger.info("Chat history updated successfully!")
+            self.session_cache[self.chat_object_from_server["title"]] = {
+                "id": self.chat_id,
+                "obj": self.chat_object_from_server,
+                "model": self.model_id,
+            }
+            return successful_responses
+        return None
+
+    def _get_single_model_response_in_parallel(
+        self, chat_core, model_id, question, image_paths
+    ):
+        """Helper for parallel execution: prepares history and gets a single completion."""
+        # For multi-model, the history for each model should be built from its own lineage
+        # This is a complex task. A simpler, effective approach is to build the linear history
+        # from the shared `currentId` and send that to all models.
+        api_messages = self._build_linear_history_for_api(chat_core)
+
+        # Add the current user question to the history for this specific call
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for path in image_paths:
+                if url := self._encode_image_to_base64(path):
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+
+        return self._get_model_completion(api_messages, model_id)
+
+    # --- Other methods (modified slightly for clarity) ---
+
+    def _ask(
+        self, question: str, image_paths: Optional[List[str]] = None
+    ) -> Tuple[Optional[str], Optional[str]]:
+        # This method is now exclusively for single-model chats
+        # ... (rest of the method is the same as the final version from the previous response) ...
+        # ... (pasting it here for completeness) ...
+        if not self.chat_id:
+            return None, None
+        logger.info(f'Processing question: "{question}"')
+        chat_core = self.chat_object_from_server["chat"]
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for image_path in image_paths:
+                base64_image = self._encode_image_to_base64(image_path)
+                if base64_image:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": base64_image}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+        logger.info("Calling completions API to get model response...")
+        assistant_content = self._get_model_completion(api_messages)
+        if not assistant_content:
+            return None, None
+        logger.info("Successfully received model response.")
+        user_message_id = str(uuid.uuid4())
+        last_message_id = chat_core["history"].get("currentId")
+        storage_user_message = {
+            "id": user_message_id,
+            "parentId": last_message_id,
+            "childrenIds": [],
+            "role": "user",
+            "content": question,
+            "files": [],
+            "models": [self.model_id],
+            "timestamp": int(time.time()),
+        }
+        if image_paths:
+            for image_path in image_paths:
+                if base64_url := self._encode_image_to_base64(image_path):
+                    storage_user_message["files"].append(
+                        {"type": "image", "url": base64_url}
+                    )
+        chat_core["history"]["messages"][user_message_id] = storage_user_message
+        if last_message_id:
+            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
+                user_message_id
+            )
+        assistant_message_id = str(uuid.uuid4())
+        storage_assistant_message = {
+            "id": assistant_message_id,
+            "parentId": user_message_id,
+            "childrenIds": [],
+            "role": "assistant",
+            "content": assistant_content,
+            "model": self.model_id,
+            "modelName": self.model_id.split(":")[0],
+            "timestamp": int(time.time()),
+            "done": True,
+        }
+        chat_core["history"]["messages"][
+            assistant_message_id
+        ] = storage_assistant_message
+        chat_core["history"]["messages"][user_message_id]["childrenIds"].append(
+            assistant_message_id
+        )
+        chat_core["history"]["currentId"] = assistant_message_id
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, assistant_message_id
+        )
+        chat_core["models"] = [self.model_id]
+        logger.info("Updating chat history on the backend...")
+        if self._update_remote_chat():
+            logger.info("Chat history updated successfully!")
+            self.session_cache[self.chat_object_from_server["title"]] = {
+                "id": self.chat_id,
+                "obj": self.chat_object_from_server,
+                "model": self.model_id,
+            }
+            return assistant_content, assistant_message_id
+        return None, None
+
+    def _get_model_completion(
+        self, messages: List[Dict[str, Any]], model_id: Optional[str] = None
+    ) -> Optional[str]:
+        # Now accepts an optional model_id to override the instance's default
+        active_model_id = model_id or self.model_id
+        payload = {"model": active_model_id, "messages": messages, "stream": False}
+        logger.debug(f"Sending completion request for model: {active_model_id}")
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/chat/completions", json=payload
+            )
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
+        except (requests.exceptions.RequestException, KeyError, IndexError) as e:
+            if hasattr(e, "response"):
+                logger.error(
+                    f"Completions API Error for {active_model_id}: {e.response.text}"
+                )
+            else:
+                logger.error(f"Completions API Error for {active_model_id}: {e}")
+            return None
+
+    # --- All other helper methods remain the same ---
+    # ... (pasting them for completeness) ...
     def _find_or_create_chat_by_title(self, title: str):
         cache_key = title
         if cache_key in self.session_cache:
             logger.info(f"Loading chat '{title}' from session cache.")
             self._activate_chat_state(self.session_cache[cache_key])
             return
-
         existing_chat = self._search_latest_chat_by_title(title)
         if existing_chat:
             logger.info(f"Found and loading chat '{title}' via API.")
@@ -122,103 +401,11 @@ class OpenWebUIClient:
             self.chat_id, self.chat_object_from_server = chat_id, chat_details
             chat_core = self.chat_object_from_server.setdefault("chat", {})
             chat_core.setdefault("history", {"messages": {}, "currentId": None})
-            self.model_id = chat_core.get("model", self.default_model_id)
+            self.model_id = chat_core.get("models", [self.default_model_id])[
+                0
+            ]  # Use first model as default
             return True
         return False
-
-    def _ask(
-        self, question: str, image_paths: Optional[List[str]] = None
-    ) -> Tuple[Optional[str], Optional[str]]:
-        if not self.chat_id:
-            return None, None
-
-        logger.info(f'Processing question: "{question}"')
-        chat_core = self.chat_object_from_server["chat"]
-
-        api_messages = self._build_linear_history_for_api(chat_core)
-        current_user_content_parts = [{"type": "text", "text": question}]
-        if image_paths:
-            for image_path in image_paths:
-                base64_image = self._encode_image_to_base64(image_path)
-                if base64_image:
-                    current_user_content_parts.append(
-                        {"type": "image_url", "image_url": {"url": base64_image}}
-                    )
-        final_api_content = (
-            question
-            if len(current_user_content_parts) == 1
-            else current_user_content_parts
-        )
-        api_messages.append({"role": "user", "content": final_api_content})
-
-        logger.info("Calling completions API to get model response...")
-        assistant_content = self._get_model_completion(api_messages)
-        if not assistant_content:
-            return None, None
-        logger.info("Successfully received model response.")
-
-        user_message_id = str(uuid.uuid4())
-        last_message_id = chat_core["history"].get("currentId")
-        storage_user_message = {
-            "id": user_message_id,
-            "parentId": last_message_id,
-            "childrenIds": [],
-            "role": "user",
-            "content": question,
-            "files": [],
-            "models": [self.model_id],
-            "timestamp": int(time.time()),
-        }
-        if image_paths:
-            for image_path in image_paths:
-                base64_url = self._encode_image_to_base64(image_path)
-                if base64_url:
-                    storage_user_message["files"].append(
-                        {"type": "image", "url": base64_url}
-                    )
-
-        chat_core["history"]["messages"][user_message_id] = storage_user_message
-        if last_message_id:
-            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
-                user_message_id
-            )
-
-        assistant_message_id = str(uuid.uuid4())
-        storage_assistant_message = {
-            "id": assistant_message_id,
-            "parentId": user_message_id,
-            "childrenIds": [],
-            "role": "assistant",
-            "content": assistant_content,
-            "model": self.model_id,
-            "modelName": self.model_id.split(":")[0],
-            "timestamp": int(time.time()),
-            "done": True,
-        }
-        chat_core["history"]["messages"][
-            assistant_message_id
-        ] = storage_assistant_message
-        chat_core["history"]["messages"][user_message_id]["childrenIds"].append(
-            assistant_message_id
-        )
-
-        chat_core["history"]["currentId"] = assistant_message_id
-        chat_core["messages"] = self._build_linear_history_for_storage(
-            chat_core, assistant_message_id
-        )
-
-        logger.info("Updating chat history on the backend...")
-        if self._update_remote_chat():
-            logger.info("Chat history updated successfully!")
-            self.session_cache[self.chat_object_from_server["title"]] = {
-                "id": self.chat_id,
-                "obj": self.chat_object_from_server,
-                "model": self.model_id,
-            }
-            return assistant_content, assistant_message_id
-        return None, None
-
-    # --- API Helper Methods ---
 
     def create_folder(self, name: str) -> Optional[str]:
         logger.info(f"Creating folder '{name}'...")
@@ -287,18 +474,15 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to search for chats: {e}")
             return None
-
         matching_chats = [chat for chat in candidates if chat.get("title") == title]
         if not matching_chats:
             logger.info("No exact match found.")
             return None
-
         if len(matching_chats) > 1:
             logger.warning(
                 f"Found {len(matching_chats)} chats with the same title. Selecting the most recent one."
             )
             matching_chats.sort(key=lambda x: x.get("updated_at", 0), reverse=True)
-
         return matching_chats[0]
 
     def _get_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
@@ -315,7 +499,6 @@ class OpenWebUIClient:
     ) -> List[Dict[str, Any]]:
         history, current_id = [], chat_core.get("history", {}).get("currentId")
         messages = chat_core.get("history", {}).get("messages", {})
-
         while current_id and current_id in messages:
             msg = messages[current_id]
             if msg.get("files"):
@@ -344,21 +527,6 @@ class OpenWebUIClient:
             current_id = messages[current_id].get("parentId")
         return history
 
-    def _get_model_completion(self, messages: List[Dict[str, Any]]) -> Optional[str]:
-        payload = {"model": self.model_id, "messages": messages, "stream": False}
-        try:
-            response = self.session.post(
-                f"{self.base_url}/api/chat/completions", json=payload
-            )
-            response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
-        except (requests.exceptions.RequestException, KeyError, IndexError) as e:
-            if hasattr(e, "response"):
-                logger.error(f"Completions API Error: {e.response.text}")
-            else:
-                logger.error(f"Completions API Error: {e}")
-            return None
-
     def _update_remote_chat(self) -> bool:
         try:
             self.session.post(
@@ -383,7 +551,6 @@ class OpenWebUIClient:
                 mime_type = "image/gif"
             elif image_path.lower().endswith(".webp"):
                 mime_type = "image/webp"
-
             with open(image_path, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
             return f"data:{mime_type};base64,{encoded_string}"
