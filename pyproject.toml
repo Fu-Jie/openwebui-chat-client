@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openwebui-client"
+version = "0.1.0"
+authors = [
+    { name="fujie", email="fj1945@live.cn" },
+]
+description = "A powerful and intelligent Python client for the Open WebUI API."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "requests"
+]
+
+[project.urls]
+Homepage = "https://github.com/https://github.com/Fu-Jie/openwebui-client"
+"Bug Tracker" = "https://github.com/https://github.com/Fu-Jie/openwebui-client/issues"
+"Documentation" = "https://github.com/https://github.com/Fu-Jie/openwebui-client#readme"
