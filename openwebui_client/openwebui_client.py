@@ -25,7 +25,7 @@ class OpenWebUIClient:
 
         Args:
             base_url (str): The base URL of the Open WebUI instance.
-            token (str): The authentication token (Bearer Token).
+            token (str): The authentication token (Bearer Token), api key, or jwt token.
             default_model_id (str): The default model ID to use for new chats.
         """
         self.base_url = base_url

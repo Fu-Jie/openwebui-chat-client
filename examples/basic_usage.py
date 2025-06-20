@@ -1,8 +1,8 @@
 from openwebui_client import OpenWebUIClient
 
 # --- Configuration ---
-BASE_URL = "http://localhost:8080"
-# It's recommended to use environment variables for sensitive data
+BASE_URL = "http://localhost:3003"
+# Obtain your JWT token or API key for authentication from your account settings.
 AUTH_TOKEN = "YOUR_AUTH_TOKEN" 
 MODEL_ID = "gpt-4.1"
 
@@ -18,6 +18,14 @@ def run_demo():
     response, message_id = client.chat(
         question="What are the key principles of object-oriented programming?",
         chat_title="OOP Principles Discussion"
+    )
+    
+    # continue the conversation with a follow-up question
+    if message_id:
+        print(f"Message ID: {message_id}")
+    response, _ = client.chat(
+        question="Can you explain encapsulation in more detail?",
+        chat_title="OOP Principles Discussion",
     )
 
     if response:
