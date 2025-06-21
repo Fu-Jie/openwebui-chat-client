@@ -9,13 +9,55 @@
 name: Upload Python Package
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up GitHub CLI
+        uses: cli/cli-action@v2
+      - name: Generate release notes
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            git log --pretty=format:'- %s (%an)' > release_body.md
+          else
+            git log "$PREV_TAG"..HEAD --pretty=format:'- %s (%an)' > release_body.md
+          fi
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
+          cat release_body.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release_body
+          path: release_body.md
+      - name: Read release notes for use
+        id: read_release_body
+        run: |
+          RELEASE_BODY=$(cat release_body.md)
+          RELEASE_BODY="${RELEASE_BODY//'%'/'%25'}"
+          RELEASE_BODY="${RELEASE_BODY//$'\n'/'%0A'}"
+          RELEASE_BODY="${RELEASE_BODY//$'\r'/'%0D'}"
+          echo "release_body=$RELEASE_BODY" >> $GITHUB_OUTPUT
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.read_release_body.outputs.release_body }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   release-build:
     runs-on: ubuntu-latest
 
