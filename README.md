@@ -105,11 +105,11 @@ After running the above Python code, you can view the conversation and model com
 
 - **Single Model** (`gpt-4.1`):  
   The chat history will display your input question and the GPT-4.1 model's response in the conversational timeline.  
-  ![Single Model Chat Example](https://raw.githubusercontent.com/Fu-Jie/openwebui-chat-client/main/examples/images/single-model-chat.png)
+  ![Single Model Chat Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/single-model-chat.png)
 
 - **Parallel Models** (`gpt-4.1` & `gemini-2.5-flash`):  
   The chat will show a side-by-side (or grouped) comparison of the responses from both models to the same input, often tagged or color-coded by model.  
-  ![Parallel Model Comparison Example](https://raw.githubusercontent.com/Fu-Jie/openwebui-chat-client/main/examples/images/parallel-model-chat.png)
+  ![Parallel Model Comparison Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/parallel-model-chat.png)
 
 > **Tip:**  
 > The web UI visually distinguishes responses using the model name. You can expand, collapse, or copy each answer, and also tag, organize, and search your chats directly in the interface.
