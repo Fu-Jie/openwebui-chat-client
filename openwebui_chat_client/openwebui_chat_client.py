@@ -8,71 +8,76 @@ import logging
 from typing import Optional, List, Tuple, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Set up a logger for the library.
 logger = logging.getLogger(__name__)
 
 
 class OpenWebUIClient:
     """
     An intelligent, stateful Python client for the Open WebUI API.
-    Supports single-model and multi-model parallel conversations.
+    Supports single/multi-model chats, tagging, and RAG with both
+    direct file uploads and knowledge base collections, matching the backend format.
     """
 
     def __init__(self, base_url: str, token: str, default_model_id: str):
         self.base_url = base_url
         self.default_model_id = default_model_id
         self.session = requests.Session()
-        self.session.headers.update(
-            {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        )
+        self.session.headers.update({"Authorization": f"Bearer {token}"})
+        self.json_headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
         self.session_cache: Dict[str, Dict[str, Any]] = {}
+        self.file_upload_cache: Dict[str, Dict[str, Any]] = {}
+        self.kb_cache: Dict[str, Dict[str, Any]] = {}
         self.chat_id: Optional[str] = None
         self.chat_object_from_server: Optional[Dict[str, Any]] = None
-        # self.model_id is now the 'primary' model for single chats or the last used one
         self.model_id: str = default_model_id
-
-    # --- Public Methods ---
 
     def chat(
         self,
         question: str,
         chat_title: str,
+        model_id: Optional[str] = None,
         folder_name: Optional[str] = None,
         image_paths: Optional[List[str]] = None,
-        model_id: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Handles a single-model conversation.
-        """
-        # Use the provided model_id or the instance's default
         self.model_id = model_id or self.default_model_id
-
         logger.info("=" * 60)
         logger.info(
             f"Processing SINGLE-MODEL request: title='{chat_title}', model='{self.model_id}'"
         )
         if folder_name:
             logger.info(f"Folder: '{folder_name}'")
+        if tags:
+            logger.info(f"Tags: {tags}")
         if image_paths:
             logger.info(f"With images: {image_paths}")
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
         logger.info("=" * 60)
-
         self._find_or_create_chat_by_title(chat_title)
-
         if not self.chat_id:
             logger.error("Chat initialization failed, cannot proceed.")
             return None, None
-
         if folder_name:
             folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
                 folder_name
             )
             if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
                 self.move_chat_to_folder(self.chat_id, folder_id)
+        response, message_id = self._ask(
+            question, image_paths, rag_files, rag_collections
+        )
+        if response and tags:
+            self.set_chat_tags(self.chat_id, tags)
+        return response, message_id
 
-        return self._ask(question, image_paths)
-
-    # ******************** NEW: Multi-Model Parallel Chat ********************
     def parallel_chat(
         self,
         question: str,
@@ -80,40 +85,27 @@ class OpenWebUIClient:
         model_ids: List[str],
         folder_name: Optional[str] = None,
         image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
     ) -> Optional[Dict[str, str]]:
-        """
-        Handles a multi-model parallel conversation.
-
-        Args:
-            question (str): The user's question.
-            chat_title (str): The unique title of the conversation.
-            model_ids (List[str]): A list of model IDs to query in parallel.
-            folder_name (Optional[str]): The folder to place the chat in.
-            image_paths (Optional[List[str]]): A list of local image paths.
-
-        Returns:
-            Optional[Dict[str, str]]: A dictionary of {model_id: response_content}, or None on failure.
-        """
         if not model_ids:
             logger.error("`model_ids` list cannot be empty for parallel chat.")
             return None
-
-        # Set the primary model for UI purposes
         self.model_id = model_ids[0]
-
         logger.info("=" * 60)
         logger.info(
             f"Processing PARALLEL-MODEL request: title='{chat_title}', models={model_ids}"
         )
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
         logger.info("=" * 60)
-
-        # 1. Find or create the chat session
         self._find_or_create_chat_by_title(chat_title)
         if not self.chat_id:
             logger.error("Chat initialization failed, cannot proceed.")
             return None
-
-        # 2. Handle folder placement
         if folder_name:
             folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
                 folder_name
@@ -121,14 +113,13 @@ class OpenWebUIClient:
             if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
                 self.move_chat_to_folder(self.chat_id, folder_id)
 
-        # 3. Construct the single user message object
         chat_core = self.chat_object_from_server["chat"]
-        user_message_id = str(uuid.uuid4())
-
-        # Determine the parent of the new user message
-        # In a multi-model chat, we need a clear rule. Let's use the currentId.
-        last_message_id = chat_core["history"].get("currentId")
-
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
+        )
+        user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
+            "currentId"
+        )
         storage_user_message = {
             "id": user_message_id,
             "parentId": last_message_id,
@@ -141,18 +132,17 @@ class OpenWebUIClient:
         }
         if image_paths:
             for path in image_paths:
-                if url := self._encode_image_to_base64(path):
+                url = self._encode_image_to_base64(path)
+                if url:
                     storage_user_message["files"].append({"type": "image", "url": url})
-
+        storage_user_message["files"].extend(storage_rag_payloads)
         chat_core["history"]["messages"][user_message_id] = storage_user_message
         if last_message_id:
             chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
                 user_message_id
             )
-
-        # 4. Concurrently get responses from all models
         logger.info(f"Querying {len(model_ids)} models in parallel...")
-        responses = {}
+        responses: Dict[str, Dict[str, Any]] = {}
         with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
             future_to_model = {
                 executor.submit(
@@ -161,29 +151,29 @@ class OpenWebUIClient:
                     model_id,
                     question,
                     image_paths,
+                    api_rag_payload,
                 ): model_id
                 for model_id in model_ids
             }
             for future in as_completed(future_to_model):
                 model_id = future_to_model[future]
                 try:
-                    responses[model_id] = future.result()
+                    content, sources = future.result()
+                    responses[model_id] = {"content": content, "sources": sources}
                 except Exception as exc:
                     logger.error(f"Model '{model_id}' generated an exception: {exc}")
-                    responses[model_id] = None
+                    responses[model_id] = {"content": None, "sources": []}
 
-        successful_responses = {k: v for k, v in responses.items() if v}
+        successful_responses = {
+            k: v for k, v in responses.items() if v["content"] is not None
+        }
         if not successful_responses:
             logger.error("All models failed to respond.")
-            # Rollback the user message we added
             del chat_core["history"]["messages"][user_message_id]
             return None
-
         logger.info("Received all responses.")
-
-        # 5. Add all assistant responses to the history tree
         assistant_message_ids = []
-        for model_id, content in successful_responses.items():
+        for model_id, resp_data in successful_responses.items():
             assistant_id = str(uuid.uuid4())
             assistant_message_ids.append(assistant_id)
             storage_assistant_message = {
@@ -191,28 +181,28 @@ class OpenWebUIClient:
                 "parentId": user_message_id,
                 "childrenIds": [],
                 "role": "assistant",
-                "content": content,
+                "content": resp_data["content"],
                 "model": model_id,
                 "modelName": model_id.split(":")[0],
                 "timestamp": int(time.time()),
                 "done": True,
+                "sources": resp_data["sources"],
             }
             chat_core["history"]["messages"][assistant_id] = storage_assistant_message
 
-        # Link all assistant messages to the user message
         chat_core["history"]["messages"][user_message_id][
             "childrenIds"
         ] = assistant_message_ids
-
-        # 6. Update chat_core state
-        # Set currentId to the response from the first model in the list
         chat_core["history"]["currentId"] = assistant_message_ids[0]
         chat_core["models"] = model_ids
         chat_core["messages"] = self._build_linear_history_for_storage(
             chat_core, assistant_message_ids[0]
         )
+        existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+        chat_core.setdefault("files", []).extend(
+            [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+        )
 
-        # 7. Update backend
         logger.info("Updating chat history on the backend...")
         if self._update_remote_chat():
             logger.info("Chat history updated successfully!")
@@ -221,48 +211,103 @@ class OpenWebUIClient:
                 "obj": self.chat_object_from_server,
                 "model": self.model_id,
             }
-            return successful_responses
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+            return {k: v["content"] for k, v in successful_responses.items()}
         return None
 
-    def _get_single_model_response_in_parallel(
-        self, chat_core, model_id, question, image_paths
-    ):
-        """Helper for parallel execution: prepares history and gets a single completion."""
-        # For multi-model, the history for each model should be built from its own lineage
-        # This is a complex task. A simpler, effective approach is to build the linear history
-        # from the shared `currentId` and send that to all models.
-        api_messages = self._build_linear_history_for_api(chat_core)
+    def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        if name in self.kb_cache:
+            logger.info(f"Found knowledge base '{name}' in cache.")
+            return self.kb_cache[name]
+        logger.info(f"🔍 Searching for knowledge base '{name}'...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/knowledge/list", headers=self.json_headers
+            )
+            response.raise_for_status()
+            for kb in response.json():
+                self.kb_cache[kb.get("name")] = kb
+                if kb.get("name") == name:
+                    logger.info("   ✅ Found knowledge base.")
+                    return kb
+            logger.info(f"   ℹ️ Knowledge base '{name}' not found.")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to list knowledge bases: {e}")
+            return None
 
-        # Add the current user question to the history for this specific call
-        current_user_content_parts = [{"type": "text", "text": question}]
-        if image_paths:
-            for path in image_paths:
-                if url := self._encode_image_to_base64(path):
-                    current_user_content_parts.append(
-                        {"type": "image_url", "image_url": {"url": url}}
-                    )
+    def create_knowledge_base(
+        self, name: str, description: str = ""
+    ) -> Optional[Dict[str, Any]]:
+        logger.info(f"📁 Creating knowledge base '{name}'...")
+        payload = {"name": name, "description": description}
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/knowledge/create",
+                json=payload,
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            kb_data = response.json()
+            logger.info(
+                f"   ✅ Knowledge base created successfully. ID: {kb_data.get('id')}"
+            )
+            self.kb_cache[name] = kb_data
+            return kb_data
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to create knowledge base '{name}': {e}")
+            return None
 
-        final_api_content = (
-            question
-            if len(current_user_content_parts) == 1
-            else current_user_content_parts
+    def add_file_to_knowledge_base(
+        self, file_path: str, knowledge_base_name: str
+    ) -> bool:
+        kb = self.get_knowledge_base_by_name(
+            knowledge_base_name
+        ) or self.create_knowledge_base(knowledge_base_name)
+        if not kb:
+            logger.error(
+                f"Could not find or create knowledge base '{knowledge_base_name}'."
+            )
+            return False
+        kb_id = kb.get("id")
+        file_obj = self._upload_file(file_path)
+        if not file_obj:
+            logger.error(f"Failed to upload file '{file_path}' for knowledge base.")
+            return False
+        file_id = file_obj.get("id")
+        logger.info(
+            f"🔗 Adding file {file_id[:8]}... to knowledge base {kb_id[:8]} ('{knowledge_base_name}')..."
         )
-        api_messages.append({"role": "user", "content": final_api_content})
-
-        return self._get_model_completion(api_messages, model_id)
-
-    # --- Other methods (modified slightly for clarity) ---
+        payload = {"file_id": file_id}
+        try:
+            self.session.post(
+                f"{self.base_url}/api/v1/knowledge/{kb_id}/file/add",
+                json=payload,
+                headers=self.json_headers,
+            ).raise_for_status()
+            logger.info("   ✅ File add request sent successfully.")
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to add file to knowledge base: {e}")
+            return False
 
     def _ask(
-        self, question: str, image_paths: Optional[List[str]] = None
+        self,
+        question: str,
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
-        # This method is now exclusively for single-model chats
-        # ... (rest of the method is the same as the final version from the previous response) ...
-        # ... (pasting it here for completeness) ...
         if not self.chat_id:
             return None, None
         logger.info(f'Processing question: "{question}"')
         chat_core = self.chat_object_from_server["chat"]
+
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
+        )
+
         api_messages = self._build_linear_history_for_api(chat_core)
         current_user_content_parts = [{"type": "text", "text": question}]
         if image_paths:
@@ -278,13 +323,18 @@ class OpenWebUIClient:
             else current_user_content_parts
         )
         api_messages.append({"role": "user", "content": final_api_content})
+
         logger.info("Calling completions API to get model response...")
-        assistant_content = self._get_model_completion(api_messages)
-        if not assistant_content:
+        assistant_content, sources = self._get_model_completion(
+            self.chat_id, api_messages, api_rag_payload
+        )
+        if assistant_content is None:
             return None, None
         logger.info("Successfully received model response.")
-        user_message_id = str(uuid.uuid4())
-        last_message_id = chat_core["history"].get("currentId")
+
+        user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
+            "currentId"
+        )
         storage_user_message = {
             "id": user_message_id,
             "parentId": last_message_id,
@@ -297,15 +347,18 @@ class OpenWebUIClient:
         }
         if image_paths:
             for image_path in image_paths:
-                if base64_url := self._encode_image_to_base64(image_path):
+                base64_url = self._encode_image_to_base64(image_path)
+                if base64_url:
                     storage_user_message["files"].append(
                         {"type": "image", "url": base64_url}
                     )
+        storage_user_message["files"].extend(storage_rag_payloads)
         chat_core["history"]["messages"][user_message_id] = storage_user_message
         if last_message_id:
             chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
                 user_message_id
             )
+
         assistant_message_id = str(uuid.uuid4())
         storage_assistant_message = {
             "id": assistant_message_id,
@@ -317,6 +370,7 @@ class OpenWebUIClient:
             "modelName": self.model_id.split(":")[0],
             "timestamp": int(time.time()),
             "done": True,
+            "sources": sources,
         }
         chat_core["history"]["messages"][
             assistant_message_id
@@ -324,11 +378,17 @@ class OpenWebUIClient:
         chat_core["history"]["messages"][user_message_id]["childrenIds"].append(
             assistant_message_id
         )
+
         chat_core["history"]["currentId"] = assistant_message_id
         chat_core["messages"] = self._build_linear_history_for_storage(
             chat_core, assistant_message_id
         )
         chat_core["models"] = [self.model_id]
+        existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+        chat_core.setdefault("files", []).extend(
+            [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+        )
+
         logger.info("Updating chat history on the backend...")
         if self._update_remote_chat():
             logger.info("Chat history updated successfully!")
@@ -340,19 +400,123 @@ class OpenWebUIClient:
             return assistant_content, assistant_message_id
         return None, None
 
+    def _get_single_model_response_in_parallel(
+        self, chat_core, model_id, question, image_paths, api_rag_payload
+    ):
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for path in image_paths:
+                url = self._encode_image_to_base64(path)
+                if url:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+        content, sources = self._get_model_completion(
+            self.chat_id, api_messages, api_rag_payload, model_id
+        )
+        return content, sources
+
+    def _handle_rag_references(
+        self, rag_files: Optional[List[str]], rag_collections: Optional[List[str]]
+    ) -> Tuple[List[Dict], List[Dict]]:
+        api_payload, storage_payload = [], []
+        if rag_files:
+            logger.info("Processing RAG files...")
+            for file_path in rag_files:
+                if file_obj := self._upload_file(file_path):
+                    api_payload.append({"type": "file", "id": file_obj["id"]})
+                    storage_payload.append(
+                        {"type": "file", "file": file_obj, **file_obj}
+                    )
+        if rag_collections:
+            logger.info("Processing RAG knowledge base collections...")
+            for kb_name in rag_collections:
+                if kb_summary := self.get_knowledge_base_by_name(kb_name):
+                    if kb_details := self._get_knowledge_base_details(kb_summary["id"]):
+                        file_ids = [f["id"] for f in kb_details.get("files", [])]
+                        api_payload.append(
+                            {
+                                "type": "collection",
+                                "id": kb_details["id"],
+                                "name": kb_details.get("name"),
+                                "data": {"file_ids": file_ids},
+                            }
+                        )
+                        storage_payload.append({"type": "collection", **kb_details})
+                    else:
+                        logger.warning(
+                            f"Could not get details for knowledge base '{kb_name}', it will be skipped."
+                        )
+                else:
+                    logger.warning(
+                        f"Could not find knowledge base '{kb_name}', it will be skipped."
+                    )
+        return api_payload, storage_payload
+
+    def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        if file_path in self.file_upload_cache:
+            logger.info(f"Found file in cache: '{os.path.basename(file_path)}'")
+            return self.file_upload_cache[file_path]
+        if not os.path.exists(file_path):
+            logger.error(f"RAG file not found at path: {file_path}")
+            return None
+        url, file_name = f"{self.base_url}/api/v1/files/", os.path.basename(file_path)
+        try:
+            with open(file_path, "rb") as f:
+                files = {"file": (file_name, f)}
+                headers = {"Authorization": self.session.headers["Authorization"]}
+                logger.info(f"Uploading file '{file_name}' for RAG...")
+                response = self.session.post(url, headers=headers, files=files)
+                response.raise_for_status()
+            response_data = response.json()
+            if file_id := response_data.get("id"):
+                logger.info(f"  > Upload successful. File ID: {file_id}")
+                self.file_upload_cache[file_path] = response_data
+                return response_data
+            logger.error(f"File upload response did not contain an ID: {response_data}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to upload file '{file_name}': {e}")
+            return None
+
     def _get_model_completion(
-        self, messages: List[Dict[str, Any]], model_id: Optional[str] = None
-    ) -> Optional[str]:
-        # Now accepts an optional model_id to override the instance's default
+        self,
+        chat_id: str,
+        messages: List[Dict[str, Any]],
+        api_rag_payload: Optional[List[Dict]] = None,
+        model_id: Optional[str] = None,
+    ) -> Tuple[Optional[str], List]:
         active_model_id = model_id or self.model_id
-        payload = {"model": active_model_id, "messages": messages, "stream": False}
-        logger.debug(f"Sending completion request for model: {active_model_id}")
+        payload = {
+            "model": active_model_id,
+            "messages": messages,
+            "chat_id": chat_id,
+            "stream": False,
+        }
+        if api_rag_payload:
+            payload["files"] = api_rag_payload
+            logger.info(
+                f"Attaching {len(api_rag_payload)} RAG references to completion request for model {active_model_id}."
+            )
+        logger.debug(f"Sending completion request: {json.dumps(payload, indent=2)}")
         try:
             response = self.session.post(
-                f"{self.base_url}/api/chat/completions", json=payload
+                f"{self.base_url}/api/chat/completions",
+                json=payload,
+                headers=self.json_headers,
             )
             response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            sources = data.get("sources", [])
+            return content, sources
         except (requests.exceptions.RequestException, KeyError, IndexError) as e:
             if hasattr(e, "response"):
                 logger.error(
@@ -360,25 +524,45 @@ class OpenWebUIClient:
                 )
             else:
                 logger.error(f"Completions API Error for {active_model_id}: {e}")
-            return None
+            return None, []
 
-    # --- All other helper methods remain the same ---
-    # ... (pasting them for completeness) ...
-    def _find_or_create_chat_by_title(self, title: str):
-        cache_key = title
-        if cache_key in self.session_cache:
-            logger.info(f"Loading chat '{title}' from session cache.")
-            self._activate_chat_state(self.session_cache[cache_key])
+    def set_chat_tags(self, chat_id: str, tags: List[str]):
+        if not tags:
             return
-        existing_chat = self._search_latest_chat_by_title(title)
-        if existing_chat:
+        logger.info(f"Applying tags {tags} to chat {chat_id[:8]}...")
+        url_get = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
+        try:
+            response = self.session.get(url_get, headers=self.json_headers)
+            response.raise_for_status()
+            existing_tags = {tag["name"] for tag in response.json()}
+        except requests.exceptions.RequestException:
+            logger.warning("Could not fetch existing tags. May create duplicates.")
+            existing_tags = set()
+        url_post = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
+        for tag_name in tags:
+            if tag_name not in existing_tags:
+                try:
+                    self.session.post(
+                        url_post, json={"name": tag_name}, headers=self.json_headers
+                    ).raise_for_status()
+                    logger.info(f"  + Added tag: '{tag_name}'")
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"  - Failed to add tag '{tag_name}': {e}")
+            else:
+                logger.info(f"  = Tag '{tag_name}' already exists, skipping.")
+
+    def _find_or_create_chat_by_title(self, title: str):
+        if title in self.session_cache:
+            logger.info(f"Loading chat '{title}' from session cache.")
+            self._activate_chat_state(self.session_cache[title])
+            return
+        if existing_chat := self._search_latest_chat_by_title(title):
             logger.info(f"Found and loading chat '{title}' via API.")
-            self._load_and_cache_chat_state(existing_chat["id"], cache_key)
+            self._load_and_cache_chat_state(existing_chat["id"], title)
         else:
             logger.info(f"Chat '{title}' not found, creating a new one.")
-            new_chat_id = self._create_new_chat(title)
-            if new_chat_id:
-                self._load_and_cache_chat_state(new_chat_id, cache_key)
+            if new_chat_id := self._create_new_chat(title):
+                self._load_and_cache_chat_state(new_chat_id, title)
 
     def _activate_chat_state(self, state: Dict[str, Any]):
         self.chat_id, self.chat_object_from_server, self.model_id = (
@@ -396,14 +580,11 @@ class OpenWebUIClient:
             }
 
     def _load_chat_details(self, chat_id: str) -> bool:
-        chat_details = self._get_chat_details(chat_id)
-        if chat_details:
+        if chat_details := self._get_chat_details(chat_id):
             self.chat_id, self.chat_object_from_server = chat_id, chat_details
             chat_core = self.chat_object_from_server.setdefault("chat", {})
             chat_core.setdefault("history", {"messages": {}, "currentId": None})
-            self.model_id = chat_core.get("models", [self.default_model_id])[
-                0
-            ]  # Use first model as default
+            self.model_id = chat_core.get("models", [self.default_model_id])[0]
             return True
         return False
 
@@ -411,7 +592,9 @@ class OpenWebUIClient:
         logger.info(f"Creating folder '{name}'...")
         try:
             self.session.post(
-                f"{self.base_url}/api/v1/folders/", json={"name": name}
+                f"{self.base_url}/api/v1/folders/",
+                json={"name": name},
+                headers=self.json_headers,
             ).raise_for_status()
             logger.info(f"Successfully sent request to create folder '{name}'.")
             return self.get_folder_id_by_name(name, suppress_log=True)
@@ -425,17 +608,18 @@ class OpenWebUIClient:
         if not suppress_log:
             logger.info(f"Searching for folder '{name}'...")
         try:
-            folders = self.session.get(f"{self.base_url}/api/v1/folders/").json()
-            for folder in folders:
+            for folder in self.session.get(
+                f"{self.base_url}/api/v1/folders/", headers=self.json_headers
+            ).json():
                 if folder.get("name") == name:
                     if not suppress_log:
                         logger.info("Found folder.")
-                    return folder.get("id")
+                        return folder.get("id")
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get folder list: {e}")
         if not suppress_log:
             logger.info(f"Folder '{name}' not found.")
-        return None
+            return None
 
     def move_chat_to_folder(self, chat_id: str, folder_id: str):
         logger.info(f"Moving chat {chat_id[:8]}... to folder {folder_id[:8]}...")
@@ -443,6 +627,7 @@ class OpenWebUIClient:
             self.session.post(
                 f"{self.base_url}/api/v1/chats/{chat_id}/folder",
                 json={"folder_id": folder_id},
+                headers=self.json_headers,
             ).raise_for_status()
             self.chat_object_from_server["folder_id"] = folder_id
             logger.info("Chat moved successfully!")
@@ -453,7 +638,9 @@ class OpenWebUIClient:
         logger.info(f"Creating new chat with title '{title}'...")
         try:
             response = self.session.post(
-                f"{self.base_url}/api/v1/chats/new", json={"chat": {"title": title}}
+                f"{self.base_url}/api/v1/chats/new",
+                json={"chat": {"title": title}},
+                headers=self.json_headers,
             )
             response.raise_for_status()
             chat_id = response.json().get("id")
@@ -467,7 +654,9 @@ class OpenWebUIClient:
         logger.info(f"Globally searching for chat with title '{title}'...")
         try:
             response = self.session.get(
-                f"{self.base_url}/api/v1/chats/search", params={"text": title}
+                f"{self.base_url}/api/v1/chats/search",
+                params={"text": title},
+                headers=self.json_headers,
             )
             response.raise_for_status()
             candidates = response.json()
@@ -487,11 +676,24 @@ class OpenWebUIClient:
 
     def _get_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
         try:
-            response = self.session.get(f"{self.base_url}/api/v1/chats/{chat_id}")
+            response = self.session.get(
+                f"{self.base_url}/api/v1/chats/{chat_id}", headers=self.json_headers
+            )
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get chat details for {chat_id}: {e}")
+            return None
+
+    def _get_knowledge_base_details(self, kb_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/knowledge/{kb_id}", headers=self.json_headers
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get knowledge base details for {kb_id}: {e}")
             return None
 
     def _build_linear_history_for_api(
@@ -532,6 +734,7 @@ class OpenWebUIClient:
             self.session.post(
                 f"{self.base_url}/api/v1/chats/{self.chat_id}",
                 json={"chat": self.chat_object_from_server["chat"]},
+                headers=self.json_headers,
             ).raise_for_status()
             return True
         except requests.exceptions.RequestException as e:
@@ -544,13 +747,14 @@ class OpenWebUIClient:
             logger.warning(f"Image file not found: {image_path}")
             return None
         try:
-            mime_type = "image/jpeg"
-            if image_path.lower().endswith(".png"):
-                mime_type = "image/png"
-            elif image_path.lower().endswith(".gif"):
-                mime_type = "image/gif"
-            elif image_path.lower().endswith(".webp"):
-                mime_type = "image/webp"
+            ext = image_path.split(".")[-1].lower()
+            mime_type = {
+                "png": "image/png",
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "gif": "image/gif",
+                "webp": "image/webp",
+            }.get(ext, "application/octet-stream")
             with open(image_path, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
             return f"data:{mime_type};base64,{encoded_string}"

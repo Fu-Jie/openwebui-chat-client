@@ -4,21 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openwebui-chat-client"
-version = "0.1.1"
+version = "0.1.3"
 authors = [
     { name="fujie", email="fj1945@live.cn" },
 ]
 description = "A powerful and intelligent Python client for the Open WebUI API."
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-or-later" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GPL-3.0-or-later",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",

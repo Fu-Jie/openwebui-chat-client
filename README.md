@@ -1,109 +1,175 @@
-# openwebui-chat-client
+# OpenWebUI Python Client
 
 [![PyPI version](https://badge.fury.io/py/openwebui-chat-client.svg)](https://badge.fury.io/py/openwebui-chat-client)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Python Versions](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
 
-An intelligent, stateful Python client for the [Open WebUI](https://github.com/open-webui/open-webui) API, designed for robust automation and seamless integration.
-
-**openwebui-chat-client** empowers developers and automation engineers to programmatically control the full lifecycle of conversations in Open WebUI. It treats conversations as unique entities identified by their titles, allowing you to reliably create, manage, and continue chats, handle both single and parallel multi-model conversations, process multimodal inputs, and organize your workflows with ease.
+**openwebui-chat-client** is a comprehensive, stateful Python client library for the [Open WebUI](https://github.com/open-webui/open-webui) API. It enables intelligent interaction with Open WebUI, supporting single/multi-model chats, file uploads, Retrieval-Augmented Generation (RAG), knowledge base management, and advanced chat organization features.
 
 ---
 
-## ✨ Features
+## Installation
 
-- **Global Title Uniqueness**: Manage conversations using a unique title as a stable identifier.
-- **Smart Session Continuation**: Automatically finds and continues existing conversations or creates new ones.
-- **Multi-Model Parallel Chat**: Send a single prompt to multiple models simultaneously.
-- **Dynamic Folder Management**: Automatically create folders and move chats to manage workflows.
-- **Stateful Client Session**: Caches active conversations to boost performance.
-- **Multimodal Support**: Send text and local images to multimodal models.
-- **Clean, Object-Oriented Design**: Encapsulated in the `OpenWebUIClient` class.
-- **Professional Logging**: Uses Python's standard `logging` module.
-
-## 🛠️ Installation
-
-Install the package from PyPI:
+Install the client directly from PyPI:
 
 ```bash
 pip install openwebui-chat-client
 ```
 
-> To install directly from the official PyPI repository, bypassing any local mirrors, use:
-> `pip install --index-url https://pypi.org/simple/ openwebui-chat-client`
+---
 
-## 🚀 Quick Start
-
-### 1. Set Environment Variables
-
-For security, it is highly recommended to configure the client using environment variables rather than hardcoding values in your script.
-
-**On Linux or macOS:**
-
-```bash
-export OUI_BASE_URL="http://localhost:3000"
-export OUI_AUTH_TOKEN="your_api_key_from_open_webui"
-```
-
-**On Windows (PowerShell):**
-
-```powershell
-$env:OUI_BASE_URL="http://localhost:3000"
-$env:OUI_AUTH_TOKEN="your_api_key_from_open_webui"
-```
-
-### 2. Run the Client
-
-Create a Python file (e.g., `main.py`) with the following code:
+## Quick Start
 
 ```python
-import logging
-import os
 from openwebui_chat_client import OpenWebUIClient
+import logging
 
-# --- Configure Logging ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 
-# --- Load Configuration from Environment ---
-BASE_URL = os.getenv("OUI_BASE_URL", "http://localhost:3000")
-AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN")
-
-if not AUTH_TOKEN:
-    raise ValueError("OUI_AUTH_TOKEN environment variable not set. Please set it to your API key.")
-
-# --- Initialize and Use the Client ---
 client = OpenWebUIClient(
-    base_url=BASE_URL,
-    token=AUTH_TOKEN,
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
     default_model_id="gpt-4.1"
 )
 
-# Start a multi-model parallel conversation
-models_to_query = ["gpt-4.1", "gemini-2.5-flash"]
-responses = client.parallel_chat(
-    question="What are the top 3 benefits of using Python for data science?",
-    chat_title="Python for Data Science",
-    model_ids=models_to_query
+response, message_id = client.chat(
+    question="Hello, how are you?",
+    chat_title="My First Chat"
 )
 
-if responses:
-    for model, content in responses.items():
-        print(f"\n🤖 [{model}'s Response]:\n{content}")
+print(response)
 ```
 
-### Configuration Details
+---
 
-- `base_url` / `OUI_BASE_URL`: The URL of your running Open WebUI instance.
-- `token` / `OUI_AUTH_TOKEN`: Your authentication API key.
-- `default_model_id`: The model ID to use for new single-model chats.
+## Features
 
-**How to get your API Key:**
+- **Multi-Modal Conversations**: Text, images, and file uploads
+- **Single & Parallel Model Chats**: Query one or multiple models simultaneously
+- **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses
+- **Knowledge Base Management**: Create, update, and use knowledge bases
+- **Chat Organization**: Folders, tags, and search functionality
+- **Smart Caching**: Session, file upload, and knowledge base caches
+- **Concurrent Processing**: Parallel model querying
+- **Comprehensive Logging & Error Handling**
 
-1. Log in to your Open WebUI account.
-2. Click on your profile picture/name in the bottom-left corner and go to **Settings**.
-3. In the settings menu, navigate to the **Account** section.
-4. Find the **API Keys** area and **Create a new key**.
-5. Copy the generated key and set it as your `OUI_AUTH_TOKEN` environment variable.
+---
+
+## Example: Single Model Chat (gpt-4.1)
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+response, message_id = client.chat(
+    question="What are the key features of OpenAI GPT-4.1?",
+    chat_title="Model Features - GPT-4.1"
+)
+
+print("GPT-4.1 Response:", response)
+```
+
+---
+
+## Example: Parallel Model Chat (gpt-4.1 and gemini-2.5-flash)
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+responses = client.parallel_chat(
+    question="Compare the strengths of GPT-4.1 and Gemini 2.5 Flash for document summarization.",
+    chat_title="Model Comparison: Summarization",
+    model_ids=["gpt-4.1", "gemini-2.5-flash"]
+)
+
+for model, resp in responses.items():
+    print(f"{model} Response:\n{resp}\n")
+```
+
+---
+
+## Example: Page Rendering (Web UI Integration)
+
+After running the above Python code, you can view the conversation and model comparison results in the Open WebUI web interface:
+
+- **Single Model** (`gpt-4.1`):  
+  The chat history will display your input question and the GPT-4.1 model's response in the conversational timeline.  
+  ![Single Model Chat Example](./examples/images/single-model-chat.png)
+
+- **Parallel Models** (`gpt-4.1` & `gemini-2.5-flash`):  
+  The chat will show a side-by-side (or grouped) comparison of the responses from both models to the same input, often tagged or color-coded by model.  
+  ![Parallel Model Comparison Example](./examples/images/parallel-model-chat.png)
+
+> **Tip:**  
+> The web UI visually distinguishes responses using the model name and may let you expand, collapse, or copy each answer. You can also tag, organize, and search your chats directly in the interface.
+
+---
+
+## Advanced Usage
+
+### Knowledge Base and RAG Example
+
+```python
+# Create knowledge base and add documents for RAG
+client.create_knowledge_base("Doc-KB")
+client.add_file_to_knowledge_base("manual.pdf", "Doc-KB")
+
+response, _ = client.chat(
+    question="Summarize the manual in Doc-KB.",
+    chat_title="Manual Summary",
+    rag_collections=["Doc-KB"],
+    model_id="gemini-2.5-flash"
+)
+print("Gemini-2.5-Flash Response:", response)
+```
+
+### Chat Organization with Folder and Tags
+
+```python
+response, _ = client.chat(
+    question="How can I improve code quality?",
+    chat_title="Code Quality Tips",
+    model_id="gpt-4.1",
+    folder_name="Development",
+    tags=["coding", "best-practices"]
+)
+```
+
+---
+
+## API Reference
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `chat()` | Single model conversation | See "Single Model Chat" |
+| `parallel_chat()` | Multi-model conversation | See "Parallel Model Chat" |
+| `create_knowledge_base()` | Create new knowledge base | `client.create_knowledge_base("MyKB")` |
+| `add_file_to_knowledge_base()` | Add file to knowledge base | `client.add_file_to_knowledge_base("file.pdf", "MyKB")` |
+| `get_knowledge_base_by_name()` | Retrieve knowledge base | `client.get_knowledge_base_by_name("MyKB")` |
+| `create_folder()` | Create chat folder | `client.create_folder("ProjectX")` |
+| `set_chat_tags()` | Apply tags to chat | `client.set_chat_tags(chat_id, ["tag1", "tag2"])` |
+
+---
+
+## Troubleshooting
+
+- **Authentication Errors**: Ensure your bearer token is valid.
+- **Model Not Found**: Check model IDs are correct (e.g., "gpt-4.1", "gemini-2.5-flash").
+- **File Upload Issues**: Ensure file paths exist and permissions are correct.
+- **Web UI Not Updating**: Refresh the page or check server logs for errors.
+
+---
 
 ## 🤝 Contributing
 
@@ -111,4 +177,7 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the GNU General Public License v3.0 (GPLv3).  
+See the [LICENSE](https://www.gnu.org/licenses/gpl-3.0.html) file for more details.
+
+---
