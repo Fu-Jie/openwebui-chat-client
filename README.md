@@ -8,7 +8,7 @@
 
 ---
 
-## Installation
+## 🚀 Installation
 
 Install the client directly from PyPI:
 
@@ -18,7 +18,7 @@ pip install openwebui-chat-client
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 ```python
 from openwebui_chat_client import OpenWebUIClient
@@ -42,20 +42,20 @@ print(response)
 
 ---
 
-## Features
+## ✨ Features
 
-- **Multi-Modal Conversations**: Text, images, and file uploads
-- **Single & Parallel Model Chats**: Query one or multiple models simultaneously
-- **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses
-- **Knowledge Base Management**: Create, update, and use knowledge bases
-- **Chat Organization**: Folders, tags, and search functionality
-- **Smart Caching**: Session, file upload, and knowledge base caches
-- **Concurrent Processing**: Parallel model querying
-- **Comprehensive Logging & Error Handling**
+- **Multi-Modal Conversations**: Text, images, and file uploads.
+- **Single & Parallel Model Chats**: Query one or multiple models simultaneously (great for model A/B tests!).
+- **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses.
+- **Knowledge Base Management**: Create, update, and use knowledge bases.
+- **Chat Organization**: Folders, tags, and search functionality.
+- **Smart Caching**: Session, file upload, and knowledge base caches for efficiency.
+- **Concurrent Processing**: Parallel model querying for fast multi-model responses.
+- **Comprehensive Logging & Error Handling**: Robust and debuggable.
 
 ---
 
-## Example: Single Model Chat (gpt-4.1)
+## 🧑‍💻 Example: Single Model Chat (`gpt-4.1`)
 
 ```python
 from openwebui_chat_client import OpenWebUIClient
@@ -76,7 +76,7 @@ print("GPT-4.1 Response:", response)
 
 ---
 
-## Example: Parallel Model Chat (gpt-4.1 and gemini-2.5-flash)
+## 🤖 Example: Parallel Model Chat (`gpt-4.1` and `gemini-2.5-flash`)
 
 ```python
 from openwebui_chat_client import OpenWebUIClient
@@ -99,24 +99,24 @@ for model, resp in responses.items():
 
 ---
 
-## Example: Page Rendering (Web UI Integration)
+## 🖥️ Example: Page Rendering (Web UI Integration)
 
 After running the above Python code, you can view the conversation and model comparison results in the Open WebUI web interface:
 
 - **Single Model** (`gpt-4.1`):  
   The chat history will display your input question and the GPT-4.1 model's response in the conversational timeline.  
-  ![Single Model Chat Example](./examples/images/single-model-chat.png)
+  ![Single Model Chat Example](https://github.com/Fu-Jie/openwebui-chat-client/examples/images/single-model-chat.png)
 
 - **Parallel Models** (`gpt-4.1` & `gemini-2.5-flash`):  
   The chat will show a side-by-side (or grouped) comparison of the responses from both models to the same input, often tagged or color-coded by model.  
-  ![Parallel Model Comparison Example](./examples/images/parallel-model-chat.png)
+  ![Parallel Model Comparison Example](https://github.com/Fu-Jie/openwebui-chat-client/examples/images/parallel-model-chat.png)
 
 > **Tip:**  
-> The web UI visually distinguishes responses using the model name and may let you expand, collapse, or copy each answer. You can also tag, organize, and search your chats directly in the interface.
+> The web UI visually distinguishes responses using the model name. You can expand, collapse, or copy each answer, and also tag, organize, and search your chats directly in the interface.
 
 ---
 
-## Advanced Usage
+## 🧠 Advanced Usage
 
 ### Knowledge Base and RAG Example
 
@@ -148,7 +148,17 @@ response, _ = client.chat(
 
 ---
 
-## API Reference
+## 🔑 How to get your API Key
+
+1. Log in to your Open WebUI account.
+2. Click on your profile picture/name in the bottom-left corner and go to **Settings**.
+3. In the settings menu, navigate to the **Account** section.
+4. Find the **API Keys** area and **Create a new key**.
+5. Copy the generated key and set it as your `OUI_AUTH_TOKEN` environment variable or use it directly in your client code.
+
+---
+
+## 📚 API Reference
 
 | Method | Description | Example |
 |--------|-------------|---------|
@@ -162,22 +172,26 @@ response, _ = client.chat(
 
 ---
 
-## Troubleshooting
+## 🛠️ Troubleshooting
 
 - **Authentication Errors**: Ensure your bearer token is valid.
-- **Model Not Found**: Check model IDs are correct (e.g., "gpt-4.1", "gemini-2.5-flash").
+- **Model Not Found**: Check model IDs are correct (e.g., `"gpt-4.1"`, `"gemini-2.5-flash"`).
 - **File Upload Issues**: Ensure file paths exist and permissions are correct.
 - **Web UI Not Updating**: Refresh the page or check server logs for errors.
+- **Image Not Displayed**: If you use relative paths for screenshots, make sure the images exist in the correct directory in your repository (e.g. `./examples/images/`).
 
 ---
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Fu-Jie/openwebui-chat-client/issues).
+Contributions, issues, and feature requests are welcome!  
+Feel free to check the [issues page](https://github.com/Fu-Jie/openwebui-chat-client/issues) or submit a pull request.
+
+---
 
 ## 📄 License
 
-This project is licensed under the GNU General Public License v3.0 (GPLv3).  
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**.  
 See the [LICENSE](https://www.gnu.org/licenses/gpl-3.0.html) file for more details.
 
 ---
