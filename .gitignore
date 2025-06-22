@@ -94,4 +94,5 @@ venv.bak/
 # Misc
 *.orig
 private_config.py
+private*.py
 test_image.png

@@ -292,6 +292,286 @@ class OpenWebUIClient:
             logger.error(f"Failed to add file to knowledge base: {e}")
             return False
 
+    def list_models(self) -> Optional[List[Dict[str, Any]]]:
+        """Lists all available models in Open WebUI, including custom variants."""
+        logger.info("Listing all available models...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/models/", headers=self.json_headers
+            )
+            response.raise_for_status()
+            models = response.json()
+            logger.info(f"Found {len(models)} models.")
+            return models
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to list models: {e}")
+            return None
+
+    def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
+        """Lists all available base models that can be used to create variants."""
+        logger.info("Listing all available base models...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/models/base", headers=self.json_headers
+            )
+            response.raise_for_status()
+            models = response.json()
+            logger.info(f"Found {len(models)} base models.")
+            return models
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to list base models: {e}")
+            return None
+
+    def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetches the details of a specific model by its ID.
+
+        Args:
+            model_id: The ID of the model to fetch (e.g., 'llama3:latest').
+
+        Returns:
+            A dictionary containing the model details, or None if not found.
+        """
+        logger.info(f"Fetching details for model '{model_id}'...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/models/model",
+                params={"id": model_id},
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            model = response.json()
+            if model:
+                logger.info(f"   ✅ Found model '{model_id}'.")
+                return model
+            else:
+                logger.warning(
+                    f"   ℹ️ Model '{model_id}' not found (API returned empty)."
+                )
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get model details for '{model_id}': {e}")
+            return None
+
+    def create_model(
+        self,
+        model_id: str,
+        name: str,
+        base_model_id: str,
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        stream_response: bool = True,
+        other_params: Optional[Dict[str, Any]] = None,
+        description: Optional[str] = None,
+        profile_image_url: str = "/static/favicon.png",
+        capabilities: Optional[Dict[str, bool]] = None,
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        is_active: bool = True,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Creates a new detailed custom model variant in Open WebUI.
+
+        Args:
+            model_id: The tag for the new model (e.g., 'my-custom-model:latest').
+            name: The display name for the new model (e.g., 'My Custom Model').
+            base_model_id: The ID of the base model to use (e.g., 'gpt-4.1').
+            system_prompt: A custom system prompt for the model.
+            temperature: The temperature setting for the model.
+            stream_response: Whether to stream responses.
+            other_params: A dictionary of any other model parameters.
+            description: A description for the model's profile.
+            profile_image_url: URL for the model's profile image.
+            capabilities: Dictionary to set model capabilities like 'vision', 'web_search'.
+            suggestion_prompts: A list of suggested prompts for the model.
+            tags: A list of tags to categorize the model.
+            is_active: Whether the model should be active after creation.
+
+        Returns:
+            A dictionary of the created model, or None on failure.
+        """
+        logger.info(f"Creating new model variant '{name}' ({model_id})...")
+
+        meta = {
+            "profile_image_url": profile_image_url,
+            "description": description,
+            "capabilities": capabilities or {},
+            "suggestion_prompts": (
+                [{"content": p} for p in suggestion_prompts]
+                if suggestion_prompts
+                else []
+            ),
+            "tags": [{"name": t} for t in tags] if tags else [],
+        }
+        params = {
+            "system": system_prompt,
+            "temperature": temperature,
+            "stream_response": stream_response,
+        }
+        if other_params:
+            params.update(other_params)
+
+        # Filter out None values to keep the payload clean
+        params = {k: v for k, v in params.items() if v is not None}
+        meta = {k: v for k, v in meta.items() if v is not None}
+
+        payload = {
+            "id": model_id,
+            "name": name,
+            "base_model_id": base_model_id,
+            "params": params,
+            "meta": meta,
+            "is_active": is_active,
+        }
+
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/models/create",
+                json=payload,
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            created_model = response.json()
+            logger.info(
+                f"Successfully created model with ID: {created_model.get('id')}"
+            )
+            return created_model
+        except requests.exceptions.RequestException as e:
+            error_msg = getattr(e.response, "text", str(e))
+            logger.error(f"Failed to create model '{name}': {error_msg}")
+            return None
+
+    def update_model(
+        self,
+        model_id: str,
+        name: Optional[str] = None,
+        base_model_id: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        stream_response: Optional[bool] = None,
+        other_params: Optional[Dict[str, Any]] = None,
+        description: Optional[str] = None,
+        profile_image_url: Optional[str] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        is_active: Optional[bool] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Updates an existing custom model in Open WebUI with granular changes.
+
+        Args:
+            model_id: The ID of the model to update.
+            All other arguments are optional and will only be updated if provided.
+        """
+        logger.info(f"Updating model '{model_id}'...")
+        current_model = self.get_model(model_id)
+        if not current_model:
+            logger.error(
+                f"Cannot update model '{model_id}' because it could not be found."
+            )
+            return None
+
+        # Start with the existing model data as the base payload
+        payload = current_model.copy()
+
+        # Update top-level fields if provided
+        if name is not None:
+            payload["name"] = name
+        if base_model_id is not None:
+            payload["base_model_id"] = base_model_id
+        if is_active is not None:
+            payload["is_active"] = is_active
+
+        # Ensure nested dictionaries exist before updating
+        payload.setdefault("params", {})
+        payload.setdefault("meta", {})
+        payload["meta"].setdefault("capabilities", {})
+
+        # Update nested 'params'
+        if system_prompt is not None:
+            payload["params"]["system"] = system_prompt
+        if temperature is not None:
+            payload["params"]["temperature"] = temperature
+        if stream_response is not None:
+            payload["params"]["stream_response"] = stream_response
+        if other_params:
+            payload["params"].update(other_params)
+
+        # Update nested 'meta'
+        if description is not None:
+            payload["meta"]["description"] = description
+        if profile_image_url is not None:
+            payload["meta"]["profile_image_url"] = profile_image_url
+        if capabilities is not None:
+            payload["meta"]["capabilities"].update(capabilities)
+        if suggestion_prompts is not None:
+            payload["meta"]["suggestion_prompts"] = [
+                {"content": p} for p in suggestion_prompts
+            ]
+        if tags is not None:
+            payload["meta"]["tags"] = [{"name": t} for t in tags]
+
+        # Remove read-only keys before sending the update request
+        for key in ["user", "user_id", "created_at", "updated_at"]:
+            payload.pop(key, None)
+
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/models/model/update",
+                params={"id": model_id},
+                json=payload,
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            updated_model = response.json()
+            logger.info(f"Successfully updated model '{model_id}'.")
+            return updated_model
+        except requests.exceptions.RequestException as e:
+            error_msg = getattr(e.response, "text", str(e))
+            logger.error(f"Failed to update model '{model_id}': {error_msg}")
+            return None
+
+    def delete_model(self, model_id: str) -> bool:
+        """
+        Deletes a model entry from Open WebUI. This does not delete the model from the underlying source (e.g., Ollama).
+
+        Args:
+            model_id: The ID of the model to delete (e.g., 'my-custom-model:latest').
+
+        Returns:
+            True if deletion was successful, False otherwise.
+        """
+        logger.info(f"Deleting model entry '{model_id}' from Open WebUI...")
+        try:
+            response = self.session.delete(
+                f"{self.base_url}/api/v1/models/model/delete",
+                params={"id": model_id},
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+
+            if response.status_code == 200:
+                try:
+                    if response.json() is True:
+                        logger.info(f"Successfully deleted model '{model_id}'.")
+                        return True
+                    else:
+                        logger.warning(
+                            f"Model deletion for '{model_id}' returned an unexpected value: {response.text}"
+                        )
+                        return False
+                except json.JSONDecodeError:
+                    logger.info(
+                        f"Successfully sent delete request for model '{model_id}' (empty response)."
+                    )
+                    return True
+            return False
+        except requests.exceptions.RequestException as e:
+            error_msg = getattr(e.response, "text", str(e))
+            logger.error(f"Failed to delete model '{model_id}': {error_msg}")
+            return False
+
     def _ask(
         self,
         question: str,
@@ -608,18 +888,20 @@ class OpenWebUIClient:
         if not suppress_log:
             logger.info(f"Searching for folder '{name}'...")
         try:
-            for folder in self.session.get(
+            response = self.session.get(
                 f"{self.base_url}/api/v1/folders/", headers=self.json_headers
-            ).json():
+            )
+            response.raise_for_status()
+            for folder in response.json():
                 if folder.get("name") == name:
                     if not suppress_log:
                         logger.info("Found folder.")
-                        return folder.get("id")
+                    return folder.get("id")
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get folder list: {e}")
         if not suppress_log:
             logger.info(f"Folder '{name}' not found.")
-            return None
+        return None
 
     def move_chat_to_folder(self, chat_id: str, folder_id: str):
         logger.info(f"Moving chat {chat_id[:8]}... to folder {folder_id[:8]}...")

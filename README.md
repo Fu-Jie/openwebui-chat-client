@@ -48,6 +48,7 @@ print(response)
 - **Single & Parallel Model Chats**: Query one or multiple models simultaneously (great for model A/B tests!).
 - **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses.
 - **Knowledge Base Management**: Create, update, and use knowledge bases.
+- **Model Management**: List, create, update, and delete custom model entries.
 - **Chat Organization**: Folders, tags, and search functionality.
 - **Smart Caching**: Session, file upload, and knowledge base caches for efficiency.
 - **Concurrent Processing**: Parallel model querying for fast multi-model responses.
@@ -118,6 +119,68 @@ After running the above Python code, you can view the conversation and model com
 
 ## 🧠 Advanced Usage
 
+### Model Management
+
+Manage custom model entries directly through the client. You can create detailed model profiles, list them, update their parameters, and delete them.
+
+```python
+# To create a custom model, you first need a base model ID.
+# You can list available base models like this:
+print("\nListing available base models...")
+base_models = client.list_base_models()
+base_model_id_for_creation = None
+if base_models:
+    # Let's use the first available base model
+    base_model_id_for_creation = base_models[0]['id']
+    print(f"Found base model '{base_model_id_for_creation}' to create a variant from.")
+else:
+    print("No base models found. Cannot proceed with custom model creation.")
+    # In a real script, you might want to exit or handle this error
+    base_model_id_for_creation = "gpt-4.1" # Fallback for example
+
+if base_model_id_for_creation:
+    # Create a new, detailed model variant
+    print("\nCreating a custom 'Creative Writer' model...")
+    created_model = client.create_model(
+        model_id="creative-writer:latest",
+        name="Creative Writer",
+        base_model_id=base_model_id_for_creation,
+        system_prompt="You are a world-renowned author. Your writing is evocative and poetic.",
+        temperature=0.85,
+        description="A model finely-tuned for creative writing tasks.",
+        suggestion_prompts=["Write a short story about a lost star.", "Describe a futuristic city."],
+        tags=["writing", "creative"],
+        capabilities={"vision": True, "web_search": False}
+    )
+    if created_model:
+        print(f"Model '{created_model['name']}' created successfully.")
+
+    # List all available models (including custom ones)
+    print("\nListing all available models...")
+    models = client.list_models()
+    if models:
+        for model in models:
+            print(f"- {model.get('name')} ({model.get('id')})")
+
+    # Update the model with granular changes
+    print("\nUpdating the 'Creative Writer' model...")
+    updated_model = client.update_model(
+        model_id="creative-writer:latest",
+        temperature=0.7,
+        description="A model for creative writing with a more balanced temperature.",
+        suggestion_prompts=["Write a poem about the sea."] # This will overwrite the previous prompts
+    )
+    if updated_model:
+        print("Model updated successfully.")
+
+    # Delete a model entry
+    # Be careful! This action is irreversible.
+    print("\nDeleting 'creative-writer:latest'...")
+    success = client.delete_model("creative-writer:latest")
+    if success:
+        print("Model 'creative-writer:latest' deleted successfully.")
+```
+
 ### Knowledge Base and RAG Example
 
 ```python
@@ -164,6 +227,12 @@ response, _ = client.chat(
 |--------|-------------|---------|
 | `chat()` | Single model conversation | See "Single Model Chat" |
 | `parallel_chat()` | Multi-model conversation | See "Parallel Model Chat" |
+| `list_models()` | List all available model entries. | `client.list_models()` |
+| `list_base_models()` | List all available base models. | `client.list_base_models()` |
+| `get_model()` | Retrieve details for a specific model entry. | `client.get_model("creative-writer:latest")` |
+| `create_model()` | Create a detailed, custom model variant. | `client.create_model(...)` |
+| `update_model()` | Update an existing model entry with granular changes. | `client.update_model("id", temperature=0.5)` |
+| `delete_model()` | Delete a model entry from the server. | `client.delete_model("creative-writer:latest")` |
 | `create_knowledge_base()` | Create new knowledge base | `client.create_knowledge_base("MyKB")` |
 | `add_file_to_knowledge_base()` | Add file to knowledge base | `client.add_file_to_knowledge_base("file.pdf", "MyKB")` |
 | `get_knowledge_base_by_name()` | Retrieve knowledge base | `client.get_knowledge_base_by_name("MyKB")` |
