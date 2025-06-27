@@ -2,9 +2,10 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+
 [project]
 name = "openwebui-chat-client"
-version = "0.1.4"
+version = "0.1.6"
 authors = [
     { name="fujie", email="fj1945@live.cn" },
 ]
@@ -18,6 +19,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
@@ -27,6 +30,7 @@ classifiers = [
 dependencies = [
     "requests"
 ]
+
 
 [project.urls]
 Homepage = "https://github.com/Fu-Jie/openwebui-chat-client"

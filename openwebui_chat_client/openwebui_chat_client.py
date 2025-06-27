@@ -8,6 +8,9 @@ import logging
 from typing import Optional, List, Tuple, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# It is recommended to configure logging at the beginning of your main program
+# to see detailed output from the client.
+# logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +47,7 @@ class OpenWebUIClient:
         tags: Optional[List[str]] = None,
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
         self.model_id = model_id or self.default_model_id
         logger.info("=" * 60)
@@ -60,8 +64,21 @@ class OpenWebUIClient:
             logger.info(f"With RAG files: {rag_files}")
         if rag_collections:
             logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
         logger.info("=" * 60)
+
         self._find_or_create_chat_by_title(chat_title)
+
+        # Handle model switching for an existing chat
+        if model_id and self.model_id != model_id:
+            logger.warning(f"Model switch detected for chat '{chat_title}'.")
+            logger.warning(f"  > Changing from: '{self.model_id}'")
+            logger.warning(f"  > Changing to:   '{model_id}'")
+            self.model_id = model_id
+            if self.chat_object_from_server and "chat" in self.chat_object_from_server:
+                self.chat_object_from_server["chat"]["models"] = [model_id]
+
         if not self.chat_id:
             logger.error("Chat initialization failed, cannot proceed.")
             return None, None
@@ -71,8 +88,9 @@ class OpenWebUIClient:
             )
             if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
                 self.move_chat_to_folder(self.chat_id, folder_id)
+
         response, message_id = self._ask(
-            question, image_paths, rag_files, rag_collections
+            question, image_paths, rag_files, rag_collections, tool_ids
         )
         if response and tags:
             self.set_chat_tags(self.chat_id, tags)
@@ -88,6 +106,7 @@ class OpenWebUIClient:
         tags: Optional[List[str]] = None,
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
     ) -> Optional[Dict[str, str]]:
         if not model_ids:
             logger.error("`model_ids` list cannot be empty for parallel chat.")
@@ -101,8 +120,22 @@ class OpenWebUIClient:
             logger.info(f"With RAG files: {rag_files}")
         if rag_collections:
             logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
         logger.info("=" * 60)
+
         self._find_or_create_chat_by_title(chat_title)
+
+        # Handle model set changes for an existing parallel chat
+        if self.chat_object_from_server and "chat" in self.chat_object_from_server:
+            current_models = self.chat_object_from_server["chat"].get("models", [])
+            if set(current_models) != set(model_ids):
+                logger.warning(f"Parallel model set changed for chat '{chat_title}'.")
+                logger.warning(f"  > From: {current_models}")
+                logger.warning(f"  > To:   {model_ids}")
+                self.model_id = model_ids[0]
+                self.chat_object_from_server["chat"]["models"] = model_ids
+
         if not self.chat_id:
             logger.error("Chat initialization failed, cannot proceed.")
             return None
@@ -152,6 +185,7 @@ class OpenWebUIClient:
                     question,
                     image_paths,
                     api_rag_payload,
+                    tool_ids,
                 ): model_id
                 for model_id in model_ids
             }
@@ -578,11 +612,13 @@ class OpenWebUIClient:
         image_paths: Optional[List[str]] = None,
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
         if not self.chat_id:
             return None, None
         logger.info(f'Processing question: "{question}"')
         chat_core = self.chat_object_from_server["chat"]
+        chat_core["models"] = [self.model_id]
 
         api_rag_payload, storage_rag_payloads = self._handle_rag_references(
             rag_files, rag_collections
@@ -606,7 +642,7 @@ class OpenWebUIClient:
 
         logger.info("Calling completions API to get model response...")
         assistant_content, sources = self._get_model_completion(
-            self.chat_id, api_messages, api_rag_payload
+            self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
         )
         if assistant_content is None:
             return None, None
@@ -681,7 +717,13 @@ class OpenWebUIClient:
         return None, None
 
     def _get_single_model_response_in_parallel(
-        self, chat_core, model_id, question, image_paths, api_rag_payload
+        self,
+        chat_core,
+        model_id,
+        question,
+        image_paths,
+        api_rag_payload,
+        tool_ids: Optional[List[str]] = None,
     ):
         api_messages = self._build_linear_history_for_api(chat_core)
         current_user_content_parts = [{"type": "text", "text": question}]
@@ -699,7 +741,7 @@ class OpenWebUIClient:
         )
         api_messages.append({"role": "user", "content": final_api_content})
         content, sources = self._get_model_completion(
-            self.chat_id, api_messages, api_rag_payload, model_id
+            self.chat_id, api_messages, api_rag_payload, model_id, tool_ids
         )
         return content, sources
 
@@ -772,6 +814,7 @@ class OpenWebUIClient:
         messages: List[Dict[str, Any]],
         api_rag_payload: Optional[List[Dict]] = None,
         model_id: Optional[str] = None,
+        tool_ids: Optional[List[str]] = None,
     ) -> Tuple[Optional[str], List]:
         active_model_id = model_id or self.model_id
         payload = {
@@ -785,6 +828,14 @@ class OpenWebUIClient:
             logger.info(
                 f"Attaching {len(api_rag_payload)} RAG references to completion request for model {active_model_id}."
             )
+
+        if tool_ids:
+            # The backend expects a list of objects, each with an 'id'
+            payload["tools"] = [{"id": tid} for tid in tool_ids]
+            logger.info(
+                f"Attaching {len(tool_ids)} tools to completion request for model {active_model_id}."
+            )
+
         logger.debug(f"Sending completion request: {json.dumps(payload, indent=2)}")
         try:
             response = self.session.post(
@@ -831,6 +882,59 @@ class OpenWebUIClient:
             else:
                 logger.info(f"  = Tag '{tag_name}' already exists, skipping.")
 
+    def rename_chat(self, chat_id: str, new_title: str) -> bool:
+        """
+        Renames an existing chat.
+        """
+        if not chat_id:
+            logger.error("rename_chat: chat_id cannot be empty.")
+            return False
+
+        url = f"{self.base_url}/api/v1/chats/{chat_id}"
+        # Simplified payload for renaming, as confirmed by API behavior.
+        payload = {"chat": {"title": new_title}}
+
+        try:
+            logger.info(f"Renaming chat {chat_id[:8]}... to '{new_title}'")
+            # The correct method for updates is POST.
+            response = self.session.post(url, headers=self.json_headers, json=payload)
+            response.raise_for_status()
+            logger.info("Chat renamed successfully.")
+
+            # Updating the session cache is crucial for client consistency.
+            old_title_to_remove = None
+            for cache_key, state in list(self.session_cache.items()):
+                if state["id"] == chat_id:
+                    old_title_to_remove = cache_key
+                    break
+
+            if old_title_to_remove:
+                cached_state = self.session_cache.pop(old_title_to_remove)
+                # Update the object before re-caching it under the new key.
+                if "obj" in cached_state and cached_state["obj"]:
+                    cached_state["obj"]["title"] = new_title
+                    if "chat" in cached_state["obj"] and cached_state["obj"]["chat"]:
+                        cached_state["obj"]["chat"]["title"] = new_title
+
+                self.session_cache[new_title] = cached_state
+                logger.info(
+                    f"Updated session cache: '{old_title_to_remove}' -> '{new_title}'"
+                )
+
+            # If the renamed chat is the currently active one, update its internal state.
+            if self.chat_id == chat_id and self.chat_object_from_server:
+                self.chat_object_from_server["title"] = new_title
+                if "chat" in self.chat_object_from_server:
+                    self.chat_object_from_server["chat"]["title"] = new_title
+
+            return True
+        except requests.exceptions.RequestException as e:
+            if hasattr(e, "response"):
+                logger.error(f"Failed to rename chat: {e.response.text}")
+            else:
+                logger.error(f"Failed to rename chat: {e}")
+            return False
+
     def _find_or_create_chat_by_title(self, title: str):
         if title in self.session_cache:
             logger.info(f"Loading chat '{title}' from session cache.")
@@ -852,21 +956,36 @@ class OpenWebUIClient:
         )
 
     def _load_and_cache_chat_state(self, chat_id: str, cache_key: str):
-        if self._load_chat_details(chat_id):
+        details = self._load_chat_details(chat_id)
+        if details:
             self.session_cache[cache_key] = {
                 "id": self.chat_id,
                 "obj": self.chat_object_from_server,
                 "model": self.model_id,
             }
 
-    def _load_chat_details(self, chat_id: str) -> bool:
-        if chat_details := self._get_chat_details(chat_id):
-            self.chat_id, self.chat_object_from_server = chat_id, chat_details
-            chat_core = self.chat_object_from_server.setdefault("chat", {})
-            chat_core.setdefault("history", {"messages": {}, "currentId": None})
-            self.model_id = chat_core.get("models", [self.default_model_id])[0]
-            return True
-        return False
+    def _load_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/chats/{chat_id}", headers=self.json_headers
+            )
+            response.raise_for_status()
+            details = response.json()
+            if details:
+                self.chat_id = chat_id
+                self.chat_object_from_server = details
+                chat_core = self.chat_object_from_server.setdefault("chat", {})
+                chat_core.setdefault("history", {"messages": {}, "currentId": None})
+                # Ensure 'models' is a list
+                models_list = chat_core.get("models", [])
+                if isinstance(models_list, list) and models_list:
+                    self.model_id = models_list[0]
+                else:
+                    self.model_id = self.default_model_id
+                return details
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get chat details for {chat_id}: {e}")
+        return None
 
     def create_folder(self, name: str) -> Optional[str]:
         logger.info(f"Creating folder '{name}'...")
