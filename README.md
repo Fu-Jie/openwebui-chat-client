@@ -4,7 +4,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Python Versions](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
 
-**openwebui-chat-client** is a comprehensive, stateful Python client library for the [Open WebUI](https://github.com/open-webui/open-webui) API. It enables intelligent interaction with Open WebUI, supporting single/multi-model chats, file uploads, Retrieval-Augmented Generation (RAG), knowledge base management, and advanced chat organization features.
+**openwebui-chat-client** is a comprehensive, stateful Python client library for the [Open WebUI](https://github.com/open-webui/open-webui) API. It enables intelligent interaction with Open WebUI, supporting single/multi-model chats, tool usage, file uploads, Retrieval-Augmented Generation (RAG), knowledge base management, and advanced chat organization features.
 
 ---
 
@@ -32,12 +32,14 @@ client = OpenWebUIClient(
     default_model_id="gpt-4.1"
 )
 
-response, message_id = client.chat(
+# The chat method returns the response and the chat_id
+response, chat_id = client.chat(
     question="Hello, how are you?",
     chat_title="My First Chat"
 )
 
-print(response)
+print(f"Response: {response}")
+print(f"Chat ID: {chat_id}")
 ```
 
 ---
@@ -45,18 +47,21 @@ print(response)
 ## ✨ Features
 
 - **Multi-Modal Conversations**: Text, images, and file uploads.
-- **Single & Parallel Model Chats**: Query one or multiple models simultaneously (great for model A/B tests!).
+- **Single & Parallel Model Chats**: Query one or multiple models simultaneously.
+- **Tool Integration**: Use server-side tools (functions) in your chat requests.
 - **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses.
 - **Knowledge Base Management**: Create, update, and use knowledge bases.
 - **Model Management**: List, create, update, and delete custom model entries.
-- **Chat Organization**: Folders, tags, and search functionality.
+- **Chat Organization**: Rename chats, use folders, tags, and search functionality.
 - **Smart Caching**: Session, file upload, and knowledge base caches for efficiency.
 - **Concurrent Processing**: Parallel model querying for fast multi-model responses.
 - **Comprehensive Logging & Error Handling**: Robust and debuggable.
 
 ---
 
-## 🧑‍💻 Example: Single Model Chat (`gpt-4.1`)
+## 🧑‍💻 Basic Examples
+
+### Single Model Chat
 
 ```python
 from openwebui_chat_client import OpenWebUIClient
@@ -67,17 +72,15 @@ client = OpenWebUIClient(
     default_model_id="gpt-4.1"
 )
 
-response, message_id = client.chat(
-    question="What are the key features of OpenAI GPT-4.1?",
+response, chat_id = client.chat(
+    question="What are the key features of OpenAI's GPT-4.1?",
     chat_title="Model Features - GPT-4.1"
 )
 
 print("GPT-4.1 Response:", response)
 ```
 
----
-
-## 🤖 Example: Parallel Model Chat (`gpt-4.1` and `gemini-2.5-flash`)
+### Parallel Model Chat
 
 ```python
 from openwebui_chat_client import OpenWebUIClient
@@ -88,125 +91,80 @@ client = OpenWebUIClient(
     default_model_id="gpt-4.1"
 )
 
-responses = client.parallel_chat(
+responses, chat_id = client.parallel_chat(
     question="Compare the strengths of GPT-4.1 and Gemini 2.5 Flash for document summarization.",
     chat_title="Model Comparison: Summarization",
     model_ids=["gpt-4.1", "gemini-2.5-flash"]
 )
 
-for model, resp in responses.items():
-    print(f"{model} Response:\n{resp}\n")
+if responses:
+    for model, resp in responses.items():
+        print(f"{model} Response:\n{resp}\n")
 ```
 
 ---
 
-## 🖥️ Example: Page Rendering (Web UI Integration)
+## 🧠 Advanced Chat Examples
 
-After running the above Python code, you can view the conversation and model comparison results in the Open WebUI web interface:
+### 1. Using Tools (Functions)
 
-- **Single Model** (`gpt-4.1`):  
-  The chat history will display your input question and the GPT-4.1 model's response in the conversational timeline.  
-  ![Single Model Chat Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/single-model-chat.png)
-
-- **Parallel Models** (`gpt-4.1` & `gemini-2.5-flash`):  
-  The chat will show a side-by-side (or grouped) comparison of the responses from both models to the same input, often tagged or color-coded by model.  
-  ![Parallel Model Comparison Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/parallel-model-chat.png)
-
-> **Tip:**  
-> The web UI visually distinguishes responses using the model name. You can expand, collapse, or copy each answer, and also tag, organize, and search your chats directly in the interface.
-
----
-
-## 🧠 Advanced Usage
-
-### Model Management
-
-Manage custom model entries directly through the client. You can create detailed model profiles, list them, update their parameters, and delete them.
+If you have tools configured in your Open WebUI instance (like a weather tool or a web search tool), you can specify which ones to use in a request.
 
 ```python
-# To create a custom model, you first need a base model ID.
-# You can list available base models like this:
-print("\nListing available base models...")
-base_models = client.list_base_models()
-base_model_id_for_creation = None
-if base_models:
-    # Let's use the first available base model
-    base_model_id_for_creation = base_models[0]['id']
-    print(f"Found base model '{base_model_id_for_creation}' to create a variant from.")
-else:
-    print("No base models found. Cannot proceed with custom model creation.")
-    # In a real script, you might want to exit or handle this error
-    base_model_id_for_creation = "gpt-4.1" # Fallback for example
+# Assumes you have a tool with the ID 'search-the-web-tool' configured on your server.
+# This tool would need to be created in the Open WebUI "Tools" section.
 
-if base_model_id_for_creation:
-    # Create a new, detailed model variant
-    print("\nCreating a custom 'Creative Writer' model...")
-    created_model = client.create_model(
-        model_id="creative-writer:latest",
-        name="Creative Writer",
-        base_model_id=base_model_id_for_creation,
-        system_prompt="You are a world-renowned author. Your writing is evocative and poetic.",
-        temperature=0.85,
-        description="A model finely-tuned for creative writing tasks.",
-        suggestion_prompts=["Write a short story about a lost star.", "Describe a futuristic city."],
-        tags=["writing", "creative"],
-        capabilities={"vision": True, "web_search": False}
-    )
-    if created_model:
-        print(f"Model '{created_model['name']}' created successfully.")
-
-    # List all available models (including custom ones)
-    print("\nListing all available models...")
-    models = client.list_models()
-    if models:
-        for model in models:
-            print(f"- {model.get('name')} ({model.get('id')})")
-
-    # Update the model with granular changes
-    print("\nUpdating the 'Creative Writer' model...")
-    updated_model = client.update_model(
-        model_id="creative-writer:latest",
-        temperature=0.7,
-        description="A model for creative writing with a more balanced temperature.",
-        suggestion_prompts=["Write a poem about the sea."] # This will overwrite the previous prompts
-    )
-    if updated_model:
-        print("Model updated successfully.")
-
-    # Delete a model entry
-    # Be careful! This action is irreversible.
-    print("\nDeleting 'creative-writer:latest'...")
-    success = client.delete_model("creative-writer:latest")
-    if success:
-        print("Model 'creative-writer:latest' deleted successfully.")
-```
-
-### Knowledge Base and RAG Example
-
-```python
-# Create knowledge base and add documents for RAG
-client.create_knowledge_base("Doc-KB")
-client.add_file_to_knowledge_base("manual.pdf", "Doc-KB")
-
-response, _ = client.chat(
-    question="Summarize the manual in Doc-KB.",
-    chat_title="Manual Summary",
-    rag_collections=["Doc-KB"],
-    model_id="gemini-2.5-flash"
-)
-print("Gemini-2.5-Flash Response:", response)
-```
-
-### Chat Organization with Folder and Tags
-
-```python
-response, _ = client.chat(
-    question="How can I improve code quality?",
-    chat_title="Code Quality Tips",
+response, chat_id = client.chat(
+    question="What are the latest developments in AI regulation in the EU?",
+    chat_title="AI Regulation News",
     model_id="gpt-4.1",
-    folder_name="Development",
-    tags=["coding", "best-practices"]
+    tool_ids=["search-the-web-tool"] # Pass the ID of the tool to use
 )
+
+print(response)
+```
+
+### 2. Multimodal Chat (with Images)
+
+Send images along with your text prompt to a vision-capable model.
+
+```python
+# Make sure 'chart.png' exists in the same directory as your script.
+# The model 'gpt-4.1' is vision-capable.
+
+response, chat_id = client.chat(
+    question="Please analyze the attached sales chart and provide a summary of the trends.",
+    chat_title="Sales Chart Analysis",
+    model_id="gpt-4.1",
+    image_paths=["./chart.png"] # A list of local file paths to your images
+)
+
+print(response)
+```
+
+### 3. Switching Models in the Same Chat
+
+You can start a conversation with one model and then switch to another for a subsequent question, all within the same chat history. The client handles the state seamlessly.
+
+```python
+# Start a chat with a powerful general-purpose model
+response_1, chat_id_1 = client.chat(
+    question="Explain the theory of relativity in simple terms.",
+    chat_title="Science and Speed",
+    model_id="gpt-4.1"
+)
+print(f"GPT-4.1 answered: {response_1}")
+
+# Now, ask a different question in the SAME chat, but switch to a fast, efficient model
+response_2, chat_id_2 = client.chat(
+    question="Now, what are the top 3 fastest land animals?",
+    chat_title="Science and Speed",   # Use the same title to continue the chat
+    model_id="gemini-2.5-flash"  # Switch to a different model
+)
+print(f"\nGemini 2.5 Flash answered: {response_2}")
+
+# Both chat_id_1 and chat_id_2 will be the same, as it's the same conversation.
+print(f"\nChat ID for both interactions: {chat_id_1}")
 ```
 
 ---
@@ -225,29 +183,30 @@ response, _ = client.chat(
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `chat()` | Single model conversation | See "Single Model Chat" |
-| `parallel_chat()` | Multi-model conversation | See "Parallel Model Chat" |
+| `chat()` | Start/continue a single-model conversation. Returns `(response, chat_id)`. | `client.chat(question, chat_title, model_id, image_paths, tool_ids)` |
+| `parallel_chat()` | Start/continue a multi-model conversation. Returns `(responses, chat_id)`. | `client.parallel_chat(question, chat_title, model_ids, image_paths, tool_ids)` |
+| `rename_chat()` | Rename an existing chat. | `client.rename_chat(chat_id, "New Title")` |
+| `set_chat_tags()` | Apply tags to a chat. | `client.set_chat_tags(chat_id, ["tag1"])` |
+| `create_folder()` | Create a chat folder. | `client.create_folder("ProjectX")` |
 | `list_models()` | List all available model entries. | `client.list_models()` |
 | `list_base_models()` | List all available base models. | `client.list_base_models()` |
-| `get_model()` | Retrieve details for a specific model entry. | `client.get_model("creative-writer:latest")` |
+| `get_model()` | Retrieve details for a specific model entry. | `client.get_model("id")` |
 | `create_model()` | Create a detailed, custom model variant. | `client.create_model(...)` |
 | `update_model()` | Update an existing model entry with granular changes. | `client.update_model("id", temperature=0.5)` |
-| `delete_model()` | Delete a model entry from the server. | `client.delete_model("creative-writer:latest")` |
-| `create_knowledge_base()` | Create new knowledge base | `client.create_knowledge_base("MyKB")` |
-| `add_file_to_knowledge_base()` | Add file to knowledge base | `client.add_file_to_knowledge_base("file.pdf", "MyKB")` |
-| `get_knowledge_base_by_name()` | Retrieve knowledge base | `client.get_knowledge_base_by_name("MyKB")` |
-| `create_folder()` | Create chat folder | `client.create_folder("ProjectX")` |
-| `set_chat_tags()` | Apply tags to chat | `client.set_chat_tags(chat_id, ["tag1", "tag2"])` |
+| `delete_model()` | Delete a model entry from the server. | `client.delete_model("id")` |
+| `create_knowledge_base()`| Create a new knowledge base. | `client.create_knowledge_base("MyKB")` |
+| `add_file_to_knowledge_base()`| Add a file to a knowledge base. | `client.add_file_to_knowledge_base(...)` |
+| `get_knowledge_base_by_name()`| Retrieve a knowledge base by its name. | `client.get_knowledge_base_by_name("MyKB")` |
 
 ---
 
 ## 🛠️ Troubleshooting
 
 - **Authentication Errors**: Ensure your bearer token is valid.
-- **Model Not Found**: Check model IDs are correct (e.g., `"gpt-4.1"`, `"gemini-2.5-flash"`).
-- **File Upload Issues**: Ensure file paths exist and permissions are correct.
-- **Web UI Not Updating**: Refresh the page or check server logs for errors.
-- **Image Not Displayed**: If you use relative paths for screenshots, make sure the images exist in the correct directory in your repository (e.g. `./examples/images/`).
+- **Model Not Found**: Check that the model IDs are correct (e.g., `"gpt-4.1"`, `"gemini-2.5-flash"`) and available on your Open WebUI instance.
+- **Tool Not Found**: Ensure the `tool_ids` you provide match the IDs of tools configured in the Open WebUI settings.
+- **File/Image Upload Issues**: Ensure file paths are correct and the application has the necessary permissions to read them.
+- **Web UI Not Updating**: Refresh the page or check the server logs for any potential errors.
 
 ---
 

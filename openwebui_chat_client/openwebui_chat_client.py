@@ -94,7 +94,7 @@ class OpenWebUIClient:
         )
         if response and tags:
             self.set_chat_tags(self.chat_id, tags)
-        return response, message_id
+        return response, self.chat_id
 
     def parallel_chat(
         self,
@@ -107,10 +107,10 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
-    ) -> Optional[Dict[str, str]]:
+    ) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
         if not model_ids:
             logger.error("`model_ids` list cannot be empty for parallel chat.")
-            return None
+            return None, None
         self.model_id = model_ids[0]
         logger.info("=" * 60)
         logger.info(
@@ -247,8 +247,10 @@ class OpenWebUIClient:
             }
             if tags:
                 self.set_chat_tags(self.chat_id, tags)
-            return {k: v["content"] for k, v in successful_responses.items()}
-        return None
+            return {
+                k: v["content"] for k, v in successful_responses.items()
+            }, self.chat_id
+        return None, None
 
     def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         if name in self.kb_cache:
