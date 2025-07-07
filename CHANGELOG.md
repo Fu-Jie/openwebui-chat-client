@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.8] - 2025-07-08
+
+### Changed in 0.1.8
+
+- Standardized the return format for `chat` and `parallel_chat` to consistently provide detailed response objects, including `chat_id` and message identifiers.
+- Improved logging and error handling for more robust API interactions.
+
+### Fixed in 0.1.8
+
+- Corrected the `tool_ids` parameter format to ensure proper tool usage in API requests.
+
+---
+
 ## [0.1.7] - 2025-06-27
 
 ### Added in 0.1.7
@@ -100,4 +113,3 @@ All notable changes to this project will be documented in this file.
 
 - Initial public release on PyPI.
 - Core OpenWebUI chat client implementation.
-

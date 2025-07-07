@@ -34,14 +34,15 @@ client = OpenWebUIClient(
     default_model_id="gpt-4.1"
 )
 
-# The chat method returns the response and the chat_id
-response, chat_id = client.chat(
+# The chat method returns a dictionary with the response, chat_id, and message_id
+result = client.chat(
     question="Hello, how are you?",
     chat_title="My First Chat"
 )
 
-print(f"Response: {response}")
-print(f"Chat ID: {chat_id}")
+if result:
+    print(f"Response: {result['response']}")
+    print(f"Chat ID: {result['chat_id']}")
 ```
 
 ---
@@ -55,9 +56,7 @@ print(f"Chat ID: {chat_id}")
 - **Knowledge Base Management**: Create, update, and use knowledge bases.
 - **Model Management**: List, create, update, and delete custom model entries.
 - **Chat Organization**: Rename chats, use folders, tags, and search functionality.
-- **Smart Caching**: Session, file upload, and knowledge base caches for efficiency.
 - **Concurrent Processing**: Parallel model querying for fast multi-model responses.
-- **Comprehensive Logging & Error Handling**: Robust and debuggable.
 
 ---
 
@@ -74,12 +73,13 @@ client = OpenWebUIClient(
     default_model_id="gpt-4.1"
 )
 
-response, chat_id = client.chat(
+result = client.chat(
     question="What are the key features of OpenAI's GPT-4.1?",
     chat_title="Model Features - GPT-4.1"
 )
 
-print("GPT-4.1 Response:", response)
+if result:
+    print("GPT-4.1 Response:", result['response'])
 ```
 
 ### Parallel Model Chat
@@ -93,16 +93,33 @@ client = OpenWebUIClient(
     default_model_id="gpt-4.1"
 )
 
-responses, chat_id = client.parallel_chat(
+result = client.parallel_chat(
     question="Compare the strengths of GPT-4.1 and Gemini 2.5 Flash for document summarization.",
     chat_title="Model Comparison: Summarization",
-    model_ids=["gpt-4.1", "gemini-2.5-flash"]
+    model_ids=["gpt-4.1", "gemini-2.5-flash"],
+    folder_name="Technical Comparisons" # You can optionally organize chats into folders
 )
 
-if responses:
-    for model, resp in responses.items():
+if result and result.get("responses"):
+    for model, resp in result["responses"].items():
         print(f"{model} Response:\n{resp}\n")
+    print(f"Chat saved with ID: {result.get('chat_id')}")
 ```
+
+### 🖥️ Example: Page Rendering (Web UI Integration)
+
+After running the above Python code, you can view the conversation and model comparison results in the Open WebUI web interface:
+
+- **Single Model** (`gpt-4.1`):  
+  The chat history will display your input question and the GPT-4.1 model's response in the conversational timeline.  
+  ![Single Model Chat Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/single-model-chat.png)
+
+- **Parallel Models** (`gpt-4.1` & `gemini-2.5-flash`):  
+  The chat will show a side-by-side (or grouped) comparison of the responses from both models to the same input, often tagged or color-coded by model.  
+  ![Parallel Model Comparison Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/parallel-model-chat.png)
+
+> **Tip:**  
+> The web UI visually distinguishes responses using the model name. You can expand, collapse, or copy each answer, and also tag, organize, and search your chats directly in the interface.
 
 ---
 
@@ -116,14 +133,15 @@ If you have tools configured in your Open WebUI instance (like a weather tool or
 # Assumes you have a tool with the ID 'search-the-web-tool' configured on your server.
 # This tool would need to be created in the Open WebUI "Tools" section.
 
-response, chat_id = client.chat(
+result = client.chat(
     question="What are the latest developments in AI regulation in the EU?",
     chat_title="AI Regulation News",
     model_id="gpt-4.1",
     tool_ids=["search-the-web-tool"] # Pass the ID of the tool to use
 )
 
-print(response)
+if result:
+    print(result['response'])
 ```
 
 ### 2. Multimodal Chat (with Images)
@@ -134,14 +152,15 @@ Send images along with your text prompt to a vision-capable model.
 # Make sure 'chart.png' exists in the same directory as your script.
 # The model 'gpt-4.1' is vision-capable.
 
-response, chat_id = client.chat(
+result = client.chat(
     question="Please analyze the attached sales chart and provide a summary of the trends.",
     chat_title="Sales Chart Analysis",
     model_id="gpt-4.1",
     image_paths=["./chart.png"] # A list of local file paths to your images
 )
 
-print(response)
+if result:
+    print(result['response'])
 ```
 
 ### 3. Switching Models in the Same Chat
@@ -150,23 +169,26 @@ You can start a conversation with one model and then switch to another for a sub
 
 ```python
 # Start a chat with a powerful general-purpose model
-response_1, chat_id_1 = client.chat(
+result_1 = client.chat(
     question="Explain the theory of relativity in simple terms.",
     chat_title="Science and Speed",
     model_id="gpt-4.1"
 )
-print(f"GPT-4.1 answered: {response_1}")
+if result_1:
+    print(f"GPT-4.1 answered: {result_1['response']}")
 
 # Now, ask a different question in the SAME chat, but switch to a fast, efficient model
-response_2, chat_id_2 = client.chat(
+result_2 = client.chat(
     question="Now, what are the top 3 fastest land animals?",
     chat_title="Science and Speed",   # Use the same title to continue the chat
     model_id="gemini-2.5-flash"  # Switch to a different model
 )
-print(f"\nGemini 2.5 Flash answered: {response_2}")
+if result_2:
+    print(f"\nGemini 2.5 Flash answered: {result_2['response']}")
 
-# Both chat_id_1 and chat_id_2 will be the same, as it's the same conversation.
-print(f"\nChat ID for both interactions: {chat_id_1}")
+# The chat_id from both results will be the same.
+if result_1 and result_2:
+    print(f"\nChat ID for both interactions: {result_1['chat_id']}")
 ```
 
 ---
@@ -185,8 +207,8 @@ print(f"\nChat ID for both interactions: {chat_id_1}")
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `chat()` | Start/continue a single-model conversation. Returns `(response, chat_id)`. | `client.chat(question, chat_title, model_id, image_paths, tool_ids)` |
-| `parallel_chat()` | Start/continue a multi-model conversation. Returns `(responses, chat_id)`. | `client.parallel_chat(question, chat_title, model_ids, image_paths, tool_ids)` |
+| `chat()` | Start/continue a single-model conversation. Returns a dictionary with `response`, `chat_id`, and `message_id`. | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
+| `parallel_chat()` | Start/continue a multi-model conversation. Returns a dictionary with `responses`, `chat_id`, and `message_ids`. | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
 | `rename_chat()` | Rename an existing chat. | `client.rename_chat(chat_id, "New Title")` |
 | `set_chat_tags()` | Apply tags to a chat. | `client.set_chat_tags(chat_id, ["tag1"])` |
 | `create_folder()` | Create a chat folder. | `client.create_folder("ProjectX")` |

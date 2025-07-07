@@ -29,12 +29,14 @@ client = OpenWebUIClient(
     default_model_id="gpt-4.1"
 )
 
-response, chat_id = client.chat(
+# chat 方法返回一个包含回复、chat_id 和 message_id 的字典
+result = client.chat(
     question="你好，你怎么样？",
     chat_title="我的第一次聊天"
 )
-print(f"回复: {response}")
-print(f"Chat ID: {chat_id}")
+if result:
+    print(f"回复: {result['response']}")
+    print(f"Chat ID: {result['chat_id']}")
 ```
 
 ---
@@ -48,7 +50,6 @@ print(f"Chat ID: {chat_id}")
 - 知识库管理：创建、更新、查询
 - 模型管理：列出、创建、更新、删除
 - 聊天组织：重命名、文件夹、标签、搜索
-- 智能缓存 & 完善日志
 
 ---
 
@@ -57,31 +58,60 @@ print(f"Chat ID: {chat_id}")
 ### 单模型对话
 
 ```python
-response, chat_id = client.chat(
+result = client.chat(
     question="介绍一下 OpenAI GPT-4.1 的主要功能？",
     chat_title="GPT-4.1 功能演示"
 )
-print(response)
+if result:
+    print(result['response'])
 ```
 
 ### 并行模型对话
 
 ```python
-responses = client.parallel_chat(
+result = client.parallel_chat(
     question="比较 GPT-4.1 和 Gemini 2.5 Flash 在文档摘要方面的优势。",
     chat_title="模型对比",
-    model_ids=["gpt-4.1", "gemini-2.5-flash"]
+    model_ids=["gpt-4.1", "gemini-2.5-flash"],
+    folder_name="技术对比" # 你可以选择将聊天整理到文件夹中
 )
-for m, r in responses.items():
-    print(m, r)
+if result and result.get("responses"):
+    for model, resp in result["responses"].items():
+        print(f"{model} 回复:\n{resp}\n")
+    print(f"聊天已保存，ID: {result.get('chat_id')}")
 ```
+
+### 🖥️ 示例：页面渲染 (Web UI 集成)
+
+运行上述 Python 代码后，你可以在 Open WebUI 网页界面中查看对话和模型比较结果：
+
+- **单模型** (`gpt-4.1`):  
+  聊天记录将在对话时间线中显示你的输入问题和 GPT-4.1 模型的回应。  
+  ![单模型对话示例](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/single-model-chat.png)
+
+- **并行模型** (`gpt-4.1` & `gemini-2.5-flash`):  
+  聊天将并排（或分组）显示两个模型对同一输入的响应，通常会按模型进行标记或颜色编码。  
+  ![并行模型比较示例](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/parallel-model-chat.png)
+
+> **提示:**  
+> Web UI 会使用模型名称来直观地区分响应。你可以展开、折叠或复制每个答案，还可以在界面中直接对聊天进行标记、整理和搜索。
+
+---
 
 ### 同一会话中切换模型
 
 ```python
 chat_title = "模型切换演示"
-resp1, _ = client.chat(question="你是谁？", chat_title=chat_title, model_id="gpt-4.1")
-resp2, _ = client.chat(question="同样的问题，换种风格回答。", chat_title=chat_title, model_id="gemini-2.5-flash")
+result1 = client.chat(question="你是谁？", chat_title=chat_title, model_id="gpt-4.1")
+if result1:
+    print(f"GPT-4.1 回答: {result1['response']}")
+
+result2 = client.chat(question="同样的问题，换种风格回答。", chat_title=chat_title, model_id="gemini-2.5-flash")
+if result2:
+    print(f"Gemini 2.5 Flash 回答: {result2['response']}")
+
+if result1 and result2:
+    print(f"两次交互的 Chat ID: {result1['chat_id']}")
 ```
 
 ### 模型管理
@@ -105,20 +135,26 @@ client.delete_model("creative-writer:latest")
 ```python
 client.create_knowledge_base("Doc-KB")
 client.add_file_to_knowledge_base("manual.pdf", "Doc-KB")
-response, _ = client.chat(
+result = client.chat(
     question="总结一下手册。",
     chat_title="手册摘要",
     rag_collections=["Doc-KB"]
 )
+if result:
+    print(result['response'])
 ```
 
 ### 聊天组织
 
 ```python
+# 假设你已经通过 client.chat 或 client.parallel_chat 获得了一个 chat_id
+# chat_id = result['chat_id'] 
+
 folder_id = client.create_folder("ProjectX")
-client.move_chat_to_folder(chat_id, folder_id)
-client.set_chat_tags(chat_id, ["tag1", "tag2"])
-client.rename_chat(chat_id, "新标题")
+if folder_id and chat_id:
+    client.move_chat_to_folder(chat_id, folder_id)
+    client.set_chat_tags(chat_id, ["tag1", "tag2"])
+    client.rename_chat(chat_id, "新标题")
 ```
 
 ---
@@ -127,8 +163,8 @@ client.rename_chat(chat_id, "新标题")
 
 | 方法 | 说明 | 示例 |
 |--------|-------------|---------|
-| `chat()` | 启动/继续单模型对话，返回 `(response, chat_id)` | `client.chat(question, chat_title, model_id, image_paths, tool_ids)` |
-| `parallel_chat()` | 启动/继续多模型对话，返回 `(responses, chat_id)` | `client.parallel_chat(question, chat_title, model_ids, image_paths, tool_ids)` |
+| `chat()` | 启动/继续单模型对话，返回包含 `response`, `chat_id`, `message_id` 的字典。 | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
+| `parallel_chat()` | 启动/继续多模型对话，返回包含 `responses`, `chat_id`, `message_ids` 的字典。 | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
 | `rename_chat()` | 聊天重命名 | `client.rename_chat(chat_id, "新标题")` |
 | `set_chat_tags()` | 聊天打标签 | `client.set_chat_tags(chat_id, ["tag1"])` |
 | `create_folder()` | 创建聊天文件夹 | `client.create_folder("ProjectX")` |
