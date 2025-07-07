@@ -77,29 +77,29 @@ def demo_rag_chat(client: OpenWebUIClient):
     if not test_file:
         return
         
-    response, _ = client.chat(
+    result = client.chat(
         question="Based on the document, what is the Ouroboros protocol?",
         chat_title="Blockchain RAG Test",
         rag_files=[test_file],
         model_id=RAG_MODEL
     )
-    if response:
-        print(f"\n🤖 [RAG Response]:\n{response}\n")
+    if result and result.get("response"):
+        print(f"\n🤖 [RAG Response]:\n{result['response']}\n")
 
     cleanup_files([test_file])
 
 
 def demo_parallel_chat(client: OpenWebUIClient):
     print("\n" + "#"*20 + " SCENE 3: Multi-Model Parallel Chat " + "#"*20)
-    responses = client.parallel_chat(
+    result = client.parallel_chat(
         question="What is the most exciting thing about space exploration in one sentence?",
         chat_title="Space Exploration Insights",
         model_ids=PARALLEL_MODELS,
         folder_name="Science",
         tags=["space", "exploration", "multi-model"]
     )
-    if responses:
-        for model, content in responses.items():
+    if result and result.get("responses"):
+        for model, content in result["responses"].items():
             print(f"\n🤖 [{model}'s Response]:\n{content}\n")
 
 def main():

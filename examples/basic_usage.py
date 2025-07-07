@@ -59,7 +59,7 @@ def run_demo():
 
     # 2. Start a multi-model parallel conversation
     logging.info("--- Starting a new multi-model parallel chat ---")
-    responses = client.parallel_chat(
+    result = client.parallel_chat(
         question="What are the top 3 benefits of using Python for data science?",
         chat_title="Python for Data Science",
         model_ids=PARALLEL_MODELS,
@@ -67,11 +67,13 @@ def run_demo():
     )
 
     # 3. Print the responses from each model
-    if responses:
+    if result and result.get("responses"):
+        responses = result["responses"]
         print("\n" + "=" * 25 + " Model Responses " + "=" * 25)
         for model, content in responses.items():
             print(f"\n🤖 [{model}'s Response]:\n{content}")
         print("\n" + "=" * 67)
+        logging.info(f"Chat session saved with ID: {result.get('chat_id')}")
 
     logging.info("\n🎉 Demo completed. Please check your Open WebUI interface.")
 

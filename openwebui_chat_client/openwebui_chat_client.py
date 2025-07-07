@@ -30,9 +30,6 @@ class OpenWebUIClient:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        self.session_cache: Dict[str, Dict[str, Any]] = {}
-        self.file_upload_cache: Dict[str, Dict[str, Any]] = {}
-        self.kb_cache: Dict[str, Dict[str, Any]] = {}
         self.chat_id: Optional[str] = None
         self.chat_object_from_server: Optional[Dict[str, Any]] = None
         self.model_id: str = default_model_id
@@ -48,7 +45,7 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> Optional[Dict[str, Any]]:
         self.model_id = model_id or self.default_model_id
         logger.info("=" * 60)
         logger.info(
@@ -81,7 +78,7 @@ class OpenWebUIClient:
 
         if not self.chat_id:
             logger.error("Chat initialization failed, cannot proceed.")
-            return None, None
+            return None
         if folder_name:
             folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
                 folder_name
@@ -92,9 +89,15 @@ class OpenWebUIClient:
         response, message_id = self._ask(
             question, image_paths, rag_files, rag_collections, tool_ids
         )
-        if response and tags:
-            self.set_chat_tags(self.chat_id, tags)
-        return response, self.chat_id
+        if response:
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+            return {
+                "response": response,
+                "chat_id": self.chat_id,
+                "message_id": message_id,
+            }
+        return None
 
     def parallel_chat(
         self,
@@ -107,10 +110,10 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
-    ) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+    ) -> Optional[Dict[str, Any]]:
         if not model_ids:
             logger.error("`model_ids` list cannot be empty for parallel chat.")
-            return None, None
+            return None
         self.model_id = model_ids[0]
         logger.info("=" * 60)
         logger.info(
@@ -126,7 +129,7 @@ class OpenWebUIClient:
 
         self._find_or_create_chat_by_title(chat_title)
 
-        # Handle model set changes for an existing parallel chat
+        # 处理现有并行聊天的模型集更改
         if self.chat_object_from_server and "chat" in self.chat_object_from_server:
             current_models = self.chat_object_from_server["chat"].get("models", [])
             if set(current_models) != set(model_ids):
@@ -199,7 +202,7 @@ class OpenWebUIClient:
                     responses[model_id] = {"content": None, "sources": []}
 
         successful_responses = {
-            k: v for k, v in responses.items() if v["content"] is not None
+            k: v for k, v in responses.items() if v.get("content") is not None
         }
         if not successful_responses:
             logger.error("All models failed to respond.")
@@ -240,22 +243,16 @@ class OpenWebUIClient:
         logger.info("Updating chat history on the backend...")
         if self._update_remote_chat():
             logger.info("Chat history updated successfully!")
-            self.session_cache[self.chat_object_from_server["title"]] = {
-                "id": self.chat_id,
-                "obj": self.chat_object_from_server,
-                "model": self.model_id,
-            }
             if tags:
                 self.set_chat_tags(self.chat_id, tags)
             return {
-                k: v["content"] for k, v in successful_responses.items()
-            }, self.chat_id
-        return None, None
+                "responses": {k: v["content"] for k, v in successful_responses.items()},
+                "chat_id": self.chat_id,
+                "message_ids": assistant_message_ids,
+            }
+        return None
 
     def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
-        if name in self.kb_cache:
-            logger.info(f"Found knowledge base '{name}' in cache.")
-            return self.kb_cache[name]
         logger.info(f"🔍 Searching for knowledge base '{name}'...")
         try:
             response = self.session.get(
@@ -263,7 +260,6 @@ class OpenWebUIClient:
             )
             response.raise_for_status()
             for kb in response.json():
-                self.kb_cache[kb.get("name")] = kb
                 if kb.get("name") == name:
                     logger.info("   ✅ Found knowledge base.")
                     return kb
@@ -289,7 +285,6 @@ class OpenWebUIClient:
             logger.info(
                 f"   ✅ Knowledge base created successfully. ID: {kb_data.get('id')}"
             )
-            self.kb_cache[name] = kb_data
             return kb_data
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create knowledge base '{name}': {e}")
@@ -710,11 +705,6 @@ class OpenWebUIClient:
         logger.info("Updating chat history on the backend...")
         if self._update_remote_chat():
             logger.info("Chat history updated successfully!")
-            self.session_cache[self.chat_object_from_server["title"]] = {
-                "id": self.chat_id,
-                "obj": self.chat_object_from_server,
-                "model": self.model_id,
-            }
             return assistant_content, assistant_message_id
         return None, None
 
@@ -785,9 +775,6 @@ class OpenWebUIClient:
         return api_payload, storage_payload
 
     def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
-        if file_path in self.file_upload_cache:
-            logger.info(f"Found file in cache: '{os.path.basename(file_path)}'")
-            return self.file_upload_cache[file_path]
         if not os.path.exists(file_path):
             logger.error(f"RAG file not found at path: {file_path}")
             return None
@@ -802,7 +789,6 @@ class OpenWebUIClient:
             response_data = response.json()
             if file_id := response_data.get("id"):
                 logger.info(f"  > Upload successful. File ID: {file_id}")
-                self.file_upload_cache[file_path] = response_data
                 return response_data
             logger.error(f"File upload response did not contain an ID: {response_data}")
             return None
@@ -833,12 +819,13 @@ class OpenWebUIClient:
 
         if tool_ids:
             # The backend expects a list of objects, each with an 'id'
-            payload["tools"] = [{"id": tid} for tid in tool_ids]
+            payload["tool_ids"] = tool_ids
             logger.info(
                 f"Attaching {len(tool_ids)} tools to completion request for model {active_model_id}."
             )
 
         logger.debug(f"Sending completion request: {json.dumps(payload, indent=2)}")
+
         try:
             response = self.session.post(
                 f"{self.base_url}/api/chat/completions",
@@ -850,13 +837,16 @@ class OpenWebUIClient:
             content = data["choices"][0]["message"]["content"]
             sources = data.get("sources", [])
             return content, sources
-        except (requests.exceptions.RequestException, KeyError, IndexError) as e:
-            if hasattr(e, "response"):
-                logger.error(
-                    f"Completions API Error for {active_model_id}: {e.response.text}"
-                )
-            else:
-                logger.error(f"Completions API Error for {active_model_id}: {e}")
+        except requests.exceptions.HTTPError as e:
+            logger.error(
+                f"Completions API HTTP Error for {active_model_id}: {e.response.text}"
+            )
+            return None, []
+        except (KeyError, IndexError) as e:
+            logger.error(f"Completions API Response Error for {active_model_id}: {e}")
+            return None, []
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Completions API Network Error for {active_model_id}: {e}")
             return None, []
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
@@ -893,35 +883,13 @@ class OpenWebUIClient:
             return False
 
         url = f"{self.base_url}/api/v1/chats/{chat_id}"
-        # Simplified payload for renaming, as confirmed by API behavior.
         payload = {"chat": {"title": new_title}}
 
         try:
             logger.info(f"Renaming chat {chat_id[:8]}... to '{new_title}'")
-            # The correct method for updates is POST.
             response = self.session.post(url, headers=self.json_headers, json=payload)
             response.raise_for_status()
             logger.info("Chat renamed successfully.")
-
-            # Updating the session cache is crucial for client consistency.
-            old_title_to_remove = None
-            for cache_key, state in list(self.session_cache.items()):
-                if state["id"] == chat_id:
-                    old_title_to_remove = cache_key
-                    break
-
-            if old_title_to_remove:
-                cached_state = self.session_cache.pop(old_title_to_remove)
-                # Update the object before re-caching it under the new key.
-                if "obj" in cached_state and cached_state["obj"]:
-                    cached_state["obj"]["title"] = new_title
-                    if "chat" in cached_state["obj"] and cached_state["obj"]["chat"]:
-                        cached_state["obj"]["chat"]["title"] = new_title
-
-                self.session_cache[new_title] = cached_state
-                logger.info(
-                    f"Updated session cache: '{old_title_to_remove}' -> '{new_title}'"
-                )
 
             # If the renamed chat is the currently active one, update its internal state.
             if self.chat_id == chat_id and self.chat_object_from_server:
@@ -938,33 +906,13 @@ class OpenWebUIClient:
             return False
 
     def _find_or_create_chat_by_title(self, title: str):
-        if title in self.session_cache:
-            logger.info(f"Loading chat '{title}' from session cache.")
-            self._activate_chat_state(self.session_cache[title])
-            return
         if existing_chat := self._search_latest_chat_by_title(title):
             logger.info(f"Found and loading chat '{title}' via API.")
-            self._load_and_cache_chat_state(existing_chat["id"], title)
+            self._load_chat_details(existing_chat["id"])
         else:
             logger.info(f"Chat '{title}' not found, creating a new one.")
             if new_chat_id := self._create_new_chat(title):
-                self._load_and_cache_chat_state(new_chat_id, title)
-
-    def _activate_chat_state(self, state: Dict[str, Any]):
-        self.chat_id, self.chat_object_from_server, self.model_id = (
-            state["id"],
-            state["obj"],
-            state["model"],
-        )
-
-    def _load_and_cache_chat_state(self, chat_id: str, cache_key: str):
-        details = self._load_chat_details(chat_id)
-        if details:
-            self.session_cache[cache_key] = {
-                "id": self.chat_id,
-                "obj": self.chat_object_from_server,
-                "model": self.model_id,
-            }
+                self._load_chat_details(new_chat_id)
 
     def _load_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
         try:

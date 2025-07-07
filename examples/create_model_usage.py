@@ -10,13 +10,23 @@ load_dotenv()
 # --- Configuration ---
 # The script reads these from your environment variables.
 # See instructions above on how to set them.
-BASE_URL = os.getenv("OPENWEBUI_BASE_URL")
+BASE_URL = os.getenv("OUI_BASE_URL")
 TOKEN = os.getenv("OUI_AUTH_TOKEN")
 
 # --- Test Model Details ---
 # You can change these details if you want.
-TEST_MODEL_ID = "my-test-model:v1"
+TEST_MODEL_ID = "d-agent-exp-designer-1"
 TEST_MODEL_NAME = "My API Test Model"
+client = OpenWebUIClient(base_url=BASE_URL, token=TOKEN, default_model_id="gpt-4.1")
+def run_single_model_chat():
+    """Runs a single chat session with the specified model and messages."""
+    try:
+        response = client.chat(question='hello', model_id=TEST_MODEL_ID, chat_title='111')
+        print(f"Response from model '{TEST_MODEL_ID}': {response}")
+    except Exception as e:
+        print(f"Error during chat: {e}")
+        return None
+    return response
 
 
 def run_model_creation_test():
@@ -130,4 +140,5 @@ def run_model_creation_test():
 
 
 if __name__ == "__main__":
-    run_model_creation_test()
+    # run_model_creation_test()
+    run_single_model_chat()
