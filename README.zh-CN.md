@@ -3,10 +3,14 @@
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
 [![PyPI 版本](https://badge.fury.io/py/openwebui-chat-client.svg)](https://badge.fury.io/py/openwebui-chat-client)
+[![更新日志](https://img.shields.io/badge/更新日志-v0.1.8-blue.svg)](./CHANGELOG.md)
 [![许可证: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![支持的 Python 版本](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
 
 **openwebui-chat-client** 是面向 [Open WebUI](https://github.com/open-webui/open-webui) API 的状态化 Python 客户端库，支持单/多模型对话、工具调用、文件上传、RAG、知识库管理和高级聊天组织。
+
+> [!IMPORTANT]
+> 本项目正处于积极开发阶段，API 可能会在未来版本中发生变化。请查阅最新文档和 [CHANGELOG.md](./CHANGELOG.md) 以获取最新信息。
 
 ---
 
