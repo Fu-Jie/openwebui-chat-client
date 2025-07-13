@@ -3,7 +3,7 @@
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
 [![PyPI 版本](https://badge.fury.io/py/openwebui-chat-client.svg)](https://badge.fury.io/py/openwebui-chat-client)
-[![更新日志](https://img.shields.io/badge/更新日志-v0.1.8-blue.svg)](./CHANGELOG.md)
+[![更新日志](https://img.shields.io/badge/更新日志-v0.1.9-blue.svg)](./CHANGELOG.md)
 [![许可证: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![支持的 Python 版本](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
 
@@ -102,22 +102,6 @@ if result and result.get("responses"):
 
 ---
 
-### 同一会话中切换模型
-
-```python
-chat_title = "模型切换演示"
-result1 = client.chat(question="你是谁？", chat_title=chat_title, model_id="gpt-4.1")
-if result1:
-    print(f"GPT-4.1 回答: {result1['response']}")
-
-result2 = client.chat(question="同样的问题，换种风格回答。", chat_title=chat_title, model_id="gemini-2.5-flash")
-if result2:
-    print(f"Gemini 2.5 Flash 回答: {result2['response']}")
-
-if result1 and result2:
-    print(f"两次交互的 Chat ID: {result1['chat_id']}")
-```
-
 ### 模型管理
 
 ```python
@@ -172,25 +156,16 @@ if folder_id and chat_id:
 | `rename_chat()` | 聊天重命名 | `client.rename_chat(chat_id, "新标题")` |
 | `set_chat_tags()` | 聊天打标签 | `client.set_chat_tags(chat_id, ["tag1"])` |
 | `create_folder()` | 创建聊天文件夹 | `client.create_folder("ProjectX")` |
-| `list_models()` | 列出所有模型条目 | `client.list_models()` |
-| `list_base_models()` | 列出所有基础模型 | `client.list_base_models()` |
+| `list_models()` | 列出所有模型条目（现已提高可靠性） | `client.list_models()` |
+| `list_base_models()` | 列出所有基础模型（现已提高可靠性） | `client.list_base_models()` |
+| `list_custom_models()` | 列出所有自定义模型 | `client.list_custom_models()` |
 | `get_model()` | 获取指定模型详情 | `client.get_model("id")` |
 | `create_model()` | 创建自定义模型 | `client.create_model(...)` |
 | `update_model()` | 更新模型参数 | `client.update_model("id", temperature=0.5)` |
 | `delete_model()` | 删除模型条目 | `client.delete_model("id")` |
+| `switch_chat_model()` | 切换现有聊天的模型 | `client.switch_chat_model(chat_id, "new-model-id")` |
 | `create_knowledge_base()`| 创建知识库 | `client.create_knowledge_base("MyKB")` |
 | `add_file_to_knowledge_base()`| 向知识库添加文件 | `client.add_file_to_knowledge_base(...)` |
 | `get_knowledge_base_by_name()`| 获取知识库 | `client.get_knowledge_base_by_name("MyKB")` |
 
 ---
-
-## 高级功能
-
-- `image_paths`：传入图片路径，模型支持图文混合对话
-- `tool_ids`：传入工具 ID 列表，调用服务器端工具
-
----
-
-## 发布记录
-
-详见 `CHANGELOG.md`。

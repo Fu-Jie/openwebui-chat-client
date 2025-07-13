@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.9] - 2025-07-13
+
+### Added in 0.1.9
+
+- Added `list_custom_models` method to list user-created custom models.
+- Added `switch_chat_model` method to support switching models in existing chats.
+
+### Changed in 0.1.9
+
+- Refactored `list_models` and `list_base_models` methods for improved logging and robust response handling.
+
+### Fixed in 0.1.9
+
+- Corrected an issue where `list_models` and `list_base_models` might return incorrect data due to unexpected API response formats.
+
+---
+
 ## [0.1.8] - 2025-07-08
 
 ### Changed in 0.1.8

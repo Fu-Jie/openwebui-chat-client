@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openwebui-chat-client"
-version = "0.1.8"
+version = "0.1.9"
 authors = [
     { name="fujie", email="fj1945@live.cn" },
 ]
@@ -28,9 +28,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "requests"
+    "requests",
+    "python-dotenv"
 ]
-
 
 [project.urls]
 Homepage = "https://github.com/Fu-Jie/openwebui-chat-client"

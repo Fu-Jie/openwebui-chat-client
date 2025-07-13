@@ -66,14 +66,15 @@ def run_demo():
         folder_name="Technical Questions",
     )
 
-    # 3. Print the responses from each model
-    if result and result.get("responses"):
-        responses = result["responses"]
-        print("\n" + "=" * 25 + " Model Responses " + "=" * 25)
-        for model, content in responses.items():
-            print(f"\n🤖 [{model}'s Response]:\n{content}")
+    # 3. Print the entire result from the API call
+    if result:
+        import json
+        print("\n" + "=" * 25 + " Full API Result " + "=" * 25)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
         print("\n" + "=" * 67)
-        logging.info(f"Chat session saved with ID: {result.get('chat_id')}")
+        # Assuming chat_id is the second element of the tuple if result is a tuple
+        chat_id = result[1] if isinstance(result, tuple) and len(result) > 1 else None
+        logging.info(f"Chat session saved with ID: {chat_id}")
 
     logging.info("\n🎉 Demo completed. Please check your Open WebUI interface.")
 

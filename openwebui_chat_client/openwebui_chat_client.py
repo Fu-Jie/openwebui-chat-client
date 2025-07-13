@@ -5,7 +5,7 @@ import time
 import base64
 import os
 import logging
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple, Dict, Any, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # It is recommended to configure logging at the beginning of your main program
@@ -324,18 +324,37 @@ class OpenWebUIClient:
             return False
 
     def list_models(self) -> Optional[List[Dict[str, Any]]]:
-        """Lists all available models in Open WebUI, including custom variants."""
-        logger.info("Listing all available models...")
+        """
+        Lists all available models for the user, including base models and user-created custom models.
+        """
+        logger.info("Listing all available models for the user...")
         try:
             response = self.session.get(
-                f"{self.base_url}/api/v1/models/", headers=self.json_headers
+                f"{self.base_url}/api/models", headers=self.json_headers
             )
             response.raise_for_status()
-            models = response.json()
-            logger.info(f"Found {len(models)} models.")
+            data = response.json()
+            if (
+                not isinstance(data, dict)
+                or "data" not in data
+                or not isinstance(data["data"], list)
+            ):
+                logger.error(
+                    f"API response for all models did not contain expected 'data' key or was not a list. Response: {data}"
+                )
+                return None
+            models = data["data"]
+            logger.info(f"Successfully listed {len(models)} models.")
             return models
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to list models: {e}")
+            logger.error(f"Failed to list all models. Request error: {e}")
+            if e.response is not None:
+                logger.error(f"Response content: {e.response.text}")
+            return None
+        except json.JSONDecodeError:
+            logger.error(
+                f"Failed to decode JSON response when listing all models. Invalid JSON received."
+            )
             return None
 
     def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
@@ -343,14 +362,60 @@ class OpenWebUIClient:
         logger.info("Listing all available base models...")
         try:
             response = self.session.get(
-                f"{self.base_url}/api/v1/models/base", headers=self.json_headers
+                f"{self.base_url}/api/models/base", headers=self.json_headers
             )
             response.raise_for_status()
-            models = response.json()
-            logger.info(f"Found {len(models)} base models.")
+            data = response.json()
+            if (
+                not isinstance(data, dict)
+                or "data" not in data
+                or not isinstance(data["data"], list)
+            ):
+                logger.error(
+                    f"API response for base models did not contain expected 'data' key or was not a list. Response: {data}"
+                )
+                return None
+            models = data["data"]
+            logger.info(f"Successfully listed {len(models)} base models.")
             return models
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to list base models: {e}")
+            logger.error(f"Failed to list base models. Request error: {e}")
+            if e.response is not None:
+                logger.error(f"Response content: {e.response.text}")
+            return None
+        except json.JSONDecodeError:
+            logger.error(
+                f"Failed to decode JSON response when listing base models. Invalid JSON received."
+            )
+            return None
+
+    def list_custom_models(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Lists all custom models created by the user, excluding base models.
+        """
+        logger.info("Listing all custom models created by the user...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/models/custom", headers=self.json_headers
+            )
+            response.raise_for_status()
+            data = response.json()
+            if not isinstance(data, list):
+                logger.error(
+                    f"API response for custom models did not contain expected list. Response: {data}"
+                )
+                return None
+            logger.info(f"Successfully listed {len(data)} custom models.")
+            return data
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to list custom models. Request error: {e}")
+            if e.response is not None:
+                logger.error(f"Response content: {e.response.text}")
+            return None
+        except json.JSONDecodeError:
+            logger.error(
+                f"Failed to decode JSON response when listing custom models. Invalid JSON received."
+            )
             return None
 
     def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
@@ -603,6 +668,72 @@ class OpenWebUIClient:
             logger.error(f"Failed to delete model '{model_id}': {error_msg}")
             return False
 
+    def switch_chat_model(self, chat_id: str, model_ids: Union[str, List[str]]) -> bool:
+        """
+        Switches the model(s) for an existing chat without sending a new message.
+
+        Args:
+            chat_id: The ID of the chat to update.
+            model_ids: A single model ID (str) or a list of model IDs (List[str]) to set for the chat.
+
+        Returns:
+            True if the model(s) were successfully switched, False otherwise.
+        """
+        if isinstance(model_ids, str):
+            model_ids_list = [model_ids]
+        elif isinstance(model_ids, list):
+            model_ids_list = model_ids
+        else:
+            logger.error("`model_ids` must be a string or a list of strings.")
+            return False
+
+        if not model_ids_list:
+            logger.error("`model_ids` list cannot be empty for switching chat models.")
+            return False
+
+        logger.info(
+            f"Attempting to switch models for chat '{chat_id[:8]}...' to {model_ids_list}"
+        )
+
+        # Load chat details to ensure self.chat_object_from_server is populated
+        # and self.chat_id is set correctly for the update.
+        if not self._load_chat_details(chat_id):
+            logger.error(f"Failed to load chat details for chat ID: {chat_id}")
+            return False
+
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
+            logger.error(f"Chat object not properly loaded for chat ID: {chat_id}")
+            return False
+
+        current_models = self.chat_object_from_server["chat"].get("models", [])
+        if set(current_models) == set(model_ids_list):
+            logger.info(
+                f"Chat '{chat_id[:8]}...' is already using models {model_ids_list}. No change needed."
+            )
+            return True
+
+        logger.info(
+            f"  > Changing models from: {current_models if current_models else 'None'}"
+        )
+        logger.info(f"  > Changing models to:   {model_ids_list}")
+
+        self.model_id = (
+            model_ids_list[0] if model_ids_list else self.default_model_id
+        )  # Set internal state to the first model if multiple
+        self.chat_object_from_server["chat"]["models"] = model_ids_list
+
+        if self._update_remote_chat():
+            logger.info(
+                f"Successfully switched models for chat '{chat_id[:8]}...' to {model_ids_list}."
+            )
+            return True
+        else:
+            logger.error(f"Failed to update remote chat for chat ID: {chat_id}")
+            return False
+
     def _ask(
         self,
         question: str,
@@ -808,7 +939,6 @@ class OpenWebUIClient:
         payload = {
             "model": active_model_id,
             "messages": messages,
-            "chat_id": chat_id,
             "stream": False,
         }
         if api_rag_payload:
@@ -841,7 +971,7 @@ class OpenWebUIClient:
             logger.error(
                 f"Completions API HTTP Error for {active_model_id}: {e.response.text}"
             )
-            return None, []
+            raise e
         except (KeyError, IndexError) as e:
             logger.error(f"Completions API Response Error for {active_model_id}: {e}")
             return None, []

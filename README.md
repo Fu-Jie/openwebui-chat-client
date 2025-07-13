@@ -3,7 +3,7 @@
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
 [![PyPI version](https://badge.fury.io/py/openwebui-chat-client.svg)](https://badge.fury.io/py/openwebui-chat-client)
-[![Changelog](https://img.shields.io/badge/changelog-v0.1.8-blue.svg)](./CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-v0.1.9-blue.svg)](./CHANGELOG.md)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Python Versions](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
 
@@ -216,8 +216,8 @@ if result_1 and result_2:
 | `rename_chat()` | Rename an existing chat. | `client.rename_chat(chat_id, "New Title")` |
 | `set_chat_tags()` | Apply tags to a chat. | `client.set_chat_tags(chat_id, ["tag1"])` |
 | `create_folder()` | Create a chat folder. | `client.create_folder("ProjectX")` |
-| `list_models()` | List all available model entries. | `client.list_models()` |
-| `list_base_models()` | List all available base models. | `client.list_base_models()` |
+| `list_models()` | List all available model entries (now with improved reliability). | `client.list_models()` |
+| `list_base_models()` | List all available base models (now with improved reliability). | `client.list_base_models()` |
 | `get_model()` | Retrieve details for a specific model entry. | `client.get_model("id")` |
 | `create_model()` | Create a detailed, custom model variant. | `client.create_model(...)` |
 | `update_model()` | Update an existing model entry with granular changes. | `client.update_model("id", temperature=0.5)` |
@@ -225,6 +225,7 @@ if result_1 and result_2:
 | `create_knowledge_base()`| Create a new knowledge base. | `client.create_knowledge_base("MyKB")` |
 | `add_file_to_knowledge_base()`| Add a file to a knowledge base. | `client.add_file_to_knowledge_base(...)` |
 | `get_knowledge_base_by_name()`| Retrieve a knowledge base by its name. | `client.get_knowledge_base_by_name("MyKB")` |
+| `switch_chat_model()` | Switch the model(s) for an existing chat. | `client.switch_chat_model(chat_id, "new-model-id")` |
 
 ---
 
