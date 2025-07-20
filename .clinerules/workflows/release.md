@@ -40,7 +40,23 @@ python -m twine upload --repository pypi dist/*
 gh release create vX.Y.Z --title "Release vX.Y.Z" --notes "主要变更内容"
 ```
 
-- `vX.Y.Z`需与tag一致，`主要变更内容`可复制自CHANGELOG.md。
+- `vX.Y.Z`需与tag一致。
+- `主要变更内容`应完整复制`CHANGELOG.md`中对应版本（如`[vX.Y.Z]`）的完整Markdown片段，包括版本号、日期、新增/变更/修复等内容。
+- 命令示例中的`--notes`参数建议用单引号`'`包裹，以避免内容中的特殊字符（如反引号`` ` ``）被shell错误解析。
+
+```bash
+gh release create vX.Y.Z --title "Release vX.Y.Z" --notes '
+## [0.1.10] - 2025-07-20
+
+### Added in 0.1.10
+
+- Added `stream_chat` method for single-model streaming chat functionality.
+- Added `delete_all_knowledge_bases` method to delete all knowledge bases.
+- Added `delete_knowledge_bases_by_keyword` method to delete knowledge bases by name keyword.
+- Added `create_knowledge_bases_with_files` method to batch create knowledge bases and add files.
+'
+```
+
 - 发布后可在GitHub Releases页面确认。
 
 ---
