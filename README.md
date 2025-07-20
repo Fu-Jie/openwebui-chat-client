@@ -212,6 +212,7 @@ if result_1 and result_2:
 | Method | Description | Example |
 |--------|-------------|---------|
 | `chat()` | Start/continue a single-model conversation. Returns a dictionary with `response`, `chat_id`, and `message_id`. | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
+| `stream_chat()` | Start/continue a single-model streaming conversation. Yields content chunks and returns full response/sources at the end. | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
 | `parallel_chat()` | Start/continue a multi-model conversation. Returns a dictionary with `responses`, `chat_id`, and `message_ids`. | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
 | `rename_chat()` | Rename an existing chat. | `client.rename_chat(chat_id, "New Title")` |
 | `set_chat_tags()` | Apply tags to a chat. | `client.set_chat_tags(chat_id, ["tag1"])` |

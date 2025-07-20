@@ -152,6 +152,7 @@ if folder_id and chat_id:
 | 方法 | 说明 | 示例 |
 |--------|-------------|---------|
 | `chat()` | 启动/继续单模型对话，返回包含 `response`, `chat_id`, `message_id` 的字典。 | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
+| `stream_chat()` | 启动/继续单模型流式对话。生成内容块并在结束时返回完整响应/来源。 | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
 | `parallel_chat()` | 启动/继续多模型对话，返回包含 `responses`, `chat_id`, `message_ids` 的字典。 | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
 | `rename_chat()` | 聊天重命名 | `client.rename_chat(chat_id, "新标题")` |
 | `set_chat_tags()` | 聊天打标签 | `client.set_chat_tags(chat_id, ["tag1"])` |
