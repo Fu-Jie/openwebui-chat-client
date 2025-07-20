@@ -32,6 +32,17 @@ python -m twine upload --repository pypi dist/*
 
 ## 6. PyPI官网确认新版本发布成功
 
+## 7. GitHub发布Release
+
+- 推荐用GitHub CLI命令一键发布（需已安装并登录gh）：
+
+```bash
+gh release create vX.Y.Z --title "Release vX.Y.Z" --notes "主要变更内容"
+```
+
+- `vX.Y.Z`需与tag一致，`主要变更内容`可复制自CHANGELOG.md。
+- 发布后可在GitHub Releases页面确认。
+
 ---
 
 > 使用方法：在Cline聊天窗口输入 `/release.md` 即可触发本工作流，按步骤操作即可完成标准发布流程。
