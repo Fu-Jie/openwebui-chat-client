@@ -5,7 +5,7 @@ import time
 import base64
 import os
 import logging
-from typing import Optional, List, Tuple, Dict, Any, Union
+from typing import Optional, List, Tuple, Dict, Any, Union, Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # It is recommended to configure logging at the beginning of your main program
@@ -129,7 +129,7 @@ class OpenWebUIClient:
 
         self._find_or_create_chat_by_title(chat_title)
 
-        # 处理现有并行聊天的模型集更改
+        # Handle model set changes for existing parallel chats
         if self.chat_object_from_server and "chat" in self.chat_object_from_server:
             current_models = self.chat_object_from_server["chat"].get("models", [])
             if set(current_models) != set(model_ids):
@@ -252,6 +252,70 @@ class OpenWebUIClient:
             }
         return None
 
+    def stream_chat(
+        self,
+        question: str,
+        chat_title: str,
+        model_id: Optional[str] = None,
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+    ) -> Generator[str, None, Tuple[Optional[str], Optional[List[Dict]]]]:
+        """
+        Initiates a streaming chat session. Yields content chunks as they are received.
+        At the end of the stream, returns the full response content and sources.
+        """
+        self.model_id = model_id or self.default_model_id
+        logger.info("=" * 60)
+        logger.info(
+            f"Processing STREAMING request: title='{chat_title}', model='{self.model_id}'"
+        )
+        if folder_name:
+            logger.info(f"Folder: '{folder_name}'")
+        if tags:
+            logger.info(f"Tags: {tags}")
+        if image_paths:
+            logger.info(f"With images: {image_paths}")
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
+        logger.info("=" * 60)
+
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_id:
+            logger.error("Chat initialization failed, cannot proceed with stream.")
+            return  # Yield nothing, effectively end the generator
+
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.chat_id, folder_id)
+
+        try:
+            final_response_content, final_sources = yield from self._ask_stream(
+                question, image_paths, rag_files, rag_collections, tool_ids
+            )
+
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+
+            return final_response_content, final_sources
+
+        except Exception as e:
+            logger.error(f"Error in stream_chat: {e}")
+            raise  # Re-raise the exception for the caller
+        
+        
+
     def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         logger.info(f"🔍 Searching for knowledge base '{name}'...")
         try:
@@ -322,6 +386,161 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to add file to knowledge base: {e}")
             return False
+
+    def delete_knowledge_base(self, kb_id: str) -> bool:
+        """
+        Deletes a knowledge base by its ID.
+        """
+        logger.info(f"🗑️ Deleting knowledge base with ID: {kb_id[:8]}...")
+        try:
+            response = self.session.delete(
+                f"{self.base_url}/api/v1/knowledge/{kb_id}/delete",
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            if response.json() is True:
+                logger.info(f"   ✅ Knowledge base {kb_id[:8]} deleted successfully.")
+                return True
+            else:
+                logger.warning(f"   ⚠️ Knowledge base {kb_id[:8]} deletion returned unexpected response: {response.text}")
+                return False
+        except requests.exceptions.RequestException as e:
+            logger.error(f"   ❌ Failed to delete knowledge base {kb_id[:8]}: {e}")
+            return False
+
+    def delete_all_knowledge_bases(self) -> Tuple[int, int]:
+        """
+        Deletes all knowledge bases.
+        Returns a tuple of (successful_deletions, failed_deletions).
+        """
+        logger.info("🗑️ Deleting ALL knowledge bases...")
+        successful_deletions = 0
+        failed_deletions = 0
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/knowledge/list", headers=self.json_headers
+            )
+            response.raise_for_status()
+            knowledge_bases = response.json()
+            if not knowledge_bases:
+                logger.info("   ℹ️ No knowledge bases found to delete.")
+                return 0, 0
+
+            with ThreadPoolExecutor(max_workers=5) as executor: # Limit concurrency
+                futures = {executor.submit(self.delete_knowledge_base, kb['id']): kb['name'] for kb in knowledge_bases}
+                for future in as_completed(futures):
+                    kb_name = futures[future]
+                    try:
+                        if future.result():
+                            successful_deletions += 1
+                        else:
+                            failed_deletions += 1
+                    except Exception as exc:
+                        logger.error(f"   ❌ Knowledge base '{kb_name}' generated an exception during deletion: {exc}")
+                        failed_deletions += 1
+            logger.info(f"   ✅ Finished deleting knowledge bases. Successful: {successful_deletions}, Failed: {failed_deletions}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"   ❌ Failed to retrieve knowledge bases for batch deletion: {e}")
+            return successful_deletions, failed_deletions
+        return successful_deletions, failed_deletions
+
+    def delete_knowledge_bases_by_keyword(self, keyword: str) -> Tuple[int, int, List[str]]:
+        """
+        Deletes knowledge bases whose names contain the given keyword (case-insensitive).
+        Returns a tuple of (successful_deletions, failed_deletions, names_deleted).
+        """
+        logger.info(f"🗑️ Deleting knowledge bases with keyword '{keyword}'...")
+        successful_deletions = 0
+        failed_deletions = 0
+        names_deleted: List[str] = []
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/knowledge/list", headers=self.json_headers
+            )
+            response.raise_for_status()
+            knowledge_bases = response.json()
+            
+            kbs_to_delete = [
+                kb for kb in knowledge_bases if keyword.lower() in kb.get("name", "").lower()
+            ]
+
+            if not kbs_to_delete:
+                logger.info(f"   ℹ️ No knowledge bases found matching keyword '{keyword}'.")
+                return 0, 0, []
+
+            with ThreadPoolExecutor(max_workers=5) as executor: # Limit concurrency
+                futures = {executor.submit(self.delete_knowledge_base, kb['id']): kb['name'] for kb in kbs_to_delete}
+                for future in as_completed(futures):
+                    kb_name = futures[future]
+                    try:
+                        if future.result():
+                            successful_deletions += 1
+                            names_deleted.append(kb_name)
+                        else:
+                            failed_deletions += 1
+                    except Exception as exc:
+                        logger.error(f"   ❌ Knowledge base '{kb_name}' generated an exception during deletion: {exc}")
+                        failed_deletions += 1
+            logger.info(f"   ✅ Finished deleting knowledge bases by keyword. Successful: {successful_deletions}, Failed: {failed_deletions}. Deleted: {names_deleted}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"   ❌ Failed to retrieve knowledge bases for keyword deletion: {e}")
+            return successful_deletions, failed_deletions, names_deleted
+        return successful_deletions, failed_deletions, names_deleted
+
+    def create_knowledge_bases_with_files(
+        self, knowledge_base_files: Dict[str, List[str]]
+    ) -> Dict[str, Any]:
+        """
+        Creates multiple knowledge bases and adds specified files to each.
+
+        Args:
+            knowledge_base_files: A dictionary where keys are knowledge base names
+                                  and values are lists of file paths to add to that KB.
+
+        Returns:
+            A dictionary with keys "success" (list of successfully created KB names)
+            and "failed" (dict of {KB_name: error_message} for failed KBs).
+        """
+        logger.info("📁 Batch creating knowledge bases and adding files...")
+        results: Dict[str, Any] = {"success": [], "failed": {}}
+
+        def _process_single_kb(kb_name: str, file_paths: List[str]) -> Tuple[str, bool, Optional[str]]:
+            try:
+                kb_data = self.create_knowledge_base(kb_name)
+                if not kb_data:
+                    return kb_name, False, f"Failed to create knowledge base '{kb_name}'."
+                
+                kb_id = kb_data["id"]
+                file_add_success_count = 0
+                file_add_fail_count = 0
+
+                for file_path in file_paths:
+                    if self.add_file_to_knowledge_base(file_path, kb_name): # This method handles file upload internally
+                        file_add_success_count += 1
+                    else:
+                        file_add_fail_count += 1
+                
+                if file_add_fail_count > 0:
+                    return kb_name, False, f"KB created, but {file_add_fail_count}/{len(file_paths)} files failed to add."
+                return kb_name, True, None
+            except Exception as e:
+                return kb_name, False, str(e)
+
+        with ThreadPoolExecutor(max_workers=5) as executor: # Limit concurrency for KB creation
+            futures = {
+                executor.submit(_process_single_kb, kb_name, file_paths): kb_name
+                for kb_name, file_paths in knowledge_base_files.items()
+            }
+
+            for future in as_completed(futures):
+                kb_name, success, error_msg = future.result()
+                if success:
+                    results["success"].append(kb_name)
+                else:
+                    results["failed"][kb_name] = error_msg or "Unknown error"
+        
+        logger.info(f"   ✅ Batch creation complete. Successful KBs: {len(results['success'])}, Failed KBs: {len(results['failed'])}")
+        return results
 
     def list_models(self) -> Optional[List[Dict[str, Any]]]:
         """
@@ -768,9 +987,11 @@ class OpenWebUIClient:
         )
         api_messages.append({"role": "user", "content": final_api_content})
 
-        logger.info("Calling completions API to get model response...")
-        assistant_content, sources = self._get_model_completion(
-            self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
+        logger.info("Calling NON-STREAMING completions API to get model response...")
+        assistant_content, sources = (
+            self._get_model_completion(  # Call non-streaming method
+                self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
+            )
         )
         if assistant_content is None:
             return None, None
@@ -836,8 +1057,138 @@ class OpenWebUIClient:
         logger.info("Updating chat history on the backend...")
         if self._update_remote_chat():
             logger.info("Chat history updated successfully!")
+
             return assistant_content, assistant_message_id
         return None, None
+
+    # Final revised _ask_stream method
+    def _ask_stream(
+        self,
+        question: str,
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+    ) -> Generator[str, None, Tuple[str, List]]:
+        if not self.chat_id:
+            raise ValueError("Chat ID not set. Initialize chat first.")
+
+        logger.info(f'Processing STREAMING question: "{question}"')
+        chat_core = self.chat_object_from_server["chat"]
+        chat_core["models"] = [self.model_id]
+
+        # Preparation (this part of your code is correct)
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
+        )
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for image_path in image_paths:
+                base64_image = self._encode_image_to_base64(image_path)
+                if base64_image:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": base64_image}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+
+        user_message_id = str(uuid.uuid4())
+        last_message_id = chat_core["history"].get("currentId")
+
+        storage_user_message = {
+            "id": user_message_id,
+            "parentId": last_message_id,
+            "childrenIds": [],
+            "role": "user",
+            "content": question,
+            "files": [],
+            "models": [self.model_id],
+            "timestamp": int(time.time()),
+        }
+        if image_paths:
+            for image_path in image_paths:
+                base64_url = self._encode_image_to_base64(image_path)
+                if base64_url:
+                    storage_user_message["files"].append(
+                        {"type": "image", "url": base64_url}
+                    )
+        storage_user_message["files"].extend(storage_rag_payloads)
+        chat_core["history"]["messages"][user_message_id] = storage_user_message
+        if last_message_id:
+            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
+                user_message_id
+            )
+
+        logger.info("Calling STREAMING completions API to get model response...")
+        assistant_message_id = str(uuid.uuid4())
+        storage_assistant_message = {
+            "id": assistant_message_id,
+            "parentId": user_message_id,
+            "childrenIds": [],
+            "role": "assistant",
+            "content": "",
+            "model": self.model_id,
+            "modelName": self.model_id.split(":")[0],
+            "timestamp": int(time.time()),
+            "done": False,
+            "sources": [],
+        }
+        chat_core["history"]["messages"][
+            assistant_message_id
+        ] = storage_assistant_message
+
+        try:
+            # Manually iterate to accumulate content and capture return value
+            assistant_full_content = ""
+            sources = []
+
+            stream_generator = self._get_model_completion_stream(
+                self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
+            )
+
+            while True:
+                try:
+                    chunk = next(stream_generator)
+                    assistant_full_content += chunk
+                    yield chunk  # Pass data chunk to the upper layer
+                except StopIteration as e:
+                    sources = e.value  # Capture the generator's return value
+                    break  # Exit loop
+
+            logger.info("Successfully received full streaming model response.")
+
+            # Update the final state of the assistant message
+            storage_assistant_message["content"] = assistant_full_content
+            storage_assistant_message["done"] = True
+            storage_assistant_message["sources"] = sources
+
+            # Update chat history
+            chat_core["history"]["messages"][user_message_id]["childrenIds"].append(
+                assistant_message_id
+            )
+            chat_core["history"]["currentId"] = assistant_message_id
+            chat_core["messages"] = self._build_linear_history_for_storage(
+                chat_core, assistant_message_id
+            )
+            chat_core["models"] = [self.model_id]
+            existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+            chat_core.setdefault("files", []).extend(
+                [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+            )
+
+            logger.info("Updating chat history on the backend after stream...")
+            if self._update_remote_chat():
+                logger.info("Chat history updated successfully!")
+
+            return assistant_full_content, sources
+        except Exception as e:
+            logger.error(f"Error during streaming chat: {e}")
+            raise
 
     def _get_single_model_response_in_parallel(
         self,
@@ -939,7 +1290,7 @@ class OpenWebUIClient:
         payload = {
             "model": active_model_id,
             "messages": messages,
-            "stream": False,
+            "stream": False,  # Non-streaming
         }
         if api_rag_payload:
             payload["files"] = api_rag_payload
@@ -954,7 +1305,9 @@ class OpenWebUIClient:
                 f"Attaching {len(tool_ids)} tools to completion request for model {active_model_id}."
             )
 
-        logger.debug(f"Sending completion request: {json.dumps(payload, indent=2)}")
+        logger.debug(
+            f"Sending NON-STREAMING completion request: {json.dumps(payload, indent=2)}"
+        )
 
         try:
             response = self.session.post(
@@ -978,6 +1331,82 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Completions API Network Error for {active_model_id}: {e}")
             return None, []
+
+    def _get_model_completion_stream(  # New method for streaming
+        self,
+        chat_id: str,
+        messages: List[Dict[str, Any]],
+        api_rag_payload: Optional[List[Dict]] = None,
+        model_id: Optional[str] = None,
+        tool_ids: Optional[List[str]] = None,
+    ) -> Generator[
+        str, None, List
+    ]:  # Yields content chunks, returns a list (sources) at the end
+        active_model_id = model_id or self.model_id
+        payload = {
+            "model": active_model_id,
+            "messages": messages,
+            "stream": True,  # KEY CHANGE: Enable streaming
+        }
+        if api_rag_payload:
+            payload["files"] = api_rag_payload
+        if tool_ids:
+            payload["tool_ids"] = tool_ids
+
+        logger.debug(
+            f"Sending STREAMING completion request: {json.dumps(payload, indent=2)}"
+        )
+
+        try:
+            # Use stream=True to keep the connection open
+            with self.session.post(
+                f"{self.base_url}/api/chat/completions",
+                json=payload,
+                headers=self.json_headers,
+                stream=True,  # KEY CHANGE: Enable streaming on requests session
+            ) as response:
+                response.raise_for_status()
+
+                sources = []
+
+                for line in response.iter_lines():
+                    if line:
+                        decoded_line = line.decode("utf-8")
+                        if decoded_line.startswith("data:"):
+                            json_data = decoded_line[len("data:") :].strip()
+                            if json_data == "[DONE]":
+                                break
+
+                            try:
+                                data = json.loads(json_data)
+                                if "choices" in data and len(data["choices"]) > 0:
+                                    delta = data["choices"][0].get("delta", {})
+                                    content_chunk = delta.get("content", "")
+
+                                    # Handle sources if they come in streaming chunks (though usually at end)
+                                    if "sources" in data:
+                                        sources.extend(data["sources"])
+
+                                    if content_chunk:
+                                        yield content_chunk  # Yield each chunk of content
+
+                                # Handle final sources if they are sent as part of a non-delta message at the end
+                                if (
+                                    "sources" in data and not sources
+                                ):  # Only if sources haven't been collected yet
+                                    sources.extend(data["sources"])
+
+                            except json.JSONDecodeError:
+                                logger.warning(
+                                    f"Failed to decode JSON from stream: {json_data}"
+                                )
+                                continue
+                return sources  # Return sources at the end of the generator
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"Streaming Completions API Network Error for {active_model_id}: {e}"
+            )
+            raise
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         if not tags:

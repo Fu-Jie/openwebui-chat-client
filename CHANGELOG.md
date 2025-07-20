@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.10] - 2025-07-20
+
+### Added in 0.1.10
+
+- Added `delete_all_knowledge_bases` method to delete all knowledge bases.
+- Added `delete_knowledge_bases_by_keyword` method to delete knowledge bases by name keyword.
+- Added `create_knowledge_bases_with_files` method to batch create knowledge bases and add files.
+
+---
+
 ## [0.1.9] - 2025-07-13
 
 ### Added in 0.1.9

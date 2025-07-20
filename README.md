@@ -225,6 +225,10 @@ if result_1 and result_2:
 | `create_knowledge_base()`| Create a new knowledge base. | `client.create_knowledge_base("MyKB")` |
 | `add_file_to_knowledge_base()`| Add a file to a knowledge base. | `client.add_file_to_knowledge_base(...)` |
 | `get_knowledge_base_by_name()`| Retrieve a knowledge base by its name. | `client.get_knowledge_base_by_name("MyKB")` |
+| `delete_knowledge_base()` | Delete a knowledge base by its ID. | `client.delete_knowledge_base("kb_id")` |
+| `delete_all_knowledge_bases()` | Delete all knowledge bases. | `client.delete_all_knowledge_bases()` |
+| `delete_knowledge_bases_by_keyword()` | Delete knowledge bases whose names contain the given keyword. | `client.delete_knowledge_bases_by_keyword("keyword")` |
+| `create_knowledge_bases_with_files()` | Create multiple knowledge bases and add files to each. | `client.create_knowledge_bases_with_files({"KB1": ["file1.txt"]})` |
 | `switch_chat_model()` | Switch the model(s) for an existing chat. | `client.switch_chat_model(chat_id, "new-model-id")` |
 
 ---

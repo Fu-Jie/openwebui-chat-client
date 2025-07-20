@@ -167,5 +167,9 @@ if folder_id and chat_id:
 | `create_knowledge_base()`| 创建知识库 | `client.create_knowledge_base("MyKB")` |
 | `add_file_to_knowledge_base()`| 向知识库添加文件 | `client.add_file_to_knowledge_base(...)` |
 | `get_knowledge_base_by_name()`| 获取知识库 | `client.get_knowledge_base_by_name("MyKB")` |
+| `delete_knowledge_base()` | 根据ID删除知识库。 | `client.delete_knowledge_base("kb_id")` |
+| `delete_all_knowledge_bases()` | 删除所有知识库。 | `client.delete_all_knowledge_bases()` |
+| `delete_knowledge_bases_by_keyword()` | 根据关键字删除知识库。 | `client.delete_knowledge_bases_by_keyword("关键字")` |
+| `create_knowledge_bases_with_files()` | 批量创建知识库并添加文件。 | `client.create_knowledge_bases_with_files({"KB1": ["file1.txt"]})` |
 
 ---
