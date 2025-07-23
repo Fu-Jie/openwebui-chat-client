@@ -1,0 +1,39 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install linting dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+
+    - name: Check code formatting with black (informational)
+      run: |
+        black --check --diff openwebui_chat_client/ tests/ || echo "Code formatting issues found (informational only)"
+
+    - name: Check import sorting with isort (informational) 
+      run: |
+        isort --check-only --diff openwebui_chat_client/ tests/ || echo "Import sorting issues found (informational only)"
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 openwebui_chat_client/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 openwebui_chat_client/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
