@@ -1458,7 +1458,7 @@ class OpenWebUIClient:
 
             return True
         except requests.exceptions.RequestException as e:
-            if hasattr(e, "response"):
+            if hasattr(e, "response") and e.response is not None:
                 logger.error(f"Failed to rename chat: {e.response.text}")
             else:
                 logger.error(f"Failed to rename chat: {e}")
@@ -1554,8 +1554,12 @@ class OpenWebUIClient:
             )
             response.raise_for_status()
             chat_id = response.json().get("id")
-            logger.info(f"Successfully created chat with ID: {chat_id[:8]}...")
-            return chat_id
+            if chat_id:
+                logger.info(f"Successfully created chat with ID: {chat_id[:8]}...")
+                return chat_id
+            else:
+                logger.error("Chat creation response did not contain an ID.")
+                return None
         except (requests.exceptions.RequestException, KeyError) as e:
             logger.error(f"Failed to create new chat: {e}")
             return None
