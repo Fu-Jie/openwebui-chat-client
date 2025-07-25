@@ -37,7 +37,7 @@ python -m twine upload --repository pypi dist/*
 - 推荐用GitHub CLI命令一键发布（需已安装并登录gh）：
 
 ```bash
-gh release create vX.Y.Z --title "Release vX.Y.Z" --notes "主要变更内容"
+gh release create vX.Y.Z --title "vX.Y.Z" --notes "主要变更内容"
 ```
 
 - `vX.Y.Z`需与tag一致。
@@ -45,7 +45,7 @@ gh release create vX.Y.Z --title "Release vX.Y.Z" --notes "主要变更内容"
 - 命令示例中的`--notes`参数建议用单引号`'`包裹，以避免内容中的特殊字符（如反引号`` ` ``）被shell错误解析。
 
 ```bash
-gh release create vX.Y.Z --title "Release vX.Y.Z" --notes '
+gh release create vX.Y.Z --title "vX.Y.Z" --notes '
 ## [0.1.10] - 2025-07-20
 
 ### Added in 0.1.10
