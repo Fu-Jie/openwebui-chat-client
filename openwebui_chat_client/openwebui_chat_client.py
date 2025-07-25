@@ -33,6 +33,7 @@ class OpenWebUIClient:
         self.chat_id: Optional[str] = None
         self.chat_object_from_server: Optional[Dict[str, Any]] = None
         self.model_id: str = default_model_id
+        self.available_model_ids: List[str] = self.list_models() or []
 
     def chat(
         self,
@@ -640,20 +641,52 @@ class OpenWebUIClient:
     def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
         """
         Fetches the details of a specific model by its ID.
+        If the model ID is not found in the locally available models, it returns None.
+        If the model ID is available locally but the API returns a 401 error (indicating the model is not initialized/saved on the backend),
+        it will attempt to create the model and then retry fetching its details.
 
         Args:
-            model_id: The ID of the model to fetch (e.g., 'llama3:latest').
+            model_id: The ID of the model to fetch (e.g., 'gpt-4.1').
 
         Returns:
-            A dictionary containing the model details, or None if not found.
+            A dictionary containing the model details, or None if not found or creation fails.
         """
         logger.info(f"Fetching details for model '{model_id}'...")
+        if not model_id:
+            logger.error("Model ID cannot be empty.")
+            return None
+        if model_id not in self.available_model_ids:
+            logger.warning(f"Model ID '{model_id}' not found in available models.")
+            return None
         try:
             response = self.session.get(
                 f"{self.base_url}/api/v1/models/model",
                 params={"id": model_id},
                 headers=self.json_headers,
             )
+            if response.status_code == 401:
+                logger.warning(
+                    f"Model '{model_id}' not found in API, attempting to create it."
+                )
+                # init create model
+                created_model = self.create_model(
+                    model_id=model_id, name=model_id, base_model_id=None
+                )
+                if created_model:
+                    logger.info(
+                        f"Model '{model_id}' created successfully, retrying to fetch details."
+                    )
+                    # Retry fetching the model details after creation
+                    response = self.session.get(
+                        f"{self.base_url}/api/v1/models/model",
+                        params={"id": model_id},
+                        headers=self.json_headers,
+                    )
+                else:
+                    logger.error(
+                        f"Failed to create model '{model_id}', cannot fetch details."
+                    )
+                    return None
             response.raise_for_status()
             model = response.json()
             if model:

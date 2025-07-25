@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- `OpenWebUIClient` 初始化时，自动加载可用模型ID列表。
+- `get_model` 方法增强，如果模型不存在且API返回401，尝试自动创建模型并重试获取。
+
+### Changed
+- `get_model` 方法增加了对空 `model_id` 和本地可用模型列表的检查。
+
+
 ## [0.1.10] - 2025-07-20
 
 ### Added in 0.1.10
