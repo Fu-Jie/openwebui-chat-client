@@ -33,7 +33,35 @@ class OpenWebUIClient:
         self.chat_id: Optional[str] = None
         self.chat_object_from_server: Optional[Dict[str, Any]] = None
         self.model_id: str = default_model_id
+        self.task_model: Optional[str] = None
         self.available_model_ids: List[str] = self.list_models() or []
+        self._auto_cleanup_enabled: bool = (
+            True  # Controls whether to auto-cleanup placeholder messages
+        )
+        self._first_stream_request: bool = (
+            True  # Tracks if this is the first streaming request
+        )
+
+    def __del__(self):
+        """
+        Destructor: Automatically cleans up placeholder messages and syncs with remote server when instance is destroyed
+        """
+        if self._auto_cleanup_enabled and self.chat_id and self.chat_object_from_server:
+            try:
+                logger.info(
+                    "🧹 Client cleanup: Removing unused placeholder messages..."
+                )
+                cleaned_count = self._cleanup_unused_placeholder_messages()
+                if cleaned_count > 0:
+                    logger.info(
+                        f"🧹 Client cleanup: Cleaned {cleaned_count} placeholder message pairs before exit."
+                    )
+                else:
+                    logger.info("🧹 Client cleanup: No placeholder messages to clean.")
+            except Exception as e:
+                logger.warning(
+                    f"🧹 Client cleanup: Error during automatic cleanup: {e}"
+                )
 
     def chat(
         self,
@@ -46,6 +74,7 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
     ) -> Optional[Dict[str, Any]]:
         self.model_id = model_id or self.default_model_id
         logger.info("=" * 60)
@@ -87,17 +116,26 @@ class OpenWebUIClient:
             if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
                 self.move_chat_to_folder(self.chat_id, folder_id)
 
-        response, message_id = self._ask(
-            question, image_paths, rag_files, rag_collections, tool_ids
+        response, message_id, follow_ups = self._ask(
+            question,
+            image_paths,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_follow_up,
         )
         if response:
             if tags:
                 self.set_chat_tags(self.chat_id, tags)
-            return {
+
+            return_data = {
                 "response": response,
                 "chat_id": self.chat_id,
                 "message_id": message_id,
             }
+            if follow_ups:
+                return_data["follow_ups"] = follow_ups
+            return return_data
         return None
 
     def parallel_chat(
@@ -111,6 +149,7 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
     ) -> Optional[Dict[str, Any]]:
         if not model_ids:
             logger.error("`model_ids` list cannot be empty for parallel chat.")
@@ -190,17 +229,26 @@ class OpenWebUIClient:
                     image_paths,
                     api_rag_payload,
                     tool_ids,
+                    enable_follow_up,
                 ): model_id
                 for model_id in model_ids
             }
             for future in as_completed(future_to_model):
                 model_id = future_to_model[future]
                 try:
-                    content, sources = future.result()
-                    responses[model_id] = {"content": content, "sources": sources}
+                    content, sources, follow_ups = future.result()
+                    responses[model_id] = {
+                        "content": content,
+                        "sources": sources,
+                        "followUps": follow_ups,
+                    }
                 except Exception as exc:
                     logger.error(f"Model '{model_id}' generated an exception: {exc}")
-                    responses[model_id] = {"content": None, "sources": []}
+                    responses[model_id] = {
+                        "content": None,
+                        "sources": [],
+                        "followUps": None,
+                    }
 
         successful_responses = {
             k: v for k, v in responses.items() if v.get("content") is not None
@@ -226,6 +274,8 @@ class OpenWebUIClient:
                 "done": True,
                 "sources": resp_data["sources"],
             }
+            if "followUps" in resp_data:
+                storage_assistant_message["followUps"] = resp_data["followUps"]
             chat_core["history"]["messages"][assistant_id] = storage_assistant_message
 
         chat_core["history"]["messages"][user_message_id][
@@ -242,15 +292,38 @@ class OpenWebUIClient:
         )
 
         logger.info("Updating chat history on the backend...")
+        logger.info("First update to save main responses...")
         if self._update_remote_chat():
-            logger.info("Chat history updated successfully!")
+            logger.info("Main responses saved successfully!")
+
+            # This part is simplified because follow-ups are already in the message objects.
+            # We just need to perform the final update if any follow-ups were generated.
+            if any(
+                r.get("followUps")
+                for r in successful_responses.values()
+                if r.get("followUps")
+            ):
+                logger.info("Updating chat again with follow-up suggestions...")
+                if self._update_remote_chat():
+                    logger.info("Follow-up suggestions saved successfully!")
+                else:
+                    logger.warning("Failed to save follow-up suggestions.")
+
             if tags:
                 self.set_chat_tags(self.chat_id, tags)
+
+            # Prepare a more detailed response object
+            final_responses = {
+                k: {"content": v["content"], "follow_ups": v.get("followUps")}
+                for k, v in successful_responses.items()
+            }
+
             return {
-                "responses": {k: v["content"] for k, v in successful_responses.items()},
+                "responses": final_responses,
                 "chat_id": self.chat_id,
                 "message_ids": assistant_message_ids,
             }
+
         return None
 
     def stream_chat(
@@ -264,10 +337,17 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
-    ) -> Generator[str, None, Tuple[Optional[str], Optional[List[Dict]]]]:
+        enable_follow_up: bool = False,
+        cleanup_placeholder_messages: bool = False,  # New: Clean up placeholder messages
+        placeholder_pool_size: int = 30,  # New: Size of placeholder message pool (configurable)
+        min_available_messages: int = 10,  # New: Minimum available messages threshold
+        wait_before_request: float = 10.0,  # New: Wait time after initializing placeholders (seconds)
+    ) -> Generator[
+        str, None, Tuple[Optional[str], Optional[List[Dict]], Optional[List[str]]]
+    ]:
         """
         Initiates a streaming chat session. Yields content chunks as they are received.
-        At the end of the stream, returns the full response content and sources.
+        At the end of the stream, returns the full response content, sources, and follow-up suggestions.
         """
         self.model_id = model_id or self.default_model_id
         logger.info("=" * 60)
@@ -302,20 +382,43 @@ class OpenWebUIClient:
                 self.move_chat_to_folder(self.chat_id, folder_id)
 
         try:
-            final_response_content, final_sources = yield from self._ask_stream(
-                question, image_paths, rag_files, rag_collections, tool_ids
+            # 1. Ensure there are enough placeholder messages available
+            self._ensure_placeholder_messages(
+                placeholder_pool_size, min_available_messages
+            )
+
+            # 2. If this is the first streaming request and wait time is set, wait for specified seconds
+            if self._first_stream_request and wait_before_request > 0:
+                logger.info(
+                    f"⏱️ First stream request: Waiting {wait_before_request} seconds before requesting AI response..."
+                )
+                time.sleep(wait_before_request)
+                logger.info("⏱️ Wait completed, starting AI request...")
+                self._first_stream_request = False  # Mark as not first request
+
+            # 3. Call _ask_stream method, which now uses placeholder messages
+            final_response_content, final_sources, follow_ups = (
+                yield from self._ask_stream(
+                    question,
+                    image_paths,
+                    rag_files,
+                    rag_collections,
+                    tool_ids,
+                    enable_follow_up,
+                    cleanup_placeholder_messages,
+                    placeholder_pool_size,
+                    min_available_messages,
+                )
             )
 
             if tags:
                 self.set_chat_tags(self.chat_id, tags)
 
-            return final_response_content, final_sources
+            return final_response_content, final_sources, follow_ups
 
         except Exception as e:
             logger.error(f"Error in stream_chat: {e}")
             raise  # Re-raise the exception for the caller
-        
-        
 
     def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         logger.info(f"🔍 Searching for knowledge base '{name}'...")
@@ -403,7 +506,9 @@ class OpenWebUIClient:
                 logger.info(f"   ✅ Knowledge base {kb_id[:8]} deleted successfully.")
                 return True
             else:
-                logger.warning(f"   ⚠️ Knowledge base {kb_id[:8]} deletion returned unexpected response: {response.text}")
+                logger.warning(
+                    f"   ⚠️ Knowledge base {kb_id[:8]} deletion returned unexpected response: {response.text}"
+                )
                 return False
         except requests.exceptions.RequestException as e:
             logger.error(f"   ❌ Failed to delete knowledge base {kb_id[:8]}: {e}")
@@ -427,8 +532,11 @@ class OpenWebUIClient:
                 logger.info("   ℹ️ No knowledge bases found to delete.")
                 return 0, 0
 
-            with ThreadPoolExecutor(max_workers=5) as executor: # Limit concurrency
-                futures = {executor.submit(self.delete_knowledge_base, kb['id']): kb['name'] for kb in knowledge_bases}
+            with ThreadPoolExecutor(max_workers=5) as executor:  # Limit concurrency
+                futures = {
+                    executor.submit(self.delete_knowledge_base, kb["id"]): kb["name"]
+                    for kb in knowledge_bases
+                }
                 for future in as_completed(futures):
                     kb_name = futures[future]
                     try:
@@ -437,15 +545,23 @@ class OpenWebUIClient:
                         else:
                             failed_deletions += 1
                     except Exception as exc:
-                        logger.error(f"   ❌ Knowledge base '{kb_name}' generated an exception during deletion: {exc}")
+                        logger.error(
+                            f"   ❌ Knowledge base '{kb_name}' generated an exception during deletion: {exc}"
+                        )
                         failed_deletions += 1
-            logger.info(f"   ✅ Finished deleting knowledge bases. Successful: {successful_deletions}, Failed: {failed_deletions}")
+            logger.info(
+                f"   ✅ Finished deleting knowledge bases. Successful: {successful_deletions}, Failed: {failed_deletions}"
+            )
         except requests.exceptions.RequestException as e:
-            logger.error(f"   ❌ Failed to retrieve knowledge bases for batch deletion: {e}")
+            logger.error(
+                f"   ❌ Failed to retrieve knowledge bases for batch deletion: {e}"
+            )
             return successful_deletions, failed_deletions
         return successful_deletions, failed_deletions
 
-    def delete_knowledge_bases_by_keyword(self, keyword: str) -> Tuple[int, int, List[str]]:
+    def delete_knowledge_bases_by_keyword(
+        self, keyword: str
+    ) -> Tuple[int, int, List[str]]:
         """
         Deletes knowledge bases whose names contain the given keyword (case-insensitive).
         Returns a tuple of (successful_deletions, failed_deletions, names_deleted).
@@ -460,17 +576,24 @@ class OpenWebUIClient:
             )
             response.raise_for_status()
             knowledge_bases = response.json()
-            
+
             kbs_to_delete = [
-                kb for kb in knowledge_bases if keyword.lower() in kb.get("name", "").lower()
+                kb
+                for kb in knowledge_bases
+                if keyword.lower() in kb.get("name", "").lower()
             ]
 
             if not kbs_to_delete:
-                logger.info(f"   ℹ️ No knowledge bases found matching keyword '{keyword}'.")
+                logger.info(
+                    f"   ℹ️ No knowledge bases found matching keyword '{keyword}'."
+                )
                 return 0, 0, []
 
-            with ThreadPoolExecutor(max_workers=5) as executor: # Limit concurrency
-                futures = {executor.submit(self.delete_knowledge_base, kb['id']): kb['name'] for kb in kbs_to_delete}
+            with ThreadPoolExecutor(max_workers=5) as executor:  # Limit concurrency
+                futures = {
+                    executor.submit(self.delete_knowledge_base, kb["id"]): kb["name"]
+                    for kb in kbs_to_delete
+                }
                 for future in as_completed(futures):
                     kb_name = futures[future]
                     try:
@@ -480,11 +603,17 @@ class OpenWebUIClient:
                         else:
                             failed_deletions += 1
                     except Exception as exc:
-                        logger.error(f"   ❌ Knowledge base '{kb_name}' generated an exception during deletion: {exc}")
+                        logger.error(
+                            f"   ❌ Knowledge base '{kb_name}' generated an exception during deletion: {exc}"
+                        )
                         failed_deletions += 1
-            logger.info(f"   ✅ Finished deleting knowledge bases by keyword. Successful: {successful_deletions}, Failed: {failed_deletions}. Deleted: {names_deleted}")
+            logger.info(
+                f"   ✅ Finished deleting knowledge bases by keyword. Successful: {successful_deletions}, Failed: {failed_deletions}. Deleted: {names_deleted}"
+            )
         except requests.exceptions.RequestException as e:
-            logger.error(f"   ❌ Failed to retrieve knowledge bases for keyword deletion: {e}")
+            logger.error(
+                f"   ❌ Failed to retrieve knowledge bases for keyword deletion: {e}"
+            )
             return successful_deletions, failed_deletions, names_deleted
         return successful_deletions, failed_deletions, names_deleted
 
@@ -505,29 +634,43 @@ class OpenWebUIClient:
         logger.info("📁 Batch creating knowledge bases and adding files...")
         results: Dict[str, Any] = {"success": [], "failed": {}}
 
-        def _process_single_kb(kb_name: str, file_paths: List[str]) -> Tuple[str, bool, Optional[str]]:
+        def _process_single_kb(
+            kb_name: str, file_paths: List[str]
+        ) -> Tuple[str, bool, Optional[str]]:
             try:
                 kb_data = self.create_knowledge_base(kb_name)
                 if not kb_data:
-                    return kb_name, False, f"Failed to create knowledge base '{kb_name}'."
-                
+                    return (
+                        kb_name,
+                        False,
+                        f"Failed to create knowledge base '{kb_name}'.",
+                    )
+
                 kb_id = kb_data["id"]
                 file_add_success_count = 0
                 file_add_fail_count = 0
 
                 for file_path in file_paths:
-                    if self.add_file_to_knowledge_base(file_path, kb_name): # This method handles file upload internally
+                    if self.add_file_to_knowledge_base(
+                        file_path, kb_name
+                    ):  # This method handles file upload internally
                         file_add_success_count += 1
                     else:
                         file_add_fail_count += 1
-                
+
                 if file_add_fail_count > 0:
-                    return kb_name, False, f"KB created, but {file_add_fail_count}/{len(file_paths)} files failed to add."
+                    return (
+                        kb_name,
+                        False,
+                        f"KB created, but {file_add_fail_count}/{len(file_paths)} files failed to add.",
+                    )
                 return kb_name, True, None
             except Exception as e:
                 return kb_name, False, str(e)
 
-        with ThreadPoolExecutor(max_workers=5) as executor: # Limit concurrency for KB creation
+        with ThreadPoolExecutor(
+            max_workers=5
+        ) as executor:  # Limit concurrency for KB creation
             futures = {
                 executor.submit(_process_single_kb, kb_name, file_paths): kb_name
                 for kb_name, file_paths in knowledge_base_files.items()
@@ -539,8 +682,10 @@ class OpenWebUIClient:
                     results["success"].append(kb_name)
                 else:
                     results["failed"][kb_name] = error_msg or "Unknown error"
-        
-        logger.info(f"   ✅ Batch creation complete. Successful KBs: {len(results['success'])}, Failed KBs: {len(results['failed'])}")
+
+        logger.info(
+            f"   ✅ Batch creation complete. Successful KBs: {len(results['success'])}, Failed KBs: {len(results['failed'])}"
+        )
         return results
 
     def list_models(self) -> Optional[List[Dict[str, Any]]]:
@@ -668,7 +813,7 @@ class OpenWebUIClient:
                 logger.warning(
                     f"Model '{model_id}' not found in API, attempting to create it."
                 )
-                # init create model
+                # Attempt to create the model
                 created_model = self.create_model(
                     model_id=model_id, name=model_id, base_model_id=None
                 )
@@ -993,9 +1138,10 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
-    ) -> Tuple[Optional[str], Optional[str]]:
+        enable_follow_up: bool = False,
+    ) -> Tuple[Optional[str], Optional[str], Optional[List[str]]]:
         if not self.chat_id:
-            return None, None
+            return None, None, None
         logger.info(f'Processing question: "{question}"')
         chat_core = self.chat_object_from_server["chat"]
         chat_core["models"] = [self.model_id]
@@ -1027,7 +1173,7 @@ class OpenWebUIClient:
             )
         )
         if assistant_content is None:
-            return None, None
+            return None, None, None
         logger.info("Successfully received model response.")
 
         user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
@@ -1091,10 +1237,63 @@ class OpenWebUIClient:
         if self._update_remote_chat():
             logger.info("Chat history updated successfully!")
 
-            return assistant_content, assistant_message_id
-        return None, None
+            follow_ups = None
+            if enable_follow_up:
+                logger.info("Follow-up is enabled, fetching suggestions...")
+                # The API for follow-up needs the full context including the latest assistant response
+                api_messages_for_follow_up = self._build_linear_history_for_api(
+                    chat_core
+                )
+                follow_ups = self._get_follow_up_completions(api_messages_for_follow_up)
+                if follow_ups:
+                    logger.info(f"Received {len(follow_ups)} follow-up suggestions.")
+                    # Update the specific assistant message with the follow-ups
+                    chat_core["history"]["messages"][assistant_message_id][
+                        "followUps"
+                    ] = follow_ups
+                    # A second update to save the follow-ups
+                    if self._update_remote_chat():
+                        logger.info(
+                            "Successfully updated chat with follow-up suggestions."
+                        )
+                    else:
+                        logger.warning(
+                            "Failed to update chat with follow-up suggestions."
+                        )
+                else:
+                    logger.info("No follow-up suggestions were generated.")
 
-    # Final revised _ask_stream method
+            return assistant_content, assistant_message_id, follow_ups
+        return None, None, None
+
+    def _replace_message_content(
+        self, chat_id: str, message_id: str, content: str
+    ) -> None:
+        """
+        Replaces the content of a specific message using a 'replace' event.
+        This is a fire-and-forget operation.
+        """
+        url = f"{self.base_url}/api/v1/chats/{chat_id}/messages/{message_id}/event"
+        payload = {"type": "chat:message:replace", "data": {"content": content}}
+
+        def _send_replace_event():
+            """Internal function for asynchronous real-time updates"""
+            try:
+                response = self.session.post(
+                    url, json=payload, headers=self.json_headers, timeout=5.0
+                )
+                response.raise_for_status()
+                logger.debug(
+                    f"✅ Replace event sent successfully for message {message_id[:8]}..."
+                )
+            except Exception as e:
+                logger.debug(
+                    f"⚠️ Replace event failed for message {message_id[:8]}...: {e}"
+                )
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(_send_replace_event)
+
     def _ask_stream(
         self,
         question: str,
@@ -1102,7 +1301,11 @@ class OpenWebUIClient:
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
-    ) -> Generator[str, None, Tuple[str, List]]:
+        enable_follow_up: bool = False,
+        cleanup_placeholder_messages: bool = False,
+        placeholder_pool_size: int = 30,
+        min_available_messages: int = 10,
+    ) -> Generator[str, None, Tuple[str, List, Optional[List[str]]]]:
         if not self.chat_id:
             raise ValueError("Chat ID not set. Initialize chat first.")
 
@@ -1110,7 +1313,24 @@ class OpenWebUIClient:
         chat_core = self.chat_object_from_server["chat"]
         chat_core["models"] = [self.model_id]
 
-        # Preparation (this part of your code is correct)
+        # 1. If cleanup of placeholder messages is needed, perform cleanup
+        if cleanup_placeholder_messages:
+            self._cleanup_unused_placeholder_messages()
+
+        # 2. Ensure there are enough placeholder messages available
+        self._ensure_placeholder_messages(placeholder_pool_size, min_available_messages)
+
+        # 3. Get the next available placeholder message ID pair
+        message_pair = self._get_next_available_message_pair()
+        if not message_pair:
+            logger.error(
+                "No available placeholder message pairs after ensuring, cannot proceed with stream."
+            )
+            raise RuntimeError("No available placeholder message pairs.")
+
+        user_message_id, assistant_message_id = message_pair
+
+        # 4. Preparation for API call
         api_rag_payload, storage_rag_payloads = self._handle_rag_references(
             rag_files, rag_collections
         )
@@ -1130,19 +1350,16 @@ class OpenWebUIClient:
         )
         api_messages.append({"role": "user", "content": final_api_content})
 
-        user_message_id = str(uuid.uuid4())
-        last_message_id = chat_core["history"].get("currentId")
+        # --- Update local storage placeholder message content ---
+        # Find the corresponding user and assistant message objects
+        storage_user_message = chat_core["history"]["messages"][user_message_id]
+        storage_assistant_message = chat_core["history"]["messages"][
+            assistant_message_id
+        ]
 
-        storage_user_message = {
-            "id": user_message_id,
-            "parentId": last_message_id,
-            "childrenIds": [],
-            "role": "user",
-            "content": question,
-            "files": [],
-            "models": [self.model_id],
-            "timestamp": int(time.time()),
-        }
+        # Update user message content and files
+        storage_user_message["content"] = question
+        storage_user_message["files"] = []  # Clear previous files and re-add
         if image_paths:
             for image_path in image_paths:
                 base64_url = self._encode_image_to_base64(image_path)
@@ -1151,32 +1368,24 @@ class OpenWebUIClient:
                         {"type": "image", "url": base64_url}
                     )
         storage_user_message["files"].extend(storage_rag_payloads)
-        chat_core["history"]["messages"][user_message_id] = storage_user_message
-        if last_message_id:
-            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
-                user_message_id
-            )
+        storage_user_message["models"] = [self.model_id]  # Ensure correct model ID
 
-        logger.info("Calling STREAMING completions API to get model response...")
-        assistant_message_id = str(uuid.uuid4())
-        storage_assistant_message = {
-            "id": assistant_message_id,
-            "parentId": user_message_id,
-            "childrenIds": [],
-            "role": "assistant",
-            "content": "",
-            "model": self.model_id,
-            "modelName": self.model_id.split(":")[0],
-            "timestamp": int(time.time()),
-            "done": False,
-            "sources": [],
-        }
-        chat_core["history"]["messages"][
-            assistant_message_id
-        ] = storage_assistant_message
+        # Ensure assistant message initial state is correct
+        storage_assistant_message["content"] = ""
+        storage_assistant_message["model"] = self.model_id
+        storage_assistant_message["modelName"] = self.model_id.split(":")[0]
+        storage_assistant_message["timestamp"] = int(time.time())
+        storage_assistant_message["done"] = False
+        storage_assistant_message["sources"] = []
 
+        # 5. Update user message content via delta event to trigger UI update
+        logger.info(f"📤 Updating user message content for {user_message_id[:8]}...")
+        self._stream_delta_update(self.chat_id, user_message_id, question)
+        # Local storage user message content has been updated above
+
+        # 6. Stream and fill assistant message
         try:
-            # Manually iterate to accumulate content and capture return value
+            logger.info("🔄 Starting streaming completion...")
             assistant_full_content = ""
             sources = []
 
@@ -1184,41 +1393,56 @@ class OpenWebUIClient:
                 self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
             )
 
-            while True:
-                try:
+            # Properly handle streaming response, use try/except to catch StopIteration to get sources
+            try:
+                while True:
                     chunk = next(stream_generator)
                     assistant_full_content += chunk
-                    yield chunk  # Pass data chunk to the upper layer
-                except StopIteration as e:
-                    sources = e.value  # Capture the generator's return value
-                    break  # Exit loop
+                    self._stream_delta_update(self.chat_id, assistant_message_id, chunk)
+                    yield chunk
+            except StopIteration as e:
+                # Get sources from StopIteration.value
+                sources = e.value if e.value is not None else []
 
             logger.info("Successfully received full streaming model response.")
 
-            # Update the final state of the assistant message
+            # 7. Update final state and sync
             storage_assistant_message["content"] = assistant_full_content
             storage_assistant_message["done"] = True
             storage_assistant_message["sources"] = sources
 
-            # Update chat history
-            chat_core["history"]["messages"][user_message_id]["childrenIds"].append(
-                assistant_message_id
-            )
-            chat_core["history"]["currentId"] = assistant_message_id
-            chat_core["messages"] = self._build_linear_history_for_storage(
-                chat_core, assistant_message_id
-            )
-            chat_core["models"] = [self.model_id]
-            existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
-            chat_core.setdefault("files", []).extend(
-                [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
-            )
-
-            logger.info("Updating chat history on the backend after stream...")
+            logger.info("📤 Updating final chat state on backend...")
+            follow_ups = None
             if self._update_remote_chat():
-                logger.info("Chat history updated successfully!")
+                logger.info("✅ Final chat state updated successfully!")
 
-            return assistant_full_content, sources
+                if enable_follow_up:
+                    logger.info("Follow-up is enabled, fetching suggestions...")
+                    api_messages_for_follow_up = self._build_linear_history_for_api(
+                        chat_core
+                    )
+                    follow_ups = self._get_follow_up_completions(
+                        api_messages_for_follow_up
+                    )
+                    if follow_ups:
+                        logger.info(
+                            f"Received {len(follow_ups)} follow-up suggestions."
+                        )
+                        storage_assistant_message["followUps"] = (
+                            follow_ups  # Update local storage assistant message
+                        )
+                        if self._update_remote_chat():  # Sync again to save follow-ups
+                            logger.info(
+                                "Successfully updated chat with follow-up suggestions."
+                            )
+                        else:
+                            logger.warning(
+                                "Failed to update chat with follow-up suggestions."
+                            )
+                    else:
+                        logger.info("No follow-up suggestions were generated.")
+
+            return assistant_full_content, sources, follow_ups
         except Exception as e:
             logger.error(f"Error during streaming chat: {e}")
             raise
@@ -1231,6 +1455,7 @@ class OpenWebUIClient:
         image_paths,
         api_rag_payload,
         tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
     ):
         api_messages = self._build_linear_history_for_api(chat_core)
         current_user_content_parts = [{"type": "text", "text": question}]
@@ -1250,7 +1475,16 @@ class OpenWebUIClient:
         content, sources = self._get_model_completion(
             self.chat_id, api_messages, api_rag_payload, model_id, tool_ids
         )
-        return content, sources
+
+        follow_ups = None
+        if content and enable_follow_up:
+            # To get follow-ups, we need the assistant's response in the history
+            temp_history_for_follow_up = api_messages + [
+                {"role": "assistant", "content": content}
+            ]
+            follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
+
+        return content, sources, follow_ups
 
     def _handle_rag_references(
         self, rag_files: Optional[List[str]], rag_collections: Optional[List[str]]
@@ -1288,6 +1522,97 @@ class OpenWebUIClient:
                         f"Could not find knowledge base '{kb_name}', it will be skipped."
                     )
         return api_payload, storage_payload
+
+    def _get_task_model(self) -> Optional[str]:
+        if hasattr(self, "task_model") and self.task_model:
+            return self.task_model
+
+        logger.info("Fetching task model configuration...")
+        url = f"{self.base_url}/api/v1/tasks/config"
+        try:
+            response = self.session.get(url, headers=self.json_headers)
+            response.raise_for_status()
+            config = response.json()
+            task_model = config.get("TASK_MODEL")
+            if task_model:
+                logger.info(f"   ✅ Found task model: {task_model}")
+                self.task_model = task_model
+                return task_model
+            else:
+                logger.error("   ❌ 'TASK_MODEL' not found in config response.")
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch task config: {e}")
+            return None
+        except json.JSONDecodeError:
+            logger.error("Failed to decode JSON from task config response.")
+            return None
+
+    def _get_follow_up_completions(
+        self, messages: List[Dict[str, Any]]
+    ) -> Optional[List[str]]:
+        """
+        Gets follow-up suggestions based on the conversation history.
+        """
+        task_model = self._get_task_model()
+        if not task_model:
+            logger.error(
+                "Could not determine task model for follow-up suggestions. Aborting."
+            )
+            return None
+
+        logger.info("Requesting follow-up suggestions...")
+        payload = {
+            "model": task_model,
+            "messages": messages,
+            "stream": False,
+        }
+        url = f"{self.base_url}/api/v1/tasks/follow_up/completions"
+
+        logger.debug(
+            f"Sending follow-up request to {url}: {json.dumps(payload, indent=2)}"
+        )
+
+        try:
+            response = self.session.post(url, json=payload, headers=self.json_headers)
+            response.raise_for_status()
+            data = response.json()
+
+            if "choices" in data and data["choices"]:
+                message = data["choices"][0].get("message", {})
+                content = message.get("content")
+                if content:
+                    try:
+                        # The actual suggestions are in a JSON string inside the content
+                        content_json = json.loads(content)
+                        follow_ups = content_json.get(
+                            "follow_ups"
+                        )  # Note: key is 'follow_ups' not 'followUps'
+                        if isinstance(follow_ups, list):
+                            logger.info(
+                                f"   ✅ Received {len(follow_ups)} follow-up suggestions."
+                            )
+                            return follow_ups
+                    except json.JSONDecodeError:
+                        logger.error(
+                            f"Failed to decode JSON from follow-up content: {content}"
+                        )
+                        return None
+
+            logger.warning(f"   ⚠️ Unexpected format for follow-up response: {data}")
+            return None
+
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Follow-up API HTTP Error: {e.response.text}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Follow-up API Network Error: {e}")
+            return None
+        except (json.JSONDecodeError, KeyError, IndexError):
+            logger.error(
+                "Failed to parse JSON or find expected keys in follow-up response."
+            )
+            return None
 
     def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
         if not os.path.exists(file_path):
@@ -1364,6 +1689,45 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Completions API Network Error for {active_model_id}: {e}")
             return None, []
+
+    def _stream_delta_update(
+        self, chat_id: str, message_id: str, delta_content: str
+    ) -> None:
+        """
+        Push incremental content in real-time to the specified message of the specified chat to achieve a typewriter effect.
+        Use asynchronous execution to avoid blocking the main process.
+
+        Args:
+            chat_id: Chat ID
+            message_id: Message ID
+            delta_content: Incremental content
+        """
+        if not delta_content.strip():  # Skip empty content
+            return
+
+        def _send_delta_update():
+            """Internal function for asynchronous real-time updates"""
+            url = f"{self.base_url}/api/v1/chats/{chat_id}/messages/{message_id}/event"
+            payload = {"type": "chat:message:delta", "data": {"content": delta_content}}
+
+            try:
+                # Use a longer timeout to ensure the request can complete
+                response = self.session.post(
+                    url, json=payload, headers=self.json_headers, timeout=3.0  # 3 second timeout
+                )
+                response.raise_for_status()
+                logger.debug(
+                    f"✅ Delta update sent successfully for message {message_id[:8]}..."
+                )
+            except Exception as e:
+                # Silently handle errors without affecting the main process
+                logger.debug(
+                    f"⚠️ Delta update failed for message {message_id[:8]}...: {e}"
+                )
+
+        # Use ThreadPoolExecutor for asynchronous execution to avoid blocking the main process
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(_send_delta_update)
 
     def _get_model_completion_stream(  # New method for streaming
         self,
@@ -1576,6 +1940,238 @@ class OpenWebUIClient:
             logger.info("Chat moved successfully!")
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to move chat: {e}")
+
+    def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
+        """Check if message is a placeholder (content is empty and not marked as done)"""
+        return message.get("content", "").strip() == "" and not message.get(
+            "done", False
+        )
+
+    def _create_placeholder_messages(self, count: int) -> List[Tuple[str, str]]:
+        """
+        Create the specified number of placeholder message pairs (user-assistant) and add them to the current chat_object_from_server history.
+        Returns [(user_message_id, assistant_message_id), ...]
+        """
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not initialized, cannot create placeholder messages."
+            )
+            return []
+
+        chat_core = self.chat_object_from_server["chat"]
+        messages = chat_core["history"]["messages"]
+        current_id = chat_core["history"].get("currentId")
+
+        placeholder_ids = []
+        for _ in range(count):
+            user_message_id = str(uuid.uuid4())
+            assistant_message_id = str(uuid.uuid4())
+
+            # User message as parent message, pointing to assistant message
+            user_message = {
+                "id": user_message_id,
+                "parentId": current_id,
+                "childrenIds": [assistant_message_id],
+                "role": "user",
+                "content": "",  # Initial content is empty
+                "files": [],
+                "models": [self.model_id],
+                "timestamp": int(time.time()),
+                "done": False,  # Placeholder message not completed
+            }
+            # Assistant message as child message
+            assistant_message = {
+                "id": assistant_message_id,
+                "parentId": user_message_id,
+                "childrenIds": [],
+                "role": "assistant",
+                "content": "",  # Initial content is empty
+                "model": self.model_id,
+                "modelName": self.model_id.split(":")[0],
+                "timestamp": int(time.time()),
+                "done": False,  # Placeholder message not completed
+                "sources": [],
+            }
+
+            messages[user_message_id] = user_message
+            messages[assistant_message_id] = assistant_message
+            placeholder_ids.append((user_message_id, assistant_message_id))
+
+            # Update currentId to the latest created assistant message ID to ensure correct message chain
+            current_id = assistant_message_id
+
+        chat_core["history"]["currentId"] = current_id  # Update chat_core's currentId
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, current_id
+        )
+
+        # Immediately sync placeholder messages to remote server
+        if self._update_remote_chat():
+            logger.info(
+                f"Created and synced {count} placeholder message pairs to server."
+            )
+        else:
+            logger.warning(
+                f"Created {count} placeholder message pairs but failed to sync to server."
+            )
+
+        return placeholder_ids
+
+    def _ensure_placeholder_messages(self, pool_size: int, min_available: int) -> bool:
+        """
+        Ensure there are enough placeholder messages available.
+        If the current number of placeholder messages is less than min_available, create new placeholder messages until pool_size is reached.
+        """
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not initialized, cannot ensure placeholder messages."
+            )
+            return False
+
+        chat_core = self.chat_object_from_server["chat"]
+        messages = chat_core["history"]["messages"]
+
+        # Count the current number of unfinished placeholder messages
+        current_placeholder_count = 0
+        for msg_id in messages:
+            msg = messages[msg_id]
+            if self._is_placeholder_message(msg):
+                current_placeholder_count += 1
+
+        # Calculate the number of placeholder message pairs to create (each pair contains one user message and one assistant message)
+        current_placeholder_pairs = current_placeholder_count // 2  # Because each pair has 2 messages
+
+        pairs_to_create = 0
+        if (
+            current_placeholder_pairs < min_available // 2
+        ):  # min_available also refers to the number of message pairs
+            pairs_to_create = (pool_size // 2) - current_placeholder_pairs
+            if pairs_to_create < 0:
+                pairs_to_create = 0
+
+        if pairs_to_create > 0:
+            logger.info(f"Ensuring {pairs_to_create} new placeholder message pairs...")
+            self._create_placeholder_messages(pairs_to_create)
+            logger.info("Placeholder messages ensured.")
+            return True
+        else:
+            logger.info("Enough placeholder messages already exist.")
+            return False
+
+    def _get_next_available_message_pair(self) -> Optional[Tuple[str, str]]:
+        """
+        Find the next available placeholder message ID pair (user message ID, assistant message ID) from the current chat_object_from_server history.
+        Does not modify message status, only finds available placeholder message pairs.
+        """
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not initialized, cannot get next available message pair."
+            )
+            return None
+
+        chat_core = self.chat_object_from_server["chat"]
+        messages = chat_core["history"]["messages"]
+
+        # Find the first completely empty placeholder message pair
+        # Note: We are looking for truly placeholder messages with empty content and done=False
+        found_placeholder = False
+        user_placeholder_id = None
+        assistant_placeholder_id = None
+
+        # Traverse in message creation order, looking for the first empty assistant placeholder message
+        for msg_id, msg in messages.items():
+            if (
+                msg.get("role") == "assistant"
+                and msg.get("content", "").strip() == ""
+                and not msg.get("done", False)
+            ):
+
+                # Check if the corresponding user message is also an empty placeholder
+                user_id = msg.get("parentId")
+                if (
+                    user_id
+                    and user_id in messages
+                    and messages[user_id].get("role") == "user"
+                    and messages[user_id].get("content", "").strip() == ""
+                    and not messages[user_id].get("done", False)
+                ):
+
+                    user_placeholder_id = user_id
+                    assistant_placeholder_id = msg_id
+                    found_placeholder = True
+                    break
+
+        if found_placeholder:
+            logger.info(
+                f"Found available placeholder pair: User={user_placeholder_id[:8]}..., Assistant={assistant_placeholder_id[:8]}..."
+            )
+            return user_placeholder_id, assistant_placeholder_id
+        else:
+            logger.warning("No available placeholder message pairs found.")
+            return None
+
+    def _cleanup_unused_placeholder_messages(self) -> int:
+        """
+        Clean up all unused empty placeholder messages in the current chat_object_from_server.
+        Returns the number of message pairs cleaned up.
+        """
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not initialized, cannot cleanup placeholder messages."
+            )
+            return 0
+
+        chat_core = self.chat_object_from_server["chat"]
+        messages = chat_core["history"]["messages"]
+
+        # Collect all placeholder message IDs to be deleted
+        message_ids_to_delete = []
+        for msg_id, msg in messages.items():
+            if self._is_placeholder_message(msg):
+                message_ids_to_delete.append(msg_id)
+
+        cleaned_count = 0
+        if message_ids_to_delete:
+            for msg_id in message_ids_to_delete:
+                del messages[msg_id]
+            cleaned_count = len(message_ids_to_delete) / 2  # Each pair contains user and assistant messages
+            logger.info(
+                f"Cleaned up {int(cleaned_count)} unused placeholder message pairs."
+            )
+
+            # After cleanup, need to rebuild the messages list and currentId to ensure history chain correctness
+            # Find the new currentId (the ID of the last non-placeholder message)
+            new_current_id = None
+            for msg_id in reversed(list(messages.keys())):  # Search backwards
+                msg = messages[msg_id]
+                if not self._is_placeholder_message(msg):
+                    new_current_id = msg_id
+                    break
+
+            chat_core["history"]["currentId"] = new_current_id
+            chat_core["messages"] = self._build_linear_history_for_storage(
+                chat_core, new_current_id
+            )
+
+            # Also need to sync with the backend
+            if self._update_remote_chat():
+                logger.info("Successfully synced chat state after cleanup.")
+            else:
+                logger.warning("Failed to sync chat state after cleanup.")
+
+        return int(cleaned_count)
 
     def _create_new_chat(self, title: str) -> Optional[str]:
         logger.info(f"Creating new chat with title '{title}'...")

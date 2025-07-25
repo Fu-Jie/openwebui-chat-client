@@ -2,7 +2,7 @@
 
 [English](https://github.com/Fu-Jie/openwebui-chat-client/blob/main/README.md) | [简体中文](https://github.com/Fu-Jie/openwebui-chat-client/blob/main/README.zh-CN.md)
 
-[![PyPI version](https://img.shields.io/pypi/v/openwebui-chat-client?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
+[![PyPI version](https://img.shields.io/pypi/v/openwebui-chat-client/0.1.11?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-34D058?style=flat-square)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/badge/openwebui-chat-client)](https://pepy.tech/projects/openwebui-chat-client)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0.html)
@@ -53,12 +53,14 @@ if result:
 
 ## ✨ Features
 
+- **Real-time Streaming Chat Updates**: Experience typewriter-effect real-time content updates during streaming chats.
+- **Chat Follow-up Generation Options**: Support for generating follow-up questions or options in chat methods.
 - **Multi-Modal Conversations**: Text, images, and file uploads.
 - **Single & Parallel Model Chats**: Query one or multiple models simultaneously.
 - **Tool Integration**: Use server-side tools (functions) in your chat requests.
 - **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses.
 - **Knowledge Base Management**: Create, update, and use knowledge bases.
-- **Model Management**: List, create, update, and delete custom model entries.
+- **Model Management**: List, create, update, and delete custom model entries, with enhanced auto-creation/retry for `get_model`.
 - **Chat Organization**: Rename chats, use folders, tags, and search functionality.
 - **Concurrent Processing**: Parallel model querying for fast multi-model responses.
 
@@ -212,14 +214,15 @@ if result_1 and result_2:
 | Method | Description | Example |
 |--------|-------------|---------|
 | `chat()` | Start/continue a single-model conversation. Returns a dictionary with `response`, `chat_id`, and `message_id`. | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
-| `stream_chat()` | Start/continue a single-model streaming conversation. Yields content chunks and returns full response/sources at the end. | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
-| `parallel_chat()` | Start/continue a multi-model conversation. Returns a dictionary with `responses`, `chat_id`, and `message_ids`. | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
+| `stream_chat()` | Start/continue a single-model streaming conversation with real-time updates. Yields content chunks and returns full response/sources at the end. | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
+| `chat()` | Start/continue a single-model conversation. Returns a dictionary with `response`, `chat_id`, and `message_id`. Supports follow-up generation options. | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, follow_up_options)` |
+| `parallel_chat()` | Start/continue a multi-model conversation. Returns a dictionary with `responses`, `chat_id`, and `message_ids`. Supports follow-up generation options. | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, follow_up_options)` |
 | `rename_chat()` | Rename an existing chat. | `client.rename_chat(chat_id, "New Title")` |
 | `set_chat_tags()` | Apply tags to a chat. | `client.set_chat_tags(chat_id, ["tag1"])` |
 | `create_folder()` | Create a chat folder. | `client.create_folder("ProjectX")` |
 | `list_models()` | List all available model entries (now with improved reliability). | `client.list_models()` |
 | `list_base_models()` | List all available base models (now with improved reliability). | `client.list_base_models()` |
-| `get_model()` | Retrieve details for a specific model entry. | `client.get_model("id")` |
+| `get_model()` | Retrieve details for a specific model entry. Automatically attempts model creation and retries fetching if the model does not exist and API returns 401. | `client.get_model("id")` |
 | `create_model()` | Create a detailed, custom model variant. | `client.create_model(...)` |
 | `update_model()` | Update an existing model entry with granular changes. | `client.update_model("id", temperature=0.5)` |
 | `delete_model()` | Delete a model entry from the server. | `client.delete_model("id")` |

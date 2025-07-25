@@ -6,8 +6,12 @@ to showcase different features of the OpenWebUI Chat Client.
 
 import logging
 import os
+import sys
 import time
 from typing import List, Optional
+
+# Add the project root to the Python path to ensure the local version is imported
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from openwebui_chat_client import OpenWebUIClient
 from PIL import Image, ImageDraw, ImageFont
@@ -107,14 +111,14 @@ class ChatDemos:
         """Demonstrates basic chat functionality."""
         print("\n" + "#" * 20 + " Basic Chat Demo " + "#" * 20)
 
-        response, _ = self.client.chat(
+        result = self.client.chat(
             question="What is the capital of France?",
             chat_title="Basic Chat Test",
             folder_name="General",
         )
 
-        if response:
-            print(f"\n🤖 Response:\n{response}\n")
+        if result and result.get("response"):
+            print(f"\n🤖 Response:\n{result['response']}\n")
 
     def stream_chat_demo(self) -> None:
         """Demonstrates streaming chat functionality."""
@@ -127,6 +131,35 @@ class ChatDemos:
         ):
             print(chunk, end="", flush=True)
         print("\n")
+
+    def stream_chat_with_follow_up_demo(self) -> None:
+        """Demonstrates streaming chat with follow-up suggestions."""
+        print("\n" + "#" * 20 + " Streaming Chat with Follow-up Demo " + "#" * 20)
+
+        print("Streaming Chat Response:")
+        stream_gen = self.client.stream_chat(
+            question="Tell me about the history of artificial intelligence",
+            chat_title="Streaming Follow-up Demo",
+            enable_follow_up=True,
+        )
+        
+        # Process streaming chunks
+        for chunk in stream_gen:
+            print(chunk, end="", flush=True)
+        
+        # Get the return values (content, sources, follow_ups)
+        try:
+            final_content, sources, follow_ups = stream_gen.value
+            print("\n")
+            
+            if follow_ups:
+                print("Follow-up suggestions:")
+                for suggestion in follow_ups:
+                    print(f"  - {suggestion}")
+                print()
+        except AttributeError:
+            # If stream_gen.value is not available, that's ok
+            print("\n")
 
     def stream_image_chat_demo(self) -> None:
         """Demonstrates streaming chat with image input functionality."""
@@ -143,7 +176,8 @@ class ChatDemos:
         try:
             print("Streaming response with image input:")
             for chunk in self.client.stream_chat(
-                question="Describe this image in detail",
+                question="Describe this image in "
+                "detail",
                 chat_title="Streaming Image Chat Demo",
                 image_paths=[test_image],
             ):
@@ -151,6 +185,134 @@ class ChatDemos:
             print("\n")
         finally:
             FileHelper.cleanup_files([test_image])
+
+
+    def chat_with_follow_up_demo(self) -> None:
+        """Demonstrates chat with follow-up suggestions."""
+        print("\n" + "#" * 20 + " Chat with Follow-up Demo " + "#" * 20)
+
+        result = self.client.chat(
+            question="Hi",
+            chat_title="Simple Follow-up Demo", 
+            enable_follow_up=True,
+        )
+        if result and result.get("response"):
+            print(f"Response: {result['response']}")
+            if result.get("follow_ups"):
+                print(f"Follow-ups: {result['follow_ups']}")
+
+    def parallel_chat_with_follow_up_demo(self) -> None:
+        """Demonstrates parallel chat with follow-up suggestions."""
+        print("\n" + "#" * 20 + " Parallel Chat with Follow-up Demo " + "#" * 20)
+
+        result = self.client.parallel_chat(
+            question="Tell me about the history of artificial intelligence.",
+            chat_title="Parallel Follow-up Demo",
+            model_ids=Config.PARALLEL_MODELS,
+            enable_follow_up=True,
+        )
+
+        if result and result.get("responses"):
+            print(f"\n🤖 Responses from multiple models:")
+            for model_id, data in result["responses"].items():
+                print(f"\n--- Model: {model_id} ---")
+                print(data["content"])
+                if data.get("follow_ups"):
+                    print("\n  🤔 Follow-up suggestions:")
+                    for suggestion in data["follow_ups"]:
+                        print(f"    - {suggestion}")
+                print()
+        else:
+            print("\n❌ No responses received for parallel chat.")
+
+
+class StreamChatDemos:
+    """Demo functions for advanced streaming chat functionality."""
+
+    def __init__(self, client: OpenWebUIClient):
+        self.client = client
+
+    def stream_chat_realtime_update_demo(self) -> None:
+        """
+        Demonstrates real-time incremental updates with stream_chat.
+
+        This demo showcases how the optimized stream_chat method pushes incremental content
+        to the Open WebUI frontend in real-time, achieving a typewriter effect.
+        """
+        print("\n" + "#" * 20 + " Real-time Streaming Chat Update Demo " + "#" * 20)
+        print("=" * 50)
+
+        # Get configuration from Config class
+        model_id = Config.DEFAULT_MODEL
+
+        # Test questions
+        test_questions = [
+            "Please write a short poem about spring, around 500 words.",
+            "Explain what artificial intelligence is in simple terms, around 500 words.",
+            "Tell me an interesting science fact.",
+        ]
+
+        chat_title = f"Streaming Chat Demo - {int(time.time())}"
+
+        for i, question in enumerate(test_questions, 1):
+            print(f"\n📝 Question {i}: {question}")
+            print("-" * 40)
+            print("💭 AI Response (Real-time Streaming Output):")
+
+            try:
+                # Use streaming chat and display content in real-time
+                stream_generator = self.client.stream_chat(
+                    question=question,
+                    chat_title=chat_title,
+                    model_id=model_id,
+                    enable_follow_up=True,  # Enable follow-up suggestions
+                    cleanup_placeholder_messages=True,  # Clean up unused placeholder messages before each request
+                    placeholder_pool_size=30,  # Maintain a pool of 30 placeholder message pairs
+                    min_available_messages=10,  # Ensure at least 10 available placeholder message pairs
+                    wait_before_request=5.0,  # Wait 5 seconds before the first streaming request for frontend loading
+                )
+
+                full_response = ""
+                chunk_count = 0
+                final_content = None
+                sources = []
+                follow_ups = None
+
+                # Correctly handle the generator: using a while loop and StopIteration exception
+                try:
+                    while True:
+                        chunk = next(stream_generator)
+                        full_response += chunk
+                        chunk_count += 1
+                        print(chunk, end="", flush=True)  # Display in real-time, no newline
+                except StopIteration as e:
+                    # When the generator finishes, get the return value from the exception
+                    final_content, sources, follow_ups = e.value
+
+                print(f"\n\n✅ Streaming output complete!")
+                print(f"📊 Statistics:")
+                print(f"   - Received {chunk_count} content chunks")
+                print(f"   - Total characters: {len(full_response)}")
+
+                if sources:
+                    print(f"   - Sources: {len(sources)} ")
+
+                if follow_ups:
+                    print(f"   - Follow-up suggestions: {len(follow_ups)} ")
+                    for j, follow_up in enumerate(follow_ups, 1):
+                        print(f"     {j}. {follow_up}")
+
+                # Pause briefly between questions
+                if i < len(test_questions):
+                    print(f"\n⏳ Waiting 2 seconds before the next question...")
+                    time.sleep(2)
+
+            except Exception as e:
+                print(f"\n❌ Streaming chat error: {e}")
+
+        print(f"\n🎉 Demo completed!")
+        print(f"💡 Tip: You can view the chat history '{chat_title}' in the Open WebUI frontend.")
+        print("    All streaming content should have been updated in real-time to the corresponding messages.")
 
 
 class RAGDemos:
@@ -173,15 +335,15 @@ class RAGDemos:
             return
 
         try:
-            response, _ = self.client.chat(
+            result = self.client.chat(
                 question="Based on the document, what is the Ouroboros protocol?",
                 chat_title="Blockchain RAG Test",
                 rag_files=[test_file],
                 model_id=Config.RAG_MODEL,
             )
 
-            if response:
-                print(f"\n🤖 [RAG Response]:\n{response}\n")
+            if result and result.get("response"):
+                print(f"\n🤖 [RAG Response]:\n{result['response']}\n")
         finally:
             FileHelper.cleanup_files([test_file])
 
@@ -251,14 +413,14 @@ class KnowledgeBaseDemos:
             # Step 2: Chat with the Knowledge Base
             print("\n" + "#" * 20 + " Chatting with Knowledge Base " + "#" * 20)
 
-            response, _ = self.client.chat(
+            result = self.client.chat(
                 question="According to the documents, what was the primary objective of Project Apollo?",
                 chat_title=f"Inquiry about {kb_name}",
                 rag_collections=[kb_name],
             )
 
-            if response:
-                print(f"\n🤖 [RAG Response from Knowledge Base]:\n{response}\n")
+            if result and result.get("response"):
+                print(f"\n🤖 [RAG Response from Knowledge Base]:\n{result['response']}\n")
 
         finally:
             FileHelper.cleanup_files([test_file])
@@ -396,13 +558,13 @@ class ChatManagementDemos:
         new_title = "New Chat Title"
 
         # Create a new chat
-        response, chat_id = self.client.chat(
+        result = self.client.chat(
             question="What is the capital of France?",
             chat_title=old_title,
         )
 
-        if chat_id:
-            success = self.client.rename_chat(chat_id, new_title)
+        if result and result.get("chat_id"):
+            success = self.client.rename_chat(result["chat_id"], new_title)
 
             if success:
                 print(
@@ -449,6 +611,7 @@ class DemoRunner:
         kb_demos = KnowledgeBaseDemos(self.client)
         model_demos = ModelManagementDemos(self.client)
         chat_mgmt_demos = ChatManagementDemos(self.client)
+        stream_chat_demos = StreamChatDemos(self.client)
 
         # Run demos
         try:
@@ -471,6 +634,9 @@ class DemoRunner:
             time.sleep(2)
 
             chat_mgmt_demos.rename_chat_demo()
+            time.sleep(2)
+
+            stream_chat_demos.stream_chat_realtime_update_demo()
 
         except Exception as e:
             logging.error(f"Error during demo execution: {e}")
@@ -484,6 +650,7 @@ class DemoRunner:
         demo_mapping = {
             "basic_chat": lambda: ChatDemos(self.client).basic_chat_demo(),
             "stream_chat": lambda: ChatDemos(self.client).stream_chat_demo(),
+            "stream_chat_follow_up": lambda: ChatDemos(self.client).stream_chat_with_follow_up_demo(),
             "rag_chat": lambda: RAGDemos(self.client).rag_chat_demo(),
             "stream_rag": lambda: RAGDemos(self.client).stream_rag_chat_demo(),
             "knowledge_base": lambda: KnowledgeBaseDemos(
@@ -502,6 +669,9 @@ class DemoRunner:
             "stream_image_chat": lambda: ChatDemos(
                 self.client
             ).stream_image_chat_demo(),
+            "follow_up": lambda: ChatDemos(self.client).chat_with_follow_up_demo(),
+            "parallel_follow_up": lambda: ChatDemos(self.client).parallel_chat_with_follow_up_demo(),
+            "stream_chat_realtime_update": lambda: StreamChatDemos(self.client).stream_chat_realtime_update_demo(),
         }
 
         if demo_name in demo_mapping:
@@ -520,8 +690,10 @@ if __name__ == "__main__":
         runner = DemoRunner()
 
         # Run a specific demo
+        # runner.run_specific_demo("parallel_follow_up")
+        runner.run_specific_demo("stream_chat_realtime_update")
         # runner.run_specific_demo("stream_rag")
-        runner.run_specific_demo("batch_delete_kb")
+        # runner.run_specific_demo("batch_delete_kb")
 
         # Or run all demos
         # runner.run_all_demos()

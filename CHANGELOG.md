@@ -2,15 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.11] - 2025-07-26
 
-### Added
-- `OpenWebUIClient` 初始化时，自动加载可用模型ID列表。
-- `get_model` 方法增强，如果模型不存在且API返回401，尝试自动创建模型并重试获取。
+### Added in 0.1.11
+- **Streaming Chat Real-time Update Optimization**: Added real-time incremental content push functionality to the `stream_chat` method. By calling the `/api/v1/chats/{chat_id}/messages/{message_id}/event` interface, each content block is pushed to the Open WebUI frontend in real-time while streaming content is being generated, achieving a typewriter effect for real-time update experience.
+- Added `_stream_delta_update` private method for real-time delta content updates during streaming chat.
+- Added `examples/stream_chat_demo.py` demonstration script for the enhanced streaming functionality.
+- **Chat Follow-up Generation Options**: Added support for follow-up generation options in chat methods.
+- Automatically loads available model IDs during OpenWebUIClient initialization.
+- Enhanced `get_model` method to automatically attempt model creation and retry fetching if the model does not exist and API returns 401.
 
-### Changed
-- `get_model` 方法增加了对空 `model_id` 和本地可用模型列表的检查。
-
+### Changed in 0.1.11
+- Added checks for empty `model_id` and local available model list in `get_model` method.
+- Enhanced `_ask_stream` method to include real-time delta updates while maintaining backward compatibility.
 
 ## [0.1.10] - 2025-07-20
 
