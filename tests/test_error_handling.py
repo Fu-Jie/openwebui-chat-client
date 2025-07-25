@@ -362,7 +362,7 @@ class TestOpenWebUIClientErrorHandling(unittest.TestCase):
 
         result = self.client._load_chat_details("chat-id")
 
-        self.assertIsNone(result)
+        self.assertFalse(result)  # Method now returns bool, False on error
         self.assertIsNone(self.client.chat_id)
         self.assertIsNone(self.client.chat_object_from_server)
 
@@ -376,7 +376,7 @@ class TestOpenWebUIClientErrorHandling(unittest.TestCase):
 
         result = self.client._load_chat_details("chat-id")
 
-        self.assertIsNone(result)
+        self.assertFalse(result)  # Method now returns bool, False on empty response
 
     def test_chat_model_switching_edge_cases(self):
         """Test various edge cases in model switching."""

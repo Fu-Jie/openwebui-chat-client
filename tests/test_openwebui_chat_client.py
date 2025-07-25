@@ -118,6 +118,10 @@ class TestOpenWebUIClient(unittest.TestCase):
     def test_get_model_success(self, mock_get):
         """Test successful model retrieval."""
         model_id = "test-model:latest"
+        
+        # Add the model to available_model_ids so it passes the initial check
+        self.client.available_model_ids = [model_id]
+        
         mock_response = Mock()
         mock_response.json.return_value = {
             "id": model_id,

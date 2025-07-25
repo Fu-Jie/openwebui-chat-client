@@ -111,9 +111,9 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
 
         # Mock executor and futures
         mock_future1 = Mock()
-        mock_future1.result.return_value = ("Response 1", [])
+        mock_future1.result.return_value = ("Response 1", [], None)  # content, sources, follow_ups
         mock_future2 = Mock()
-        mock_future2.result.return_value = ("Response 2", [])
+        mock_future2.result.return_value = ("Response 2", [], None)  # content, sources, follow_ups
 
         mock_executor_instance = Mock()
         mock_executor_instance.submit.side_effect = [mock_future1, mock_future2]
@@ -159,7 +159,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
             yield "chunk1"
             yield "chunk2"
             yield "chunk3"
-            return "Full response", []
+            return "Full response", [], None  # Return 3 values: content, sources, follow_ups
 
         mock_ask_stream.return_value = mock_stream_generator()
 
@@ -179,7 +179,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
             final_result = e.value
 
         self.assertEqual(chunks, ["chunk1", "chunk2", "chunk3"])
-        self.assertEqual(final_result, ("Full response", []))
+        self.assertEqual(final_result, ("Full response", [], None))  # Update to match the 3-tuple return
         mock_set_tags.assert_called_once_with("test-chat-id", ["stream", "test"])
 
     @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")

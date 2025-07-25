@@ -1456,7 +1456,7 @@ class OpenWebUIClient:
         api_rag_payload,
         tool_ids: Optional[List[str]] = None,
         enable_follow_up: bool = False,
-    ):
+    ) -> Tuple[Optional[str], List, Optional[List[str]]]:
         api_messages = self._build_linear_history_for_api(chat_core)
         current_user_content_parts = [{"type": "text", "text": question}]
         if image_paths:
@@ -1870,7 +1870,7 @@ class OpenWebUIClient:
             if new_chat_id := self._create_new_chat(title):
                 self._load_chat_details(new_chat_id)
 
-    def _load_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
+    def _load_chat_details(self, chat_id: str) -> bool:
         try:
             response = self.session.get(
                 f"{self.base_url}/api/v1/chats/{chat_id}", headers=self.json_headers
@@ -1888,10 +1888,13 @@ class OpenWebUIClient:
                     self.model_id = models_list[0]
                 else:
                     self.model_id = self.default_model_id
-                return details
+                return True
+            else:
+                logger.warning(f"Empty response when loading chat details for {chat_id}")
+                return False
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get chat details for {chat_id}: {e}")
-        return None
+            return False
 
     def create_folder(self, name: str) -> Optional[str]:
         logger.info(f"Creating folder '{name}'...")
