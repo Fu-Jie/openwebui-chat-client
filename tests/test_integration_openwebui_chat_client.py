@@ -28,12 +28,12 @@ class TestIntegrationOpenWebUIClient(unittest.TestCase):
         self.base_url = os.getenv("OPENWEBUI_BASE_URL")
         self.token = os.getenv("OPENWEBUI_TOKEN")
         self.default_model = os.getenv("OPENWEBUI_DEFAULT_MODEL", "llama3:latest")
-        
         self.client = OpenWebUIClient(
             base_url=self.base_url,
             token=self.token,
             default_model_id=self.default_model
         )
+        self.client._auto_cleanup_enabled = False
 
     def test_list_models_integration(self):
         """

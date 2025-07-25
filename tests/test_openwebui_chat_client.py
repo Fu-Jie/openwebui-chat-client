@@ -16,12 +16,12 @@ class TestOpenWebUIClient(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        
         self.client = OpenWebUIClient(
             base_url=self.base_url,
             token=self.token,
             default_model_id=self.default_model
         )
+        self.client._auto_cleanup_enabled = False
 
     def test_initialization(self):
         """Test client initialization."""

@@ -14,12 +14,12 @@ class TestOpenWebUIClientKnowledgeBase(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        
         self.client = OpenWebUIClient(
             base_url=self.base_url,
             token=self.token,
             default_model_id=self.default_model
         )
+        self.client._auto_cleanup_enabled = False
 
     @patch('openwebui_chat_client.openwebui_chat_client.requests.Session.post')
     @patch.object(OpenWebUIClient, 'get_knowledge_base_by_name')

@@ -10,7 +10,7 @@ class TestFollowUpFeature(unittest.TestCase):
         # Patch list_models during initialization to prevent network call
         with patch.object(OpenWebUIClient, 'list_models', return_value=['test_model', 'gpt-4.1']) as mock_list_models:
             self.client = OpenWebUIClient(base_url="http://test.com", token="test_token", default_model_id="test_model")
-        
+        self.client._auto_cleanup_enabled = False
         # Mock the session object to control API responses for other methods
         self.mock_session = MagicMock()
         self.client.session = self.mock_session
