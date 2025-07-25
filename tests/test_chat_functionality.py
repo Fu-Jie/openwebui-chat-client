@@ -29,7 +29,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         """Test successful chat operation."""
         # Setup mocks
         self.client.chat_id = "test-chat-id"
-        mock_ask.return_value = ("Test response", "msg-id-123")
+        mock_ask.return_value = ("Test response", "msg-id-123", None)
 
         result = self.client.chat(question="Hello, world!", chat_title="Test Chat")
 
@@ -55,7 +55,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
     def test_chat_with_tags(self, mock_set_tags, mock_ask, mock_find_create):
         """Test chat operation with tags."""
         self.client.chat_id = "test-chat-id"
-        mock_ask.return_value = ("Test response", "msg-id-123")
+        mock_ask.return_value = ("Test response", "msg-id-123", None)
 
         result = self.client.chat(
             question="Hello, world!", chat_title="Test Chat", tags=["tag1", "tag2"]
@@ -76,7 +76,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         self.client.chat_id = "test-chat-id"
         self.client.chat_object_from_server = {"folder_id": "old-folder"}
         mock_get_folder.return_value = "new-folder-id"
-        mock_ask.return_value = ("Test response", "msg-id-123")
+        mock_ask.return_value = ("Test response", "msg-id-123", None)
 
         result = self.client.chat(
             question="Hello, world!", chat_title="Test Chat", folder_name="Test Folder"
