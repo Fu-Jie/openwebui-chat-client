@@ -29,6 +29,9 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         """Test successful chat operation."""
         # Setup mocks
         self.client.chat_id = "test-chat-id"
+        self.client.chat_object_from_server = {
+            "chat": {"history": {"messages": {}}, "models": ["test-model"]}
+        }
         mock_ask.return_value = ("Test response", "msg-id-123", None)
 
         result = self.client.chat(question="Hello, world!", chat_title="Test Chat")
@@ -55,6 +58,9 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
     def test_chat_with_tags(self, mock_set_tags, mock_ask, mock_find_create):
         """Test chat operation with tags."""
         self.client.chat_id = "test-chat-id"
+        self.client.chat_object_from_server = {
+            "chat": {"history": {"messages": {}}, "models": ["test-model"]}
+        }
         mock_ask.return_value = ("Test response", "msg-id-123", None)
 
         result = self.client.chat(
@@ -74,7 +80,10 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
     ):
         """Test chat operation with folder management."""
         self.client.chat_id = "test-chat-id"
-        self.client.chat_object_from_server = {"folder_id": "old-folder"}
+        self.client.chat_object_from_server = {
+            "folder_id": "old-folder",
+            "chat": {"history": {"messages": {}}, "models": ["test-model"]},
+        }
         mock_get_folder.return_value = "new-folder-id"
         mock_ask.return_value = ("Test response", "msg-id-123", None)
 
@@ -153,6 +162,9 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
     ):
         """Test successful streaming chat operation."""
         self.client.chat_id = "test-chat-id"
+        self.client.chat_object_from_server = {
+            "chat": {"history": {"messages": {}}, "models": ["test-model"]}
+        }
 
         # Mock the generator and return value
         def mock_stream_generator():
@@ -179,7 +191,10 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
             final_result = e.value
 
         self.assertEqual(chunks, ["chunk1", "chunk2", "chunk3"])
-        self.assertEqual(final_result, ("Full response", [], None))  # Update to match the 3-tuple return
+        self.assertIsInstance(final_result, dict)
+        self.assertEqual(final_result.get("response"), "Full response")
+        self.assertEqual(final_result.get("sources"), [])
+        self.assertIsNone(final_result.get("follow_ups"))
         mock_set_tags.assert_called_once_with("test-chat-id", ["stream", "test"])
 
     @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")

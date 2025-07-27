@@ -99,6 +99,10 @@ class OpenWebUIClient:
 
         self._find_or_create_chat_by_title(chat_title)
 
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error("Chat object not loaded or malformed, cannot proceed with chat.")
+            return None
+
         # Handle model switching for an existing chat
         if model_id and self.model_id != model_id:
             logger.warning(f"Model switch detected for chat '{chat_title}'.")
@@ -192,6 +196,12 @@ class OpenWebUIClient:
         logger.info("=" * 60)
 
         self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error(
+                "Chat object not loaded or malformed, cannot proceed with parallel chat."
+            )
+            return None
 
         # Handle model set changes for existing parallel chats
         if self.chat_object_from_server and "chat" in self.chat_object_from_server:
@@ -415,6 +425,10 @@ class OpenWebUIClient:
         logger.info("=" * 60)
 
         self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error("Chat object not loaded or malformed, cannot proceed with stream.")
+            return  # End generator
 
         if not self.chat_id:
             logger.error("Chat initialization failed, cannot proceed with stream.")
@@ -998,6 +1012,9 @@ class OpenWebUIClient:
             logger.info(
                 f"Successfully created model with ID: {created_model.get('id')}"
             )
+            # Add the new model ID to the available models list
+            if model_id not in self.available_model_ids:
+                self.available_model_ids.append(model_id)
             return created_model
         except requests.exceptions.RequestException as e:
             error_msg = getattr(e.response, "text", str(e))
@@ -1115,20 +1132,24 @@ class OpenWebUIClient:
             response.raise_for_status()
 
             if response.status_code == 200:
+                success = False
                 try:
                     if response.json() is True:
-                        logger.info(f"Successfully deleted model '{model_id}'.")
-                        return True
-                    else:
-                        logger.warning(
-                            f"Model deletion for '{model_id}' returned an unexpected value: {response.text}"
-                        )
-                        return False
+                        success = True
                 except json.JSONDecodeError:
-                    logger.info(
-                        f"Successfully sent delete request for model '{model_id}' (empty response)."
-                    )
+                    success = True  # Empty response also indicates success
+
+                if success:
+                    logger.info(f"Successfully deleted model '{model_id}'.")
+                    # Remove the model ID from the available models list
+                    if model_id in self.available_model_ids:
+                        self.available_model_ids.remove(model_id)
                     return True
+                else:
+                    logger.warning(
+                        f"Model deletion for '{model_id}' returned an unexpected value: {response.text}"
+                    )
+                    return False
             return False
         except requests.exceptions.RequestException as e:
             error_msg = getattr(e.response, "text", str(e))

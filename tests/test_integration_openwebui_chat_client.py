@@ -35,6 +35,20 @@ class TestIntegrationOpenWebUIClient(unittest.TestCase):
             default_model_id=self.default_model,
         )
         self.client._auto_cleanup_enabled = False
+        self.test_model_id = "my-test-model:latest"
+
+    def tearDown(self):
+        """
+        Clean up any resources created during the tests.
+        """
+        # Attempt to delete the model created during the model management test
+        # to ensure a clean state for the next run.
+        try:
+            self.client.delete_model(self.test_model_id)
+            print(f"Cleaned up test model '{self.test_model_id}'.")
+        except Exception:
+            # Suppress exceptions during cleanup
+            pass
 
     def test_list_models_integration(self):
         """
@@ -106,8 +120,12 @@ class TestIntegrationOpenWebUIClient(unittest.TestCase):
         Test the full CRUD (Create, Read, Update, Delete) for models.
         """
         print("\\nRunning integration test: test_model_management_integration")
-        model_id = "my-test-model:latest"
+        model_id = self.test_model_id
         model_name = "My Integration Test Model"
+
+        # Pre-cleanup: Attempt to delete the model in case it was left over
+        # from a previous failed run.
+        self.client.delete_model(model_id)
 
         # Find an available model to use as a base for creating a new one
         models = self.client.list_models()
