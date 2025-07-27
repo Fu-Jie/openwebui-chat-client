@@ -2,9 +2,28 @@
 
 本项目的所有显著更改都将记录在此文件中。
 
+## [0.1.12] - 2025-07-27
+
+### 0.1.12 中新增
+
+- **自动元数据生成**: 为 `chat`、`parallel_chat` 和 `stream_chat` 方法增加了 `enable_auto_tagging` 和 `enable_auto_titling` 参数，用于自动为对话生成并应用标签和标题。
+- **手动元数据更新**: 引入了新的公共方法 `update_chat_metadata`，允许用户通过提供 `chat_id` 来为现有对话重新生成和更新标签和/或标题。
+- **增强的返回值**: 当相应功能启用时，`chat`、`parallel_chat` 和 `stream_chat` 方法现在会在其响应字典中返回 `suggested_tags` 和 `suggested_title`。
+- **单元测试和演示**: 添加了 `tests/test_metadata_features.py` 以测试新的元数据功能，并在 `examples/demos.py` 中增加了一个新的演示来展示其用法。
+
+## [0.1.12] - 2025-07-27
+
+### 0.1.12 中新增
+
+- **自动元数据生成**: 为 `chat`、`parallel_chat` 和 `stream_chat` 方法增加了 `enable_auto_tagging` 和 `enable_auto_titling` 参数，用于自动为对话生成并应用标签和标题。
+- **手动元数据更新**: 引入了新的公共方法 `update_chat_metadata`，允许用户通过提供 `chat_id` 来为现有对话重新生成和更新标签和/或标题。
+- **增强的返回值**: 当相应功能启用时，`chat`、`parallel_chat` 和 `stream_chat` 方法现在会在其响应字典中返回 `suggested_tags` 和 `suggested_title`。
+- **单元测试和演示**: 添加了 `tests/test_metadata_features.py` 以测试新的元数据功能，并在 `examples/demos.py` 中增加了一个新的演示来展示其用法。
+
 ## [0.1.11] - 2025-07-26
 
 ### 0.1.11 中新增
+
 - **流式聊天实时更新优化**: 在 `stream_chat` 方法中增加了实时增量内容推送功能。通过调用 `/api/v1/chats/{chat_id}/messages/{message_id}/event` 接口，在流式生成内容的同时将每个内容块实时推送到 Open WebUI 前端，实现打字机效果的实时更新体验。
 - 增加了 `_stream_delta_update` 私有方法，用于流式聊天期间的实时增量内容更新。
 - 增加了 `examples/stream_chat_demo.py` 演示脚本，用于增强的流式功能。
@@ -13,6 +32,7 @@
 - 增强了 `get_model` 方法，使其在模型不存在且 API 返回 401 时自动尝试创建模型并重试获取。
 
 ### 0.1.11 中变更
+
 - 在 `get_model` 方法中增加了对空 `model_id` 和本地可用模型列表的检查。
 - 增强了 `_ask_stream` 方法，使其包含实时增量更新，同时保持向后兼容性。
 

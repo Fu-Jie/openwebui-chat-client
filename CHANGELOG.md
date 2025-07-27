@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.12] - 2025-07-27
+
+### Added in 0.1.12
+- **Automatic Metadata Generation**: Added `enable_auto_tagging` and `enable_auto_titling` parameters to `chat`, `parallel_chat`, and `stream_chat` methods to automatically generate and apply tags and titles to conversations.
+- **Manual Metadata Update**: Introduced a new public method `update_chat_metadata` that allows users to regenerate and update the tags and/or title for an existing chat by providing its `chat_id`.
+- **Enhanced Return Values**: The `chat`, `parallel_chat`, and `stream_chat` methods now return `suggested_tags` and `suggested_title` in their response dictionaries when the corresponding features are enabled.
+- **Unit Tests and Demos**: Added `tests/test_metadata_features.py` to test the new metadata functionalities and included a new demo in `examples/demos.py` to showcase their usage.
+
 ## [0.1.11] - 2025-07-26
 
 ### Added in 0.1.11

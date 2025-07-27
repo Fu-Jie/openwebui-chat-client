@@ -2,8 +2,8 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-[![PyPI 版本](https://img.shields.io/pypi/v/openwebui-chat-client/0.1.11?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
-[![更新日志](https://img.shields.io/badge/更新日志-v0.1.11-blue.svg)](./CHANGELOG.zh-CN.md)
+[![PyPI 版本](https://img.shields.io/pypi/v/openwebui-chat-client/0.1.12?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
+[![更新日志](https://img.shields.io/badge/更新日志-v0.1.12-blue.svg)](./CHANGELOG.zh-CN.md)
 [![许可证: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![支持的 Python 版本](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
 
@@ -47,6 +47,8 @@ if result:
 
 ## ✨ 主要功能
 
+- **自动元数据生成**: 为您的对话自动生成标签和标题。
+- **手动元数据更新**: 按需为现有对话重新生成标签和标题。
 - **实时流式聊天更新**: 在流式聊天期间体验打字机效果的实时内容更新。
 - **聊天追问生成选项**: 支持在聊天方法中生成追问问题或选项。
 - 多模态对话：文本、图片、文件上传
@@ -206,9 +208,10 @@ if result_1 and result_2:
 | 方法 | 说明 | 示例 |
 |--------|-------------|---------|
 | `chat()` | 启动/继续单模型对话。返回包含 `response`, `chat_id`, `message_id` 的字典。 | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
-| `stream_chat()` | 启动/继续单模型流式对话，支持实时更新。生成内容块并在结束时返回完整响应/来源。 | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
-| `chat()` | 启动/继续单模型对话。返回包含 `response`, `chat_id`, `message_id` 的字典。支持追问生成选项。 | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, follow_up_options)` |
-| `parallel_chat()` | 启动/继续多模型对话。返回包含 `responses`, `chat_id`, `message_ids` 的字典。支持追问生成选项。 | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, follow_up_options)` |
+| `stream_chat()` | 启动/继续单模型流式对话，支持实时更新。生成内容块并在结束时返回完整响应/来源。 | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
+| `chat()` | 启动/继续单模型对话。返回包含 `response`, `chat_id`, `message_id` 的字典。支持追问生成选项。 | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
+| `parallel_chat()` | 启动/继续多模型对话。返回包含 `responses`, `chat_id`, `message_ids` 的字典。支持追问生成选项。 | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
+| `update_chat_metadata()` | 为现有对话重新生成和更新标签和/或标题。 | `client.update_chat_metadata(chat_id, regenerate_tags=True, regenerate_title=True)` |
 | `rename_chat()` | 聊天重命名 | `client.rename_chat(chat_id, "新标题")` |
 | `set_chat_tags()` | 聊天打标签 | `client.set_chat_tags(chat_id, ["tag1"])` |
 | `create_folder()` | 创建聊天文件夹 | `client.create_folder("ProjectX")` |

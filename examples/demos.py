@@ -573,6 +573,58 @@ class ChatManagementDemos:
             else:
                 print(f"❌ Failed to rename chat from '{old_title}' to '{new_title}'")
 
+    def automatic_metadata_demo(self) -> None:
+        """Demonstrates automatic tagging and titling, and updating metadata."""
+        print("\n" + "#" * 20 + " Automatic Metadata Demo " + "#" * 20)
+
+        # Step 1: Create a chat with automatic titling and tagging enabled
+        print("\n--- Step 1: Creating a chat with auto-metadata ---")
+        chat_result = self.client.chat(
+            question="What are the key principles of functional programming?",
+            chat_title="New FP Discussion",
+            enable_auto_tagging=True,
+            enable_auto_titling=True,
+        )
+
+        if not chat_result or not chat_result.get("chat_id"):
+            print("❌ Failed to create chat for metadata demo.")
+            return
+
+        chat_id = chat_result["chat_id"]
+        print(f"✅ Chat created with ID: {chat_id[:8]}...")
+        if chat_result.get("suggested_title"):
+            print(f"   - Auto-generated Title: '{chat_result['suggested_title']}'")
+        if chat_result.get("suggested_tags"):
+            print(f"   - Auto-generated Tags: {chat_result['suggested_tags']}")
+
+        # Add another message to the chat
+        print("\n--- Step 2: Adding another message to the chat ---")
+        self.client.chat(
+            question="Can you give an example in Python?",
+            chat_title=chat_result.get("suggested_title", "New FP Discussion"),
+        )
+        print("✅ Added a second message.")
+        time.sleep(2)
+
+        # Step 2: Manually trigger a metadata update
+        print("\n--- Step 3: Manually regenerating tags and title for the chat ---")
+        update_result = self.client.update_chat_metadata(
+            chat_id=chat_id,
+            regenerate_tags=True,
+            regenerate_title=True,
+        )
+
+        if update_result:
+            print("✅ Metadata update successful.")
+            if update_result.get("suggested_title"):
+                print(f"   - New Regenerated Title: '{update_result['suggested_title']}'")
+            if update_result.get("suggested_tags"):
+                print(f"   - New Regenerated Tags: {update_result['suggested_tags']}")
+        else:
+            print("❌ Failed to update metadata.")
+
+        print("\n🎉 Automatic metadata demo completed.")
+
 
 # ===============================
 # Main Demo Runner
@@ -636,6 +688,9 @@ class DemoRunner:
             chat_mgmt_demos.rename_chat_demo()
             time.sleep(2)
 
+            chat_mgmt_demos.automatic_metadata_demo()
+            time.sleep(2)
+
             stream_chat_demos.stream_chat_realtime_update_demo()
 
         except Exception as e:
@@ -666,6 +721,7 @@ class DemoRunner:
                 self.client
             ).models_management_demo(),
             "rename_chat": lambda: ChatManagementDemos(self.client).rename_chat_demo(),
+            "metadata": lambda: ChatManagementDemos(self.client).automatic_metadata_demo(),
             "stream_image_chat": lambda: ChatDemos(
                 self.client
             ).stream_image_chat_demo(),
@@ -691,9 +747,10 @@ if __name__ == "__main__":
 
         # Run a specific demo
         # runner.run_specific_demo("parallel_follow_up")
-        runner.run_specific_demo("stream_chat_realtime_update")
+        # runner.run_specific_demo("stream_chat_realtime_update")
         # runner.run_specific_demo("stream_rag")
         # runner.run_specific_demo("batch_delete_kb")
+        runner.run_specific_demo("metadata")
 
         # Or run all demos
         # runner.run_all_demos()

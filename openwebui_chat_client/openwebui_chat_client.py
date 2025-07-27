@@ -75,6 +75,8 @@ class OpenWebUIClient:
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
         enable_follow_up: bool = False,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
     ) -> Optional[Dict[str, Any]]:
         self.model_id = model_id or self.default_model_id
         logger.info("=" * 60)
@@ -128,11 +130,31 @@ class OpenWebUIClient:
             if tags:
                 self.set_chat_tags(self.chat_id, tags)
 
+            # New auto-tagging and auto-titling logic
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            
             return_data = {
                 "response": response,
                 "chat_id": self.chat_id,
                 "message_id": message_id,
             }
+
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+
             if follow_ups:
                 return_data["follow_ups"] = follow_ups
             return return_data
@@ -150,6 +172,8 @@ class OpenWebUIClient:
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
         enable_follow_up: bool = False,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
     ) -> Optional[Dict[str, Any]]:
         if not model_ids:
             logger.error("`model_ids` list cannot be empty for parallel chat.")
@@ -318,11 +342,31 @@ class OpenWebUIClient:
                 for k, v in successful_responses.items()
             }
 
-            return {
+            return_data = {
                 "responses": final_responses,
                 "chat_id": self.chat_id,
                 "message_ids": assistant_message_ids,
             }
+
+            # Auto-tagging and auto-titling logic for parallel chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+            
+            return return_data
 
         return None
 
@@ -342,8 +386,10 @@ class OpenWebUIClient:
         placeholder_pool_size: int = 30,  # New: Size of placeholder message pool (configurable)
         min_available_messages: int = 10,  # New: Minimum available messages threshold
         wait_before_request: float = 10.0,  # New: Wait time after initializing placeholders (seconds)
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
     ) -> Generator[
-        str, None, Tuple[Optional[str], Optional[List[Dict]], Optional[List[str]]]
+        str, None, Optional[Dict[str, Any]]
     ]:
         """
         Initiates a streaming chat session. Yields content chunks as they are received.
@@ -414,7 +460,31 @@ class OpenWebUIClient:
             if tags:
                 self.set_chat_tags(self.chat_id, tags)
 
-            return final_response_content, final_sources, follow_ups
+            return_data = {
+                "response": final_response_content,
+                "sources": final_sources,
+                "follow_ups": follow_ups,
+            }
+
+            # Auto-tagging and auto-titling logic for stream chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+
+            return return_data
 
         except Exception as e:
             logger.error(f"Error in stream_chat: {e}")
@@ -1065,6 +1135,58 @@ class OpenWebUIClient:
             logger.error(f"Failed to delete model '{model_id}': {error_msg}")
             return False
 
+    def update_chat_metadata(
+        self,
+        chat_id: str,
+        regenerate_tags: bool = False,
+        regenerate_title: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Regenerates and updates the tags and/or title for an existing chat based on its history.
+
+        Args:
+            chat_id: The ID of the chat to update.
+            regenerate_tags: If True, new tags will be generated and applied.
+            regenerate_title: If True, a new title will be generated and applied.
+
+        Returns:
+            A dictionary containing the 'suggested_tags' and/or 'suggested_title' that were updated,
+            or None if the chat could not be found or no action was requested.
+        """
+        if not regenerate_tags and not regenerate_title:
+            logger.warning("No action requested for update_chat_metadata. Set regenerate_tags or regenerate_title to True.")
+            return None
+
+        logger.info(f"Updating metadata for chat {chat_id[:8]}...")
+        if not self._load_chat_details(chat_id):
+            logger.error(f"Cannot update metadata, failed to load chat: {chat_id}")
+            return None
+
+        api_messages = self._build_linear_history_for_api(self.chat_object_from_server["chat"])
+        return_data = {}
+
+        if regenerate_tags:
+            logger.info("Regenerating tags...")
+            suggested_tags = self._get_tags(api_messages)
+            if suggested_tags:
+                self.set_chat_tags(chat_id, suggested_tags)
+                return_data["suggested_tags"] = suggested_tags
+                logger.info(f"  > Applied new tags: {suggested_tags}")
+            else:
+                logger.warning("  > Failed to generate new tags.")
+
+        if regenerate_title:
+            logger.info("Regenerating title...")
+            suggested_title = self._get_title(api_messages)
+            if suggested_title:
+                self.rename_chat(chat_id, suggested_title)
+                return_data["suggested_title"] = suggested_title
+                logger.info(f"  > Applied new title: '{suggested_title}'")
+            else:
+                logger.warning("  > Failed to generate new title.")
+        
+        return return_data if return_data else None
+
     def switch_chat_model(self, chat_id: str, model_ids: Union[str, List[str]]) -> bool:
         """
         Switches the model(s) for an existing chat without sending a new message.
@@ -1612,6 +1734,96 @@ class OpenWebUIClient:
             logger.error(
                 "Failed to parse JSON or find expected keys in follow-up response."
             )
+            return None
+
+    def _get_tags(self, messages: List[Dict[str, Any]]) -> Optional[List[str]]:
+        """
+        Gets tag suggestions based on the conversation history.
+        """
+        task_model = self._get_task_model()
+        if not task_model:
+            logger.error("Could not determine task model for tags. Aborting.")
+            return None
+
+        logger.info("Requesting tag suggestions...")
+        payload = {"model": task_model, "messages": messages, "stream": False}
+        url = f"{self.base_url}/api/v1/tasks/tags/completions"
+
+        logger.debug(f"Sending tags request to {url}: {json.dumps(payload, indent=2)}")
+
+        try:
+            response = self.session.post(url, json=payload, headers=self.json_headers)
+            response.raise_for_status()
+            data = response.json()
+
+            if "choices" in data and data["choices"]:
+                message = data["choices"][0].get("message", {})
+                content = message.get("content")
+                if content:
+                    try:
+                        content_json = json.loads(content)
+                        tags = content_json.get("tags")
+                        if isinstance(tags, list):
+                            logger.info(f"   ✅ Received {len(tags)} tag suggestions.")
+                            return tags
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to decode JSON from tags content: {content}")
+                        return None
+            logger.warning(f"   ⚠️ Unexpected format for tags response: {data}")
+            return None
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Tags API HTTP Error: {e.response.text}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Tags API Network Error: {e}")
+            return None
+        except (json.JSONDecodeError, KeyError, IndexError):
+            logger.error("Failed to parse JSON or find expected keys in tags response.")
+            return None
+
+    def _get_title(self, messages: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Gets a title suggestion based on the conversation history.
+        """
+        task_model = self._get_task_model()
+        if not task_model:
+            logger.error("Could not determine task model for title. Aborting.")
+            return None
+
+        logger.info("Requesting title suggestion...")
+        payload = {"model": task_model, "messages": messages, "stream": False}
+        url = f"{self.base_url}/api/v1/tasks/title/completions"
+
+        logger.debug(f"Sending title request to {url}: {json.dumps(payload, indent=2)}")
+
+        try:
+            response = self.session.post(url, json=payload, headers=self.json_headers)
+            response.raise_for_status()
+            data = response.json()
+
+            if "choices" in data and data["choices"]:
+                message = data["choices"][0].get("message", {})
+                content = message.get("content")
+                if content:
+                    try:
+                        content_json = json.loads(content)
+                        title = content_json.get("title")
+                        if isinstance(title, str):
+                            logger.info(f"   ✅ Received title suggestion: '{title}'")
+                            return title
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to decode JSON from title content: {content}")
+                        return None
+            logger.warning(f"   ⚠️ Unexpected format for title response: {data}")
+            return None
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Title API HTTP Error: {e.response.text}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Title API Network Error: {e}")
+            return None
+        except (json.JSONDecodeError, KeyError, IndexError):
+            logger.error("Failed to parse JSON or find expected keys in title response.")
             return None
 
     def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
