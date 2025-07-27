@@ -1,8 +1,6 @@
-name: Publish to PyPI
+name: Publish to PyPI and Create Release
 
 on:
-  release:
-    types: [published]
   push:
     tags:
       - 'v*'
@@ -55,3 +53,42 @@ jobs:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: twine upload dist/*
+
+  create-github-release:
+    runs-on: ubuntu-latest
+    needs: build-and-publish
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Extract version from pyproject.toml
+      id: get_version
+      run: |
+        VERSION=$(python -c "import re; content=open('pyproject.toml').read(); print(re.search(r'version\s*=\s*[\"\'](.*?)[\"\']', content).group(1))")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Extract changelog content
+      id: changelog
+      run: |
+        python .github/scripts/extract_changelog.py --output release_notes.md
+        echo "Changelog extracted successfully"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.tag }}
+        name: Release ${{ steps.get_version.outputs.tag }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        generate_release_notes: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
