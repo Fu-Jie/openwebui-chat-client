@@ -80,31 +80,31 @@ jobs:
         
         # Run a basic connectivity test
         python -c "
-from openwebui_chat_client import OpenWebUIClient
-import os
-import sys
-
-try:
-    client = OpenWebUIClient(
-        base_url=os.getenv('OUI_BASE_URL'),
-        token=os.getenv('OUI_AUTH_TOKEN'),
-        default_model_id=os.getenv('OUI_DEFAULT_MODEL')
-    )
-    
-    # Test basic connectivity by listing models
-    models = client.list_models()
-    if models:
-        print(f'✅ Successfully connected to OpenWebUI. Found {len(models)} models.')
-        print(f'   Available models: {models[:3]}...' if len(models) > 3 else f'   Available models: {models}')
-    else:
-        print('⚠️  Connected but no models found.')
-    
-    print('✅ Integration test passed!')
-    
-except Exception as e:
-    print(f'❌ Integration test failed: {e}')
-    sys.exit(1)
-"
+        from openwebui_chat_client import OpenWebUIClient
+        import os
+        import sys
+        
+        try:
+            client = OpenWebUIClient(
+                base_url=os.getenv('OUI_BASE_URL'),
+                token=os.getenv('OUI_AUTH_TOKEN'),
+                default_model_id=os.getenv('OUI_DEFAULT_MODEL')
+            )
+            
+            # Test basic connectivity by listing models
+            models = client.list_models()
+            if models:
+                print(f'✅ Successfully connected to OpenWebUI. Found {len(models)} models.')
+                print(f'   Available models: {models[:3]}...' if len(models) > 3 else f'   Available models: {models}')
+            else:
+                print('⚠️  Connected but no models found.')
+            
+            print('✅ Integration test passed!')
+            
+        except Exception as e:
+            print(f'❌ Integration test failed: {e}')
+            sys.exit(1)
+        "
 
     - name: Integration Test Summary
       run: |
