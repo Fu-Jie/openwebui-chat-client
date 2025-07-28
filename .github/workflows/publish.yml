@@ -1,15 +1,64 @@
-name: Publish to PyPI and Create Release
+name: Tag and Publish on CHANGELOG update
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'CHANGELOG.md'
 
 jobs:
+  create_tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.get_version.outputs.tag }}
+      created: ${{ steps.tag_creation.outputs.created }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from CHANGELOG.md
+        id: get_version
+        run: |
+          VERSION=$(grep -m 1 '^## \[' CHANGELOG.md | sed -n 's/^## \[\(.*\)\].*/\1/p')
+          if [ -z "$VERSION" ]; then
+            echo "Could not extract version from CHANGELOG.md"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check tag and create if it does not exist
+        id: tag_creation
+        run: |
+          TAG=${{ steps.get_version.outputs.tag }}
+          echo "Checking for tag $TAG..."
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists. No new tag will be created."
+            echo "created=false" >> $GITHUB_OUTPUT
+          else
+            echo "Tag $TAG does not exist. Creating and pushing tag..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "Tag $TAG pushed successfully."
+            echo "created=true" >> $GITHUB_OUTPUT
+          fi
+
   test:
     runs-on: ubuntu-latest
+    needs: create_tag
+    if: needs.create_tag.outputs.created == 'true'
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code at new tag
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.create_tag.outputs.tag }}
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -27,10 +76,13 @@ jobs:
 
   build-and-publish:
     runs-on: ubuntu-latest
-    needs: test
-    
+    needs: [create_tag, test]
+    if: needs.create_tag.outputs.created == 'true'
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code at new tag
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.create_tag.outputs.tag }}
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -56,24 +108,20 @@ jobs:
 
   create-github-release:
     runs-on: ubuntu-latest
-    needs: build-and-publish
+    needs: [create_tag, build-and-publish]
+    if: needs.create_tag.outputs.created == 'true'
     permissions:
       contents: write
-    
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code at new tag
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.create_tag.outputs.tag }}
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-
-    - name: Extract version from pyproject.toml
-      id: get_version
-      run: |
-        VERSION=$(python -c "import re; content=open('pyproject.toml').read(); print(re.search(r'version\s*=\s*[\"\'](.*?)[\"\']', content).group(1))")
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
     - name: Extract changelog content
       id: changelog
@@ -84,8 +132,8 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ steps.get_version.outputs.tag }}
-        name: Release ${{ steps.get_version.outputs.tag }}
+        tag_name: ${{ needs.create_tag.outputs.tag }}
+        name: Release ${{ needs.create_tag.outputs.tag }}
         body_path: release_notes.md
         draft: false
         prerelease: false
