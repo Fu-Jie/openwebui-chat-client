@@ -62,6 +62,7 @@ if result:
 - **Tool Integration**: Use server-side tools (functions) in your chat requests.
 - **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses.
 - **Knowledge Base Management**: Create, update, and use knowledge bases.
+- **Notes Management**: Create, retrieve, update, and delete notes with structured data and metadata.
 - **Model Management**: List, create, update, and delete custom model entries, with enhanced auto-creation/retry for `get_model`.
 - **Chat Organization**: Rename chats, use folders, tags, and search functionality.
 - **Concurrent Processing**: Parallel model querying for fast multi-model responses.
@@ -237,6 +238,13 @@ if result_1 and result_2:
 | `delete_knowledge_bases_by_keyword()` | Delete knowledge bases whose names contain the given keyword. | `client.delete_knowledge_bases_by_keyword("keyword")` |
 | `create_knowledge_bases_with_files()` | Create multiple knowledge bases and add files to each. | `client.create_knowledge_bases_with_files({"KB1": ["file1.txt"]})` |
 | `switch_chat_model()` | Switch the model(s) for an existing chat. | `client.switch_chat_model(chat_id, "new-model-id")` |
+| **Notes API** |
+| `get_notes()` | Get all notes for the current user with full details including user information. | `client.get_notes()` |
+| `get_notes_list()` | Get a simplified list of notes with only id, title, and timestamps. | `client.get_notes_list()` |
+| `create_note()` | Create a new note with title and optional data, metadata, and access control. | `client.create_note("My Note", data={"content": "..."}, meta={"tags": [...]})` |
+| `get_note_by_id()` | Retrieve a specific note by its ID. | `client.get_note_by_id("note_id")` |
+| `update_note_by_id()` | Update an existing note with new title, data, metadata, or access control. | `client.update_note_by_id("note_id", "New Title", data={...})` |
+| `delete_note_by_id()` | Delete a note by its ID. Returns True if successful. | `client.delete_note_by_id("note_id")` |
 
 ---
 

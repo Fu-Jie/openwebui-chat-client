@@ -33,10 +33,14 @@ class Config:
     AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN")
 
     # Model Configuration
-    DEFAULT_MODEL = "gpt-4.1"
-    PARALLEL_MODELS = ["gpt-4.1", "gemini-2.5-flash"]
-    MULTIMODAL_MODEL = "gpt-4.1"
-    RAG_MODEL = "gemini-2.5-flash"
+    DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "gpt-4.1")
+    
+    # Parse parallel models from environment variable (comma-separated)
+    _parallel_models_str = os.getenv("OUI_PARALLEL_MODELS", "gpt-4.1,gemini-2.5-flash")
+    PARALLEL_MODELS = [model.strip() for model in _parallel_models_str.split(",") if model.strip()]
+    
+    MULTIMODAL_MODEL = os.getenv("OUI_MULTIMODAL_MODEL", DEFAULT_MODEL)
+    RAG_MODEL = os.getenv("OUI_RAG_MODEL", "gemini-2.5-flash")
 
 
 # ===============================
