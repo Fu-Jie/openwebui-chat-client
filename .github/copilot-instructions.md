@@ -190,30 +190,14 @@ def parallel_operation(self, items: List[str]) -> Dict[str, Any]:
 - **Python版本**: 3.8, 3.9, 3.10, 3.11, 3.12, 3.13
 - **测试命令**: `python -m unittest discover -s tests -p "test_*.py" -v`
 
-#### 发布工作流 (publish.yml)
-- **触发条件**: 推送标签 `v*`
-- **流程**: 测试 -> 构建 -> 发布到PyPI -> 创建GitHub Release
-- **依赖**: PYPI_API_TOKEN密钥
-
 #### 集成测试 (integration-test.yml)
 - **用途**: 更全面的集成测试
 - **环境**: 可能包含OpenWebUI服务器模拟
 
-### 2. 发布流程
-
-#### 版本发布步骤（严格按照.clinerules/workflows/release.md执行）
-1. **更新代码**: 完成功能开发和测试
-2. **更新文档**: 更新README和示例
-3. **更新CHANGELOG**: 记录所有变更
-4. **更新版本号**: 修改`pyproject.toml`中的version字段
-5. **Git操作**:
-   ```bash
-   git add .
-   git commit -m "release: vX.Y.Z 本次变更说明"
-   git tag vX.Y.Z
-   git push
-   git push origin vX.Y.Z
-   ```
+#### 发布工作流 (publish.yml)
+- **触发条件**: 推送标签 `v*`
+- **流程**: 测试 -> 构建 -> 发布到PyPI -> 创建GitHub Release
+- **依赖**: PYPI_API_TOKEN密钥
 
 #### 版本号规范
 - 遵循语义化版本控制 (Semantic Versioning)
