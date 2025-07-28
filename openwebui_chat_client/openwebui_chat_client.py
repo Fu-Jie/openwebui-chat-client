@@ -2540,3 +2540,218 @@ class OpenWebUIClient:
         except Exception as e:
             logger.error(f"Error encoding image '{image_path}': {e}")
             return None
+
+    # Notes API Methods
+    def get_notes(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get all notes for the current user.
+        
+        Returns:
+            A list of note objects with user information, or None if failed.
+        """
+        logger.info("Getting all notes...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/notes/",
+                headers=self.json_headers
+            )
+            response.raise_for_status()
+            notes = response.json()
+            logger.info(f"Successfully retrieved {len(notes)} notes.")
+            return notes
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get notes: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting notes: {e}")
+            return None
+
+    def get_notes_list(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get a simplified list of notes with only id, title, and timestamps.
+        
+        Returns:
+            A list of simplified note objects, or None if failed.
+        """
+        logger.info("Getting notes list...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/notes/list",
+                headers=self.json_headers
+            )
+            response.raise_for_status()
+            notes_list = response.json()
+            logger.info(f"Successfully retrieved notes list with {len(notes_list)} items.")
+            return notes_list
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get notes list: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting notes list: {e}")
+            return None
+
+    def create_note(
+        self,
+        title: str,
+        data: Optional[Dict[str, Any]] = None,
+        meta: Optional[Dict[str, Any]] = None,
+        access_control: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Create a new note.
+        
+        Args:
+            title: The title of the note (required).
+            data: Optional data dictionary for the note.
+            meta: Optional metadata dictionary for the note.
+            access_control: Optional access control settings.
+            
+        Returns:
+            The created note object, or None if creation failed.
+        """
+        logger.info(f"Creating note with title: '{title}'...")
+        payload = {"title": title}
+        
+        if data is not None:
+            payload["data"] = data
+        if meta is not None:
+            payload["meta"] = meta
+        if access_control is not None:
+            payload["access_control"] = access_control
+            
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/notes/create",
+                json=payload,
+                headers=self.json_headers
+            )
+            response.raise_for_status()
+            note = response.json()
+            if note:
+                logger.info(f"Successfully created note with ID: {note.get('id', 'Unknown')}")
+                return note
+            else:
+                logger.warning("Note creation returned empty response.")
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to create note: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error creating note: {e}")
+            return None
+
+    def get_note_by_id(self, note_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific note by its ID.
+        
+        Args:
+            note_id: The ID of the note to retrieve.
+            
+        Returns:
+            The note object, or None if not found or failed.
+        """
+        logger.info(f"Getting note by ID: {note_id}")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/notes/{note_id}",
+                headers=self.json_headers
+            )
+            response.raise_for_status()
+            note = response.json()
+            if note:
+                logger.info(f"Successfully retrieved note: {note.get('title', 'Unknown title')}")
+                return note
+            else:
+                logger.warning(f"Note with ID {note_id} not found.")
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get note by ID {note_id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting note by ID {note_id}: {e}")
+            return None
+
+    def update_note_by_id(
+        self,
+        note_id: str,
+        title: str,
+        data: Optional[Dict[str, Any]] = None,
+        meta: Optional[Dict[str, Any]] = None,
+        access_control: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update an existing note by its ID.
+        
+        Args:
+            note_id: The ID of the note to update.
+            title: The new title of the note (required).
+            data: Optional new data dictionary for the note.
+            meta: Optional new metadata dictionary for the note.
+            access_control: Optional new access control settings.
+            
+        Returns:
+            The updated note object, or None if update failed.
+        """
+        logger.info(f"Updating note ID {note_id} with title: '{title}'...")
+        payload = {"title": title}
+        
+        if data is not None:
+            payload["data"] = data
+        if meta is not None:
+            payload["meta"] = meta
+        if access_control is not None:
+            payload["access_control"] = access_control
+            
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/notes/{note_id}/update",
+                json=payload,
+                headers=self.json_headers
+            )
+            response.raise_for_status()
+            note = response.json()
+            if note:
+                logger.info(f"Successfully updated note with ID: {note_id}")
+                return note
+            else:
+                logger.warning(f"Note update for ID {note_id} returned empty response.")
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to update note ID {note_id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error updating note ID {note_id}: {e}")
+            return None
+
+    def delete_note_by_id(self, note_id: str) -> bool:
+        """
+        Delete a note by its ID.
+        
+        Args:
+            note_id: The ID of the note to delete.
+            
+        Returns:
+            True if deletion was successful, False otherwise.
+        """
+        logger.info(f"Deleting note with ID: {note_id}")
+        try:
+            response = self.session.delete(
+                f"{self.base_url}/api/v1/notes/{note_id}/delete",
+                headers=self.json_headers
+            )
+            response.raise_for_status()
+            
+            # The API returns a boolean indicating success
+            result = response.json()
+            if result is True:
+                logger.info(f"Successfully deleted note with ID: {note_id}")
+                return True
+            else:
+                logger.warning(f"Note deletion for ID {note_id} returned: {result}")
+                return False
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to delete note ID {note_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error deleting note ID {note_id}: {e}")
+            return False
