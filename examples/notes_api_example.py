@@ -13,13 +13,19 @@ This example demonstrates how to use all the Notes API methods:
 
 from openwebui_chat_client import OpenWebUIClient
 import json
+import os
 
 def main():
-    # Initialize the client (replace with your actual values)
+    # Configuration from Environment Variables
+    BASE_URL = os.getenv("OUI_BASE_URL", "https://your-openwebui-instance.com")
+    AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN", "your-access-token")
+    DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "your-default-model")
+    
+    # Initialize the client
     client = OpenWebUIClient(
-        base_url="https://your-openwebui-instance.com",
-        token="your-access-token",
-        default_model_id="your-default-model"
+        base_url=BASE_URL,
+        token=AUTH_TOKEN,
+        default_model_id=DEFAULT_MODEL
     )
     
     print("=== Notes API Example ===\n")
@@ -108,10 +114,26 @@ def main():
 
 
 if __name__ == "__main__":
-    # Note: This is just an example. You need to provide actual credentials
-    # and an actual OpenWebUI instance URL for this to work.
+    # Configuration from Environment Variables
+    # Set these environment variables to use the script:
+    #
+    # In Linux/macOS:
+    #   export OUI_BASE_URL="https://your-openwebui-instance.com"
+    #   export OUI_AUTH_TOKEN="your-access-token"
+    #   export OUI_DEFAULT_MODEL="your-default-model"
+    #
+    # In Windows (Command Prompt):
+    #   set OUI_BASE_URL="https://your-openwebui-instance.com"
+    #   set OUI_AUTH_TOKEN="your-access-token"
+    #   set OUI_DEFAULT_MODEL="your-default-model"
+    #
+    # In Windows (PowerShell):
+    #   $env:OUI_BASE_URL="https://your-openwebui-instance.com"
+    #   $env:OUI_AUTH_TOKEN="your-access-token"
+    #   $env:OUI_DEFAULT_MODEL="your-default-model"
+    #
     print("This is an example script demonstrating Notes API usage.")
-    print("To run it with real data, update the client initialization with your actual credentials.")
+    print("Set the environment variables OUI_BASE_URL, OUI_AUTH_TOKEN, and OUI_DEFAULT_MODEL to run with real data.")
     
-    # Uncomment the line below and provide real credentials to test:
+    # Uncomment the line below and set environment variables to test:
     # main()
