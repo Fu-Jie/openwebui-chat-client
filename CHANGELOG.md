@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.13] - 2025-07-28
+
+### Changed in 0.1.13
+- **Streamlined Release Process**: Simplified and optimized the release workflow documentation, removing redundant steps and improving clarity.
+- **Enhanced Development Infrastructure**: Improved GitHub workflows, CI/CD setup, and development tooling for better maintainability.
+- **Updated Project Organization**: Refined project structure and documentation organization for better developer experience.
+
 ## [0.1.12] - 2025-07-27
 
 ### Added in 0.1.12
