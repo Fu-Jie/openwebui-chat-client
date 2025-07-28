@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.13] - 2025-07-28
 
+### Added in 0.1.13
+- **Notes Management API**: Complete implementation of notes management functionality with full CRUD operations:
+  - `get_notes()`: Retrieve all notes for the current user with detailed information
+  - `get_notes_list()`: Get a simplified list of notes with only id, title, and timestamps
+  - `create_note()`: Create new notes with title, data, metadata, and access control
+  - `get_note_by_id()`: Retrieve specific notes by their ID
+  - `update_note_by_id()`: Update existing notes with new content and metadata
+  - `delete_note_by_id()`: Delete notes by their ID
+- **Notes API Examples**: Added comprehensive example script `examples/notes_api_example.py` demonstrating all notes functionality
+- **Notes Unit Tests**: Added complete test coverage in `tests/test_notes_functionality.py` with 118 test cases
+
 ### Changed in 0.1.13
 - **Streamlined Release Process**: Simplified and optimized the release workflow documentation, removing redundant steps and improving clarity.
 - **Enhanced Development Infrastructure**: Improved GitHub workflows, CI/CD setup, and development tooling for better maintainability.
