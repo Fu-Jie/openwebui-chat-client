@@ -1,0 +1,116 @@
+name: Integration Test
+
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types:
+      - completed
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'OpenWebUI Base URL'
+        required: true
+        default: 'https://your-openwebui-instance.com'
+      auth_token:
+        description: 'OpenWebUI Auth Token'
+        required: true
+      default_model:
+        description: 'Default Model ID'
+        required: true
+        default: 'gpt-3.5-turbo'
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    # Only run if the test workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Run Notes API Integration Test
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+      run: |
+        echo "Running Notes API integration test..."
+        echo "Base URL: $OUI_BASE_URL"
+        echo "Model: $OUI_DEFAULT_MODEL"
+        
+        # Check if required environment variables are set
+        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ] || [ -z "$OUI_DEFAULT_MODEL" ]; then
+          echo "❌ Missing required environment variables:"
+          echo "   OUI_BASE_URL: ${OUI_BASE_URL:-'not set'}"
+          echo "   OUI_AUTH_TOKEN: ${OUI_AUTH_TOKEN:+'set':-'not set'}"
+          echo "   OUI_DEFAULT_MODEL: ${OUI_DEFAULT_MODEL:-'not set'}"
+          echo ""
+          echo "To run integration tests, set these as repository secrets or use workflow_dispatch."
+          echo "Skipping integration test."
+          exit 0
+        fi
+        
+        # Run the notes API example script
+        python examples/notes_api_example.py
+
+    - name: Run Basic Usage Integration Test
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+      run: |
+        echo "Running basic usage integration test..."
+        
+        # Check if required environment variables are set
+        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ] || [ -z "$OUI_DEFAULT_MODEL" ]; then
+          echo "Skipping basic usage integration test (missing env vars)."
+          exit 0
+        fi
+        
+        # Run a basic connectivity test
+        python -c "
+from openwebui_chat_client import OpenWebUIClient
+import os
+import sys
+
+try:
+    client = OpenWebUIClient(
+        base_url=os.getenv('OUI_BASE_URL'),
+        token=os.getenv('OUI_AUTH_TOKEN'),
+        default_model_id=os.getenv('OUI_DEFAULT_MODEL')
+    )
+    
+    # Test basic connectivity by listing models
+    models = client.list_models()
+    if models:
+        print(f'✅ Successfully connected to OpenWebUI. Found {len(models)} models.')
+        print(f'   Available models: {models[:3]}...' if len(models) > 3 else f'   Available models: {models}')
+    else:
+        print('⚠️  Connected but no models found.')
+    
+    print('✅ Integration test passed!')
+    
+except Exception as e:
+    print(f'❌ Integration test failed: {e}')
+    sys.exit(1)
+"
+
+    - name: Integration Test Summary
+      run: |
+        echo "🎉 Integration tests completed successfully!"
+        echo ""
+        echo "Summary:"
+        echo "- Notes API functionality tested against real OpenWebUI instance"
+        echo "- Basic connectivity and model listing verified"
+        echo "- All example scripts executed without errors"

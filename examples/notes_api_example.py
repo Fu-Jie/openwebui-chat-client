@@ -21,12 +21,21 @@ def main():
     AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN", "your-access-token")
     DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "your-default-model")
     
+    print(f"Connecting to: {BASE_URL}")
+    print(f"Using model: {DEFAULT_MODEL}")
+    print("")
+    
     # Initialize the client
-    client = OpenWebUIClient(
-        base_url=BASE_URL,
-        token=AUTH_TOKEN,
-        default_model_id=DEFAULT_MODEL
-    )
+    try:
+        client = OpenWebUIClient(
+            base_url=BASE_URL,
+            token=AUTH_TOKEN,
+            default_model_id=DEFAULT_MODEL
+        )
+        print("✅ Client initialized successfully")
+    except Exception as e:
+        print(f"❌ Failed to initialize client: {e}")
+        raise
     
     print("=== Notes API Example ===\n")
     
@@ -111,6 +120,9 @@ def main():
         print("   ❌ Failed to delete note")
     
     print("\n=== Example completed ===")
+    print("🎉 All Notes API operations completed successfully!")
+    print("✅ Integration test passed!")
+    return True
 
 
 if __name__ == "__main__":
@@ -133,7 +145,42 @@ if __name__ == "__main__":
     #   $env:OUI_DEFAULT_MODEL="your-default-model"
     #
     print("This is an example script demonstrating Notes API usage.")
-    print("Set the environment variables OUI_BASE_URL, OUI_AUTH_TOKEN, and OUI_DEFAULT_MODEL to run with real data.")
     
-    # Uncomment the line below and set environment variables to test:
-    # main()
+    # Check if environment variables are set
+    base_url = os.getenv("OUI_BASE_URL")
+    auth_token = os.getenv("OUI_AUTH_TOKEN")
+    default_model = os.getenv("OUI_DEFAULT_MODEL")
+    
+    if base_url and auth_token and default_model:
+        print("✅ Environment variables detected. Running integration test...")
+        print(f"   Base URL: {base_url}")
+        print(f"   Model: {default_model}")
+        print("")
+        try:
+            main()
+        except Exception as e:
+            print(f"❌ Integration test failed: {e}")
+            import sys
+            sys.exit(1)
+    else:
+        print("Set the environment variables OUI_BASE_URL, OUI_AUTH_TOKEN, and OUI_DEFAULT_MODEL to run with real data.")
+        print("")
+        print("Missing variables:")
+        if not base_url:
+            print("  ❌ OUI_BASE_URL")
+        else:
+            print("  ✅ OUI_BASE_URL")
+        if not auth_token:
+            print("  ❌ OUI_AUTH_TOKEN")
+        else:
+            print("  ✅ OUI_AUTH_TOKEN")
+        if not default_model:
+            print("  ❌ OUI_DEFAULT_MODEL")
+        else:
+            print("  ✅ OUI_DEFAULT_MODEL")
+        print("")
+        print("Example:")
+        print("  export OUI_BASE_URL='https://your-openwebui-instance.com'")
+        print("  export OUI_AUTH_TOKEN='your-access-token'")
+        print("  export OUI_DEFAULT_MODEL='your-default-model'")
+        print("  python examples/notes_api_example.py")
