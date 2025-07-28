@@ -15,8 +15,14 @@ BASE_URL = os.getenv("OUI_BASE_URL", "http://localhost:3000")
 AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN")
 
 # *** Models for Testing ***
-DEFAULT_MODEL = "gpt-4.1" # Replace with a model available in your Open WebUI instance
-ANOTHER_MODEL = "gemini-2.5-flash" # Replace with another model available in your Open WebUI instance
+DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "gpt-4.1")  # Replace with a model available in your Open WebUI instance
+
+# Parse parallel models from environment variable (comma-separated)
+_parallel_models_str = os.getenv("OUI_PARALLEL_MODELS", "gpt-4.1,gemini-2.5-flash")
+PARALLEL_MODELS = [model.strip() for model in _parallel_models_str.split(",") if model.strip()]
+
+# Use the second parallel model as "another model" for testing
+ANOTHER_MODEL = PARALLEL_MODELS[1] if len(PARALLEL_MODELS) > 1 else "gemini-2.5-flash"
 
 # --- Configure Logging for the Application ---
 logging.basicConfig(

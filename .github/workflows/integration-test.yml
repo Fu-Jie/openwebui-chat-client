@@ -19,6 +19,10 @@ on:
         description: 'Default Model ID'
         required: true
         default: 'gpt-3.5-turbo'
+      parallel_models:
+        description: 'Parallel Models (comma-separated)'
+        required: false
+        default: 'gpt-3.5-turbo,gpt-4'
 
 jobs:
   integration-test:
@@ -38,30 +42,45 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .
+        # Install optional dependencies for full demo functionality
+        pip install pillow python-dotenv || echo "Optional dependencies failed to install"
+
+    - name: Check Environment Variables
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
+      run: |
+        echo "Checking integration test environment..."
+        echo "Base URL: ${OUI_BASE_URL:-'not set'}"
+        echo "Auth Token: ${OUI_AUTH_TOKEN:+'set':-'not set'}"
+        echo "Default Model: ${OUI_DEFAULT_MODEL:-'not set'}"
+        echo "Parallel Models: ${OUI_PARALLEL_MODELS:-'not set'}"
+        
+        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ] || [ -z "$OUI_DEFAULT_MODEL" ]; then
+          echo "❌ Missing required environment variables for integration testing."
+          echo ""
+          echo "To run integration tests, set these as repository secrets or use workflow_dispatch:"
+          echo "  - OUI_BASE_URL: Your OpenWebUI instance URL"
+          echo "  - OUI_AUTH_TOKEN: Your API authentication token"
+          echo "  - OUI_DEFAULT_MODEL: A valid model ID in your instance"
+          echo "  - OUI_PARALLEL_MODELS: Comma-separated list of models for parallel testing (optional)"
+          echo ""
+          echo "Skipping integration tests."
+          exit 0
+        fi
+        
+        echo "✅ All required environment variables are set."
 
     - name: Run Notes API Integration Test
       env:
         OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
         OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
         OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
       run: |
-        echo "Running Notes API integration test..."
-        echo "Base URL: $OUI_BASE_URL"
-        echo "Model: $OUI_DEFAULT_MODEL"
-        
-        # Check if required environment variables are set
-        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ] || [ -z "$OUI_DEFAULT_MODEL" ]; then
-          echo "❌ Missing required environment variables:"
-          echo "   OUI_BASE_URL: ${OUI_BASE_URL:-'not set'}"
-          echo "   OUI_AUTH_TOKEN: ${OUI_AUTH_TOKEN:+'set':-'not set'}"
-          echo "   OUI_DEFAULT_MODEL: ${OUI_DEFAULT_MODEL:-'not set'}"
-          echo ""
-          echo "To run integration tests, set these as repository secrets or use workflow_dispatch."
-          echo "Skipping integration test."
-          exit 0
-        fi
-        
-        # Run the notes API example script
+        echo "🧪 Running Notes API integration test..."
         python examples/notes_api_example.py
 
     - name: Run Basic Usage Integration Test
@@ -69,16 +88,74 @@ jobs:
         OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
         OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
         OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
       run: |
-        echo "Running basic usage integration test..."
+        echo "🧪 Running basic usage integration test..."
+        python examples/basic_usage.py
+
+    - name: Run RAG Integration Test
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
+        OUI_RAG_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+      run: |
+        echo "🧪 Running RAG integration test..."
+        python examples/rag_basic_usage.py
+
+    - name: Run Model Management Integration Test
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
+      run: |
+        echo "🧪 Running model management integration test..."
+        python examples/manage_models.py
+
+    - name: Run Model Switch Integration Test
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
+      run: |
+        echo "🧪 Running model switch integration test..."
+        python examples/test_switch_model.py
+
+    - name: Run Comprehensive Demos Test
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
+        OUI_MULTIMODAL_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_RAG_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+      run: |
+        echo "🧪 Running comprehensive demos integration test..."
+        # Run a basic chat demo from the comprehensive demos
+        python -c "
+        from examples.demos import DemoRunner
+        import sys
         
-        # Check if required environment variables are set
-        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ] || [ -z "$OUI_DEFAULT_MODEL" ]; then
-          echo "Skipping basic usage integration test (missing env vars)."
-          exit 0
-        fi
-        
-        # Run a basic connectivity test
+        try:
+            runner = DemoRunner()
+            # Run just the basic chat demo for integration testing
+            runner.run_specific_demo('basic_chat')
+            print('✅ Comprehensive demos integration test passed!')
+        except Exception as e:
+            print(f'❌ Comprehensive demos integration test failed: {e}')
+            sys.exit(1)
+        "
+
+    - name: Basic Connectivity Test
+      env:
+        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+      run: |
+        echo "🧪 Running basic connectivity test..."
         python -c "
         from openwebui_chat_client import OpenWebUIClient
         import os
@@ -95,22 +172,29 @@ jobs:
             models = client.list_models()
             if models:
                 print(f'✅ Successfully connected to OpenWebUI. Found {len(models)} models.')
-                print(f'   Available models: {models[:3]}...' if len(models) > 3 else f'   Available models: {models}')
+                model_names = [m.get('name', m.get('id', 'Unknown')) for m in models[:3]]
+                print(f'   Sample models: {model_names}...' if len(models) > 3 else f'   Available models: {model_names}')
             else:
                 print('⚠️  Connected but no models found.')
             
-            print('✅ Integration test passed!')
+            print('✅ Basic connectivity test passed!')
             
         except Exception as e:
-            print(f'❌ Integration test failed: {e}')
+            print(f'❌ Basic connectivity test failed: {e}')
             sys.exit(1)
         "
 
     - name: Integration Test Summary
       run: |
-        echo "🎉 Integration tests completed successfully!"
+        echo "🎉 All integration tests completed successfully!"
         echo ""
-        echo "Summary:"
-        echo "- Notes API functionality tested against real OpenWebUI instance"
-        echo "- Basic connectivity and model listing verified"
-        echo "- All example scripts executed without errors"
+        echo "Tests completed:"
+        echo "  ✅ Notes API functionality"
+        echo "  ✅ Basic usage with parallel models"
+        echo "  ✅ RAG (Retrieval Augmented Generation)"
+        echo "  ✅ Model management operations"
+        echo "  ✅ Model switching functionality"
+        echo "  ✅ Comprehensive demo features"
+        echo "  ✅ Basic connectivity and authentication"
+        echo ""
+        echo "All example scripts executed successfully against real OpenWebUI instance!"

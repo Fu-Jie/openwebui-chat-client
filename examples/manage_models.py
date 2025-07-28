@@ -13,14 +13,14 @@ load_dotenv()
 # --- Configuration ---
 # The script reads these from your environment variables.
 # See instructions above on how to set them.
-BASE_URL = os.getenv("OUI_BASE_URL")
+BASE_URL = os.getenv("OUI_BASE_URL", "http://localhost:3000")
 TOKEN = os.getenv("OUI_AUTH_TOKEN")
+DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "gpt-4.1")
 
 # --- Test Model Details ---
 # You can change these details if you want.
 TEST_MODEL_ID = "d-agent-exp-designer-2"
 TEST_MODEL_NAME = "My API Test Model"
-client = OpenWebUIClient(base_url=BASE_URL, token=TOKEN, default_model_id="gpt-4.1")
 
 
 def run_model_management_examples():
@@ -37,13 +37,14 @@ def run_model_management_examples():
         print(
             "🛑 Error: Please set OUI_BASE_URL and OUI_AUTH_TOKEN environment variables."
         )
+        print("Set OUI_DEFAULT_MODEL to specify a different default model (optional).")
         return
 
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
-    client = OpenWebUIClient(base_url=BASE_URL, token=TOKEN, default_model_id="gpt-4.1")
+    client = OpenWebUIClient(base_url=BASE_URL, token=TOKEN, default_model_id=DEFAULT_MODEL)
 
     # --- 1. Get Model Information ---
     print("\n" + "=" * 70)

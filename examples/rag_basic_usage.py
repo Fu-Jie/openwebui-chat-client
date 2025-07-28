@@ -13,10 +13,14 @@ AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN")
 
 # *** Models for Testing ***
 # Ensure these models are available in your Open WebUI instance.
-DEFAULT_MODEL = "gpt-4.1"
-PARALLEL_MODELS = ["gpt-4.1", "gemini-2.5-flash"]
-MULTIMODAL_MODEL = "gpt-4.1"
-RAG_MODEL = "gemini-2.5-flash" # A good model for RAG tasks
+DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "gpt-4.1")
+
+# Parse parallel models from environment variable (comma-separated)
+_parallel_models_str = os.getenv("OUI_PARALLEL_MODELS", "gpt-4.1,gemini-2.5-flash")
+PARALLEL_MODELS = [model.strip() for model in _parallel_models_str.split(",") if model.strip()]
+
+MULTIMODAL_MODEL = os.getenv("OUI_MULTIMODAL_MODEL", DEFAULT_MODEL)
+RAG_MODEL = os.getenv("OUI_RAG_MODEL", "gemini-2.5-flash")  # A good model for RAG tasks
 
 # --- Configure Logging for the Application ---
 logging.basicConfig(
