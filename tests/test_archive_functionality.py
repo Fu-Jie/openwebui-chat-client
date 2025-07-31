@@ -29,7 +29,7 @@ class TestArchiveFunctionality(unittest.TestCase):
         mock_get.return_value = mock_response
 
         # Test
-        result = self.client.list_chats()
+        result = self.client.list_chats(page=1)
 
         # Assert
         self.assertIsNotNone(result)
@@ -37,7 +37,7 @@ class TestArchiveFunctionality(unittest.TestCase):
         self.assertEqual(result[0]["id"], "chat1")
         mock_get.assert_called_once_with(
             "http://localhost:3000/api/v1/chats/list",
-            params={},
+            params={"page": 1},
             headers=self.client.json_headers
         )
 
@@ -68,7 +68,7 @@ class TestArchiveFunctionality(unittest.TestCase):
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
 
         # Test
-        result = self.client.list_chats()
+        result = self.client.list_chats(page=1)
 
         # Assert
         self.assertIsNone(result)

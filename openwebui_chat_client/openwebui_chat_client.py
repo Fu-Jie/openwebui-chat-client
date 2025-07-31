@@ -2401,33 +2401,29 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to move chat: {e}")
 
-    def list_chats(self, page: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
+    def list_chats(self, page: int) -> Optional[List[Dict[str, Any]]]:
         """
         Get the list of user's chats.
         
         Args:
-            page: Optional page number for pagination
+            page: Required page number for pagination
             
         Returns:
             List of chat objects or None if the request fails
         """
-        logger.info("Fetching user chat list...")
+        logger.info(f"Fetching user chat list (page {page})...")
         try:
-            params = {}
-            if page is not None:
-                params["page"] = page
-                
             response = self.session.get(
                 f"{self.base_url}/api/v1/chats/list",
-                params=params,
+                params={"page": page},
                 headers=self.json_headers,
             )
             response.raise_for_status()
             chats = response.json()
-            logger.info(f"Successfully fetched {len(chats)} chats")
+            logger.info(f"Successfully fetched {len(chats)} chats from page {page}")
             return chats
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to fetch chat list: {e}")
+            logger.error(f"Failed to fetch chat list (page {page}): {e}")
             return None
 
     def get_chats_by_folder(self, folder_id: str) -> Optional[List[Dict[str, Any]]]:

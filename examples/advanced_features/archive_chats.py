@@ -49,7 +49,7 @@ def demonstrate_archive_individual_chat(client: OpenWebUIClient) -> None:
     logger.info("=" * 60)
     
     # List some chats first
-    chats = client.list_chats()
+    chats = client.list_chats(page=1)
     if not chats:
         logger.warning("No chats found to archive")
         return
