@@ -88,7 +88,7 @@ def chat(self, question: str, chat_title: Optional[str] = None,
 - **主要代码**: `openwebui_chat_client/openwebui_chat_client.py`
 - **初始化文件**: `openwebui_chat_client/__init__.py`
 - **测试代码**: `tests/test_*.py`
-- **示例代码**: `examples/demos.py`, `examples/basic_usage.py`等
+- **示例代码**: `examples/` 目录下按功能分类组织
 
 ### 2. 测试要求
 
@@ -337,3 +337,203 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 ---
 
 这份指南涵盖了openwebui-chat-client项目的完整开发工作流程，为AI助手提供了全面的开发规范和最佳实践。在进行任何开发工作时，请严格遵循这些指导原则，确保代码质量和项目一致性。
+
+---
+
+## 示例代码开发规范
+
+### 1. 示例目录结构
+
+#### 目录组织
+```
+examples/
+├── README.md                     # 示例总览和使用指南
+├── config/                       # 配置和环境设置
+│   ├── basic_config.py          # 基础客户端配置
+│   └── environment_setup.py     # 环境变量设置指南
+├── getting_started/              # 入门示例
+│   ├── hello_world.py           # 最简单的使用示例
+│   ├── basic_chat.py            # 基础聊天功能
+│   └── quick_start.py           # 快速开始指南
+├── chat_features/                # 聊天功能示例
+│   ├── streaming_chat.py        # 流式聊天
+│   ├── parallel_chat.py         # 并行多模型聊天
+│   ├── follow_up_suggestions.py # 后续建议功能
+│   ├── chat_with_images.py      # 多模态聊天
+│   └── chat_management.py       # 聊天管理功能
+├── rag_knowledge/                # RAG和知识库示例
+│   ├── file_rag.py              # 文件RAG
+│   ├── knowledge_base.py        # 知识库管理
+│   ├── batch_knowledge_ops.py   # 批量知识库操作
+│   └── advanced_rag.py          # 高级RAG功能
+├── model_management/             # 模型管理示例
+│   ├── list_models.py           # 列出可用模型
+│   ├── model_operations.py      # 模型CRUD操作
+│   └── model_switching.py       # 模型切换
+├── notes_api/                    # 笔记API示例
+│   ├── basic_notes.py           # 基础笔记操作
+│   └── advanced_notes.py        # 高级笔记管理
+├── advanced_features/            # 高级功能示例
+│   ├── real_time_streaming.py   # 实时流式更新
+│   ├── concurrent_operations.py # 并发操作
+│   ├── error_handling.py        # 错误处理模式
+│   └── custom_tools.py          # 自定义工具使用
+├── comprehensive/                # 综合示例
+│   ├── full_demo.py             # 全功能演示
+│   └── use_case_scenarios.py    # 实际用例场景
+└── utils/                        # 工具和辅助函数
+    ├── example_base.py          # 示例基类
+    ├── file_helpers.py          # 文件操作辅助
+    └── test_data.py             # 测试数据生成
+```
+
+### 2. 示例代码标准
+
+#### 文件结构模板
+每个示例文件都应遵循以下模板结构：
+
+```python
+#!/usr/bin/env python3
+"""
+示例功能的简要描述。
+
+本示例演示的功能：
+- 功能1
+- 功能2
+- 功能3
+
+要求：
+- 环境变量: OUI_BASE_URL
+- 环境变量: OUI_AUTH_TOKEN
+- 模型可用性: 特定模型（如果需要）
+
+使用方法：
+    python examples/category/example_name.py
+"""
+
+import logging
+import os
+from typing import Optional, Dict, Any
+
+from openwebui_chat_client import OpenWebUIClient
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
+
+# 配置
+BASE_URL = os.getenv("OUI_BASE_URL", "http://localhost:3000")
+AUTH_TOKEN = os.getenv("OUI_AUTH_TOKEN")
+DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "gpt-4.1")
+
+# 日志设置
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def main() -> None:
+    """演示示例功能的主函数。"""
+    # 验证环境变量
+    if not AUTH_TOKEN:
+        logger.error("❌ OUI_AUTH_TOKEN 环境变量未设置")
+        return
+    
+    # 客户端初始化
+    try:
+        client = OpenWebUIClient(BASE_URL, AUTH_TOKEN, DEFAULT_MODEL)
+        logger.info("✅ 客户端初始化成功")
+    except Exception as e:
+        logger.error(f"❌ 客户端初始化失败: {e}")
+        return
+    
+    # 示例实现
+    # ... 你的示例代码 ...
+    
+    logger.info("🎉 示例执行完成")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 命名规范
+- **文件名**: 使用 `snake_case.py`，描述性命名
+- **函数名**: 遵循 PEP 8，使用 `snake_case`
+- **类名**: 使用 `PascalCase`
+- **常量**: 使用 `UPPER_SNAKE_CASE`
+
+#### 代码规范
+- **导入顺序**: 标准库 → 第三方库 → 本地库
+- **环境变量**: 统一的环境变量处理方式
+- **错误处理**: 适当的异常处理和日志记录
+- **类型提示**: 完整的类型注解
+- **文档**: 清晰的docstring和注释
+
+#### 文档规范
+- **文件头部**: 功能描述、演示功能列表、要求、使用方法
+- **函数文档**: 清晰的参数和返回值描述
+- **注释**: 解释复杂逻辑的有意义注释
+- **错误消息**: 用户友好的错误消息
+
+### 3. 示例开发流程
+
+#### 新示例开发
+1. **需求分析**: 确定要演示的功能和目标用户
+2. **分类放置**: 根据功能将示例放在合适的目录中
+3. **遵循模板**: 使用标准模板结构
+4. **功能实现**: 实现核心演示功能
+5. **测试验证**: 确保示例可以正常运行
+6. **文档更新**: 更新相关README和说明
+
+#### 示例质量标准
+- **可执行性**: 示例必须可以直接运行
+- **教育性**: 代码清晰易懂，有教育价值
+- **完整性**: 包含必要的错误处理和验证
+- **一致性**: 遵循项目的代码风格和约定
+- **实用性**: 演示真实的使用场景
+
+### 4. 环境变量规范
+
+#### 标准环境变量
+所有示例都应支持以下环境变量：
+
+```bash
+# 必需
+export OUI_BASE_URL="http://localhost:3000"
+export OUI_AUTH_TOKEN="your_api_token_here"
+
+# 可选
+export OUI_DEFAULT_MODEL="gpt-4.1"
+export OUI_PARALLEL_MODELS="gpt-4.1,gemini-2.5-flash"
+export OUI_RAG_MODEL="gemini-2.5-flash"
+export OUI_MULTIMODAL_MODEL="gpt-4.1"
+```
+
+#### 环境变量处理
+- **加载方式**: 使用 `python-dotenv` 加载 `.env` 文件
+- **默认值**: 为可选变量提供合理的默认值
+- **验证**: 验证必需的环境变量是否设置
+- **错误提示**: 提供清晰的设置指导
+
+### 5. 工具类使用
+
+#### 基础类
+- **ExampleBase**: 所有示例的基类，提供通用功能
+- **FileHelper**: 文件操作辅助工具
+- **TestDataGenerator**: 测试数据生成工具
+
+#### 使用模式
+```python
+from utils.example_base import ExampleBase
+
+class MyExample(ExampleBase):
+    def run_example(self):
+        # 示例实现
+        pass
+
+example = MyExample("my_example", "演示某功能")
+example.run()
+```
