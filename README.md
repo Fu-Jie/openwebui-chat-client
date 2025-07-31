@@ -200,6 +200,41 @@ if result_1 and result_2:
     print(f"\nChat ID for both interactions: {result_1['chat_id']}")
 ```
 
+### 4. Batch Model Permissions Management
+
+You can manage permissions for multiple models at once, supporting public, private, and group-based access control.
+
+```python
+# Set multiple models to public access
+result = client.batch_update_model_permissions(
+    model_identifiers=["gpt-4.1", "gemini-2.5-flash"],
+    permission_type="public"
+)
+
+# Set all models containing "gpt" to private access for specific users
+result = client.batch_update_model_permissions(
+    model_keyword="gpt",
+    permission_type="private",
+    user_ids=["user-id-1", "user-id-2"]
+)
+
+# Set models to group-based permissions using group names
+result = client.batch_update_model_permissions(
+    model_keyword="claude",
+    permission_type="group",
+    group_identifiers=["admin", "normal"]  # Group names will be resolved to IDs
+)
+
+print(f"✅ Successfully updated: {len(result['success'])} models")
+print(f"❌ Failed to update: {len(result['failed'])} models")
+
+# List available groups for permission management
+groups = client.list_groups()
+if groups:
+    for group in groups:
+        print(f"Group: {group['name']} (ID: {group['id']})")
+```
+
 ---
 
 ## 🔑 How to get your API Key
@@ -238,10 +273,12 @@ if result_1 and result_2:
 |--------|-------------|------------|
 | `list_models()` | List all available model entries with improved reliability | None |
 | `list_base_models()` | List all available base models with improved reliability | None |
+| `list_groups()` | List all available groups for permission management | None |
 | `get_model()` | Retrieve details for a specific model with auto-retry on creation | `model_id` |
 | `create_model()` | Create a detailed, custom model variant | `model_config` |
-| `update_model()` | Update an existing model entry with granular changes | `model_id, **kwargs` |
+| `update_model()` | Update an existing model entry with granular changes | `model_id, access_control, **kwargs` |
 | `delete_model()` | Delete a model entry from the server | `model_id` |
+| `batch_update_model_permissions()` | Batch update access control permissions for multiple models | `model_identifiers, model_keyword, permission_type, group_identifiers, user_ids, max_workers` |
 
 ### 📚 Knowledge Base Operations
 
