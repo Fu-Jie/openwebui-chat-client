@@ -668,14 +668,19 @@ class OpenWebUIClient:
     
     def archive_chats_by_age(
         self,
-        days_threshold: int,
+        days_since_update: Optional[int] = None,
         folder_name: Optional[str] = None,
         dry_run: bool = False
-    ) -> Tuple[int, int]:
+    ) -> Dict[str, Any]:
         """Archive chats older than the specified number of days."""
         # TODO: Implement this method in ChatManager
         logger.warning("archive_chats_by_age not yet implemented in refactored version")
-        return 0, 0
+        return {
+            "total_checked": 0,
+            "total_archived": 0,
+            "total_failed": 0,
+            "archived_chats": []
+        }
 
     def _cleanup_unused_placeholder_messages(self) -> int:
         """Clean up unused placeholder messages."""

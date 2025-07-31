@@ -7,7 +7,7 @@ import json
 import logging
 import requests
 import time
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
@@ -296,18 +296,31 @@ class KnowledgeBaseManager:
         return successful, failed, processed_names
 
     def create_knowledge_bases_with_files(
-        self, kb_configs: List[Dict[str, Any]], max_workers: int = 3
+        self, kb_configs: Union[List[Dict[str, Any]], Dict[str, List[str]]], max_workers: int = 3
     ) -> Dict[str, List[str]]:
         """
         Creates multiple knowledge bases with files in parallel.
         
         Args:
-            kb_configs: List of dictionaries with 'name', 'description', and 'files' keys
+            kb_configs: Either:
+                - List of dictionaries with 'name', 'description', and 'files' keys, or
+                - Dictionary mapping KB names to lists of file paths (for backward compatibility)
             max_workers: Maximum number of parallel workers
             
         Returns:
             Dictionary with 'success' and 'failed' keys containing lists of KB names
         """
+        # Handle backward compatibility: convert dict format to list format
+        if isinstance(kb_configs, dict):
+            config_list = []
+            for kb_name, file_paths in kb_configs.items():
+                config_list.append({
+                    "name": kb_name,
+                    "description": "",
+                    "files": file_paths
+                })
+            kb_configs = config_list
+        
         if not kb_configs:
             logger.warning("No knowledge base configurations provided.")
             return {"success": [], "failed": []}
