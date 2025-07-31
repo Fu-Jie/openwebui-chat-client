@@ -120,7 +120,7 @@ class ModelManager:
         logger.info("Listing all custom models...")
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/models/", 
+                f"{self.base_client.base_url}/api/v1/models/custom", 
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()
