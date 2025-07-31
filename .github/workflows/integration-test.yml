@@ -81,7 +81,7 @@ jobs:
         OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
       run: |
         echo "🧪 Running Notes API integration test..."
-        python examples/notes_api_example.py
+        python examples/notes_api/basic_notes.py
 
     - name: Run Basic Usage Integration Test
       env:
@@ -91,7 +91,7 @@ jobs:
         OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
       run: |
         echo "🧪 Running basic usage integration test..."
-        python examples/basic_usage.py
+        python examples/getting_started/basic_chat.py
 
     - name: Run RAG Integration Test
       env:
@@ -102,7 +102,7 @@ jobs:
         OUI_RAG_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
       run: |
         echo "🧪 Running RAG integration test..."
-        python examples/rag_basic_usage.py
+        python examples/rag_knowledge/file_rag.py
 
     - name: Run Model Management Integration Test
       env:
@@ -112,7 +112,7 @@ jobs:
         OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
       run: |
         echo "🧪 Running model management integration test..."
-        python examples/manage_models.py
+        python examples/model_management/model_operations.py
 
     - name: Run Model Switch Integration Test
       env:
@@ -122,7 +122,7 @@ jobs:
         OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
       run: |
         echo "🧪 Running model switch integration test..."
-        python examples/test_switch_model.py
+        python examples/chat_features/model_switching.py
 
     - name: Run Comprehensive Demos Test
       env:
@@ -134,20 +134,8 @@ jobs:
         OUI_RAG_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
       run: |
         echo "🧪 Running comprehensive demos integration test..."
-        # Run a basic chat demo from the comprehensive demos
-        python -c "
-        from examples.demos import DemoRunner
-        import sys
-        
-        try:
-            runner = DemoRunner()
-            # Run just the basic chat demo for integration testing
-            runner.run_specific_demo('basic_chat')
-            print('✅ Comprehensive demos integration test passed!')
-        except Exception as e:
-            print(f'❌ Comprehensive demos integration test failed: {e}')
-            sys.exit(1)
-        "
+        # Run the quick start demo which showcases multiple features
+        python examples/getting_started/quick_start.py
 
     - name: Basic Connectivity Test
       env:
@@ -190,11 +178,11 @@ jobs:
         echo ""
         echo "Tests completed:"
         echo "  ✅ Notes API functionality"
-        echo "  ✅ Basic usage with parallel models"
-        echo "  ✅ RAG (Retrieval Augmented Generation)"
+        echo "  ✅ Basic chat usage"
+        echo "  ✅ RAG (Retrieval Augmented Generation) with files"
         echo "  ✅ Model management operations"
         echo "  ✅ Model switching functionality"
-        echo "  ✅ Comprehensive demo features"
+        echo "  ✅ Comprehensive quick start demo"
         echo "  ✅ Basic connectivity and authentication"
         echo ""
         echo "All example scripts executed successfully against real OpenWebUI instance!"

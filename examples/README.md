@@ -16,6 +16,7 @@ examples/
 │   └── quick_start.py           # Quick start guide with multiple features
 ├── chat_features/                # Chat-related functionality
 │   ├── streaming_chat.py        # Streaming chat examples
+│   ├── model_switching.py       # Switching models in chats
 │   ├── parallel_chat.py         # Multi-model parallel chat
 │   ├── follow_up_suggestions.py # Chat with follow-up suggestions
 │   ├── chat_with_images.py      # Multimodal chat with images
@@ -28,7 +29,7 @@ examples/
 ├── model_management/             # Model management examples
 │   ├── list_models.py           # Listing available models
 │   ├── model_operations.py      # Create, update, delete models
-│   └── model_switching.py       # Switching models in chats
+│   └── model_switching.py       # Legacy: Use chat_features/model_switching.py instead
 ├── notes_api/                    # Notes API examples
 │   ├── basic_notes.py           # Basic notes operations
 │   └── advanced_notes.py        # Advanced notes management

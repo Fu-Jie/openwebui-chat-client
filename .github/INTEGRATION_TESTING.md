@@ -136,14 +136,14 @@ export OUI_MULTIMODAL_MODEL="gpt-4-vision-preview"
 export OUI_RAG_MODEL="gemini-pro"
 
 # Run individual examples
-python examples/notes_api_example.py
-python examples/basic_usage.py
-python examples/rag_basic_usage.py
-python examples/manage_models.py
-python examples/test_switch_model.py
+python examples/notes_api/basic_notes.py
+python examples/getting_started/basic_chat.py
+python examples/rag_knowledge/file_rag.py
+python examples/model_management/model_operations.py
+python examples/chat_features/model_switching.py
 
 # Or run comprehensive demos
-python examples/demos.py
+python examples/getting_started/quick_start.py
 ```
 
 ## Environment Variable Reference
@@ -181,7 +181,7 @@ If you see missing environment variable warnings, ensure all required variables 
 - Verify all models in `OUI_PARALLEL_MODELS` exist in your instance
 - Use the model management example to list available models:
   ```bash
-  python examples/manage_models.py
+  python examples/model_management/model_operations.py
   ```
 
 ### API Errors

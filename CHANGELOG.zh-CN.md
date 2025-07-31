@@ -13,7 +13,7 @@
   - `get_note_by_id()`: 通过 ID 获取特定笔记
   - `update_note_by_id()`: 更新现有笔记的内容和元数据
   - `delete_note_by_id()`: 通过 ID 删除笔记
-- **笔记 API 示例**: 添加了完整的示例脚本 `examples/notes_api_example.py`，演示所有笔记功能
+- **笔记 API 示例**: 添加了完整的示例脚本 `examples/notes_api/basic_notes.py`，演示所有笔记功能
 - **笔记单元测试**: 在 `tests/test_notes_functionality.py` 中添加了完整的测试覆盖，包含 118 个测试用例
 
 ### 0.1.13 中的变更
