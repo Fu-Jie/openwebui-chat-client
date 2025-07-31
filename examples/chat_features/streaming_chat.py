@@ -26,6 +26,7 @@ from typing import Optional, Generator
 
 # Add the parent directory to path to import the client and utils
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from openwebui_chat_client import OpenWebUIClient
 from dotenv import load_dotenv
