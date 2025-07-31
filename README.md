@@ -235,6 +235,45 @@ if groups:
         print(f"Group: {group['name']} (ID: {group['id']})")
 ```
 
+### 5. Archive Chat Sessions
+
+You can archive chat sessions individually or in bulk based on their age and folder organization.
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient("http://localhost:3000", "your_token_here", "gpt-4.1")
+
+# Archive a specific chat
+success = client.archive_chat("chat-id-here")
+if success:
+    print("✅ Chat archived successfully")
+
+# Bulk archive chats older than 30 days that are NOT in folders
+results = client.archive_chats_by_age(days_since_update=30)
+print(f"Archived {results['total_archived']} chats")
+
+# Bulk archive chats older than 7 days in a specific folder
+results = client.archive_chats_by_age(
+    days_since_update=7, 
+    folder_name="OldProjects"
+)
+print(f"Archived {results['total_archived']} chats from folder")
+
+# Get detailed results
+for chat in results['archived_chats']:
+    print(f"Archived: {chat['title']}")
+
+for chat in results['failed_chats']:
+    print(f"Failed: {chat['title']} - {chat['error']}")
+```
+
+**Archive Logic:**
+- **Without folder filter**: Archives only chats that are NOT in any folder
+- **With folder filter**: Archives only chats that are IN the specified folder
+- **Time filter**: Only archives chats not updated for the specified number of days
+- **Parallel processing**: Uses concurrent processing for efficient bulk operations
+
 ---
 
 ## 🔑 How to get your API Key
@@ -266,6 +305,10 @@ if groups:
 | `update_chat_metadata()` | Regenerate and update tags and/or title for an existing chat | `chat_id, regenerate_tags, regenerate_title` |
 | `switch_chat_model()` | Switch the model(s) for an existing chat | `chat_id, new_model_id` |
 | `create_folder()` | Create a chat folder for organization | `folder_name` |
+| `list_chats()` | Get list of user's chats with pagination support | `page` |
+| `get_chats_by_folder()` | Get chats in a specific folder | `folder_id` |
+| `archive_chat()` | Archive a specific chat | `chat_id` |
+| `archive_chats_by_age()` | Bulk archive chats based on age and folder criteria | `days_since_update, folder_name` |
 
 ### 🤖 Model Management
 

@@ -2401,6 +2401,232 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to move chat: {e}")
 
+    def list_chats(self, page: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get the list of user's chats.
+        
+        Args:
+            page: Optional page number for pagination
+            
+        Returns:
+            List of chat objects or None if the request fails
+        """
+        logger.info("Fetching user chat list...")
+        try:
+            params = {}
+            if page is not None:
+                params["page"] = page
+                
+            response = self.session.get(
+                f"{self.base_url}/api/v1/chats/list",
+                params=params,
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            chats = response.json()
+            logger.info(f"Successfully fetched {len(chats)} chats")
+            return chats
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch chat list: {e}")
+            return None
+
+    def get_chats_by_folder(self, folder_id: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get chats in a specific folder.
+        
+        Args:
+            folder_id: The ID of the folder
+            
+        Returns:
+            List of chat objects in the folder or None if the request fails
+        """
+        logger.info(f"Fetching chats in folder {folder_id[:8]}...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/chats/folder/{folder_id}",
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            chats = response.json()
+            logger.info(f"Successfully fetched {len(chats)} chats from folder")
+            return chats
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch chats from folder {folder_id}: {e}")
+            return None
+
+    def archive_chat(self, chat_id: str) -> bool:
+        """
+        Archive a specific chat.
+        
+        Args:
+            chat_id: The ID of the chat to archive
+            
+        Returns:
+            True if the chat was successfully archived, False otherwise
+        """
+        logger.info(f"Archiving chat {chat_id[:8]}...")
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/chats/{chat_id}/archive",
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            logger.info(f"Successfully archived chat {chat_id[:8]}")
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to archive chat {chat_id}: {e}")
+            return False
+
+    def archive_chats_by_age(
+        self, 
+        days_since_update: int = 30, 
+        folder_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Archive chats that haven't been updated for a specified number of days.
+        
+        Args:
+            days_since_update: Number of days since last update (default: 30)
+            folder_name: Optional folder name to filter chats. If None, only archives 
+                        chats NOT in folders. If provided, only archives chats IN that folder.
+                        
+        Returns:
+            Dictionary with archive results including counts and details
+        """
+        logger.info(f"Starting bulk archive operation for chats older than {days_since_update} days")
+        if folder_name:
+            logger.info(f"Filtering to folder: '{folder_name}'")
+        else:
+            logger.info("Filtering to chats NOT in folders")
+            
+        current_timestamp = int(time.time())
+        cutoff_timestamp = current_timestamp - (days_since_update * 24 * 60 * 60)
+        
+        results = {
+            "total_checked": 0,
+            "total_archived": 0,
+            "total_failed": 0,
+            "archived_chats": [],
+            "failed_chats": [],
+            "errors": []
+        }
+        
+        try:
+            # Get target chats based on folder filter
+            target_chats = []
+            
+            if folder_name:
+                # Get folder ID by name
+                folder_id = self.get_folder_id_by_name(folder_name)
+                if not folder_id:
+                    error_msg = f"Folder '{folder_name}' not found"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+                    return results
+                    
+                # Get chats in the specified folder
+                folder_chats = self.get_chats_by_folder(folder_id)
+                if folder_chats is None:
+                    error_msg = f"Failed to get chats from folder '{folder_name}'"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+                    return results
+                target_chats = folder_chats
+            else:
+                # Get all chats and filter to those NOT in folders
+                all_chats = []
+                page = 1
+                
+                # Handle pagination
+                while True:
+                    page_chats = self.list_chats(page=page)
+                    if not page_chats:
+                        break
+                    all_chats.extend(page_chats)
+                    # If we got fewer than expected, we've reached the end
+                    if len(page_chats) < 50:  # Assuming default page size
+                        break
+                    page += 1
+                
+                if not all_chats:
+                    error_msg = "Failed to get chat list"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+                    return results
+                
+                # Filter to chats not in folders
+                # We need to get detailed chat info to check folder_id
+                target_chats = []
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    future_to_chat = {
+                        executor.submit(self._get_chat_details, chat["id"]): chat 
+                        for chat in all_chats
+                    }
+                    
+                    for future in as_completed(future_to_chat):
+                        chat_basic = future_to_chat[future]
+                        try:
+                            chat_details = future.result()
+                            if chat_details and not chat_details.get("folder_id"):
+                                target_chats.append(chat_details)
+                        except Exception as e:
+                            logger.warning(f"Failed to get details for chat {chat_basic['id']}: {e}")
+                            
+            results["total_checked"] = len(target_chats)
+            logger.info(f"Found {len(target_chats)} chats to check for archiving")
+            
+            # Filter by age and archive
+            chats_to_archive = []
+            for chat in target_chats:
+                updated_at = chat.get("updated_at", 0)
+                if updated_at < cutoff_timestamp:
+                    chats_to_archive.append(chat)
+                    
+            logger.info(f"Found {len(chats_to_archive)} chats older than {days_since_update} days")
+            
+            # Archive chats in parallel
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                future_to_chat = {
+                    executor.submit(self.archive_chat, chat["id"]): chat 
+                    for chat in chats_to_archive
+                }
+                
+                for future in as_completed(future_to_chat):
+                    chat = future_to_chat[future]
+                    try:
+                        success = future.result()
+                        if success:
+                            results["total_archived"] += 1
+                            results["archived_chats"].append({
+                                "id": chat["id"],
+                                "title": chat.get("title", "Unknown"),
+                                "updated_at": chat.get("updated_at", 0)
+                            })
+                        else:
+                            results["total_failed"] += 1
+                            results["failed_chats"].append({
+                                "id": chat["id"],
+                                "title": chat.get("title", "Unknown"),
+                                "error": "Archive request failed"
+                            })
+                    except Exception as e:
+                        results["total_failed"] += 1
+                        results["failed_chats"].append({
+                            "id": chat["id"],
+                            "title": chat.get("title", "Unknown"),
+                            "error": str(e)
+                        })
+                        logger.error(f"Error archiving chat {chat['id']}: {e}")
+            
+            logger.info(f"Archive operation completed: {results['total_archived']} archived, {results['total_failed']} failed")
+            return results
+            
+        except Exception as e:
+            error_msg = f"Bulk archive operation failed: {e}"
+            logger.error(error_msg)
+            results["errors"].append(error_msg)
+            return results
+
     def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
         """Check if message is a placeholder (content is empty and not marked as done)"""
         return message.get("content", "").strip() == "" and not message.get(

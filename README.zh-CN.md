@@ -226,6 +226,45 @@ if groups:
         print(f"群组: {group['name']} (ID: {group['id']})")
 ```
 
+### 5. 归档聊天会话
+
+您可以单独归档聊天会话，或根据其时间和文件夹组织进行批量归档。
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient("http://localhost:3000", "your_token_here", "gpt-4.1")
+
+# 归档特定聊天
+success = client.archive_chat("chat-id-here")
+if success:
+    print("✅ 聊天归档成功")
+
+# 批量归档超过30天且不在文件夹中的聊天
+results = client.archive_chats_by_age(days_since_update=30)
+print(f"已归档 {results['total_archived']} 个聊天")
+
+# 批量归档特定文件夹中超过7天的聊天
+results = client.archive_chats_by_age(
+    days_since_update=7, 
+    folder_name="旧项目"
+)
+print(f"从文件夹归档了 {results['total_archived']} 个聊天")
+
+# 获取详细结果
+for chat in results['archived_chats']:
+    print(f"已归档: {chat['title']}")
+
+for chat in results['failed_chats']:
+    print(f"失败: {chat['title']} - {chat['error']}")
+```
+
+**归档逻辑:**
+- **无文件夹过滤**: 仅归档不在任何文件夹中的聊天
+- **有文件夹过滤**: 仅归档在指定文件夹中的聊天
+- **时间过滤**: 仅归档在指定天数内未更新的聊天
+- **并行处理**: 使用并发处理提高批量操作效率
+
 ---
 
 ## 🔑 如何获取你的 API 密钥
@@ -257,6 +296,10 @@ if groups:
 | `update_chat_metadata()` | 为现有聊天重新生成和更新标签和/或标题 | `chat_id, regenerate_tags, regenerate_title` |
 | `switch_chat_model()` | 切换现有聊天的模型 | `chat_id, new_model_id` |
 | `create_folder()` | 创建聊天文件夹进行组织 | `folder_name` |
+| `list_chats()` | 获取用户聊天列表，支持分页 | `page` |
+| `get_chats_by_folder()` | 获取特定文件夹中的聊天 | `folder_id` |
+| `archive_chat()` | 归档特定聊天 | `chat_id` |
+| `archive_chats_by_age()` | 基于时间和文件夹条件批量归档聊天 | `days_since_update, folder_name` |
 
 ### 🤖 模型管理
 
