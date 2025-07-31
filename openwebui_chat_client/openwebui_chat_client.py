@@ -16,6 +16,7 @@ import uuid
 import time
 import base64
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .core.base_client import BaseClient
 from .modules.model_manager import ModelManager
@@ -252,6 +253,67 @@ class OpenWebUIClient:
         """Lists all available groups from the Open WebUI instance."""
         return self._model_manager.list_groups()
 
+    def _build_access_control(
+        self, 
+        permission_type: str, 
+        group_identifiers: Optional[List[str]] = None, 
+        user_ids: Optional[List[str]] = None
+    ) -> Union[Dict[str, Any], None, bool]:
+        """Build access control structure for model permissions."""
+        if permission_type == "public":
+            return None
+        
+        if permission_type == "private":
+            return {
+                "read": {"group_ids": [], "user_ids": user_ids or []},
+                "write": {"group_ids": [], "user_ids": user_ids or []}
+            }
+        
+        if permission_type == "group":
+            if not group_identifiers:
+                logger.error("Group identifiers required for group permission type.")
+                return False
+            
+            # Resolve group names to IDs if needed
+            group_ids = self._resolve_group_ids(group_identifiers)
+            if group_ids is False:
+                return False
+            
+            return {
+                "read": {"group_ids": group_ids, "user_ids": user_ids or []},
+                "write": {"group_ids": group_ids, "user_ids": user_ids or []}
+            }
+        
+        logger.error(f"Invalid permission type: {permission_type}")
+        return False
+
+    def _resolve_group_ids(self, group_identifiers: List[str]) -> Union[List[str], bool]:
+        """Resolve group names/identifiers to group IDs."""
+        groups = self.list_groups()
+        if not groups:
+            logger.error("Failed to fetch groups for ID resolution.")
+            return False
+        
+        # Create mapping of both names and IDs to IDs
+        id_map = {}
+        for group in groups:
+            group_id = group.get("id")
+            group_name = group.get("name")
+            if group_id:
+                id_map[group_id] = group_id  # ID to ID mapping
+                if group_name:
+                    id_map[group_name] = group_id  # Name to ID mapping
+        
+        resolved_ids = []
+        for identifier in group_identifiers:
+            if identifier in id_map:
+                resolved_ids.append(id_map[identifier])
+            else:
+                logger.error(f"Group identifier '{identifier}' not found.")
+                return False
+        
+        return resolved_ids
+
     def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
         """Fetches the details of a specific model by its ID."""
         return self._model_manager.get_model(model_id)
@@ -328,12 +390,69 @@ class OpenWebUIClient:
         permission_type: Optional[str] = None,
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
+        access_control: Optional[Dict[str, Any]] = ...,
     ) -> Optional[Dict[str, Any]]:
         """Updates an existing model configuration."""
-        return self._model_manager.update_model(
-            model_id, name, description, params,
-            permission_type, group_identifiers, user_ids
-        )
+        # If access_control is provided directly (including None), or if we need to handle
+        # special cases for backward compatibility, handle it specially
+        if access_control is not ... or any(param is not None for param in [name, description, params]):
+            # Get current model data
+            current_model = self.get_model(model_id)
+            if not current_model:
+                logger.error(f"Model '{model_id}' not found. Cannot update.")
+                return None
+
+            # Build update data with only provided fields
+            update_data = {"id": model_id}
+            
+            if name is not None:
+                update_data["name"] = name
+            else:
+                update_data["name"] = current_model.get("name", "")
+                
+            if description is not None:
+                update_data["description"] = description
+            else:
+                update_data["description"] = current_model.get("description", "")
+                
+            if params is not None:
+                update_data["params"] = params
+            else:
+                update_data["params"] = current_model.get("params", {})
+                
+            # Handle metadata
+            update_data["meta"] = current_model.get("meta", {"capabilities": {}})
+            
+            # Handle access_control
+            if access_control is not ...:
+                # access_control was explicitly provided (including None)
+                update_data["access_control"] = access_control
+            else:
+                # access_control was not provided, preserve existing
+                update_data["access_control"] = current_model.get("access_control")
+            
+            try:
+                response = self.session.post(
+                    f"{self.base_url}/api/v1/models/model/update", 
+                    params={"id": model_id},
+                    json=update_data, 
+                    headers=self.json_headers
+                )
+                response.raise_for_status()
+                updated_model = response.json()
+                logger.info(f"Successfully updated model '{model_id}'.")
+                return updated_model
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to update model '{model_id}'. Request error: {e}")
+                if e.response is not None:
+                    logger.error(f"Response content: {e.response.text}")
+                return None
+        else:
+            # Use the normal model manager path only if no parameters are provided
+            return self._model_manager.update_model(
+                model_id, name, description, params,
+                permission_type, group_identifiers, user_ids
+            )
 
     def delete_model(self, model_id: str) -> bool:
         """Deletes a model configuration."""
@@ -341,16 +460,102 @@ class OpenWebUIClient:
 
     def batch_update_model_permissions(
         self,
-        models: List[Dict[str, Any]],
+        models: Optional[List[Dict[str, Any]]] = None,
         permission_type: str = "public",
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
         max_workers: int = 5,
-    ) -> Dict[str, Dict[str, Any]]:
+        model_identifiers: Optional[List[str]] = None,
+        model_keyword: Optional[str] = None,
+    ) -> Dict[str, List[Any]]:
         """Updates permissions for multiple models in parallel."""
-        return self._model_manager.batch_update_model_permissions(
-            models, permission_type, group_identifiers, user_ids, max_workers
-        )
+        logger.info("Starting batch model permission update...")
+        
+        # Validate permission type
+        if permission_type not in ["public", "private", "group"]:
+            logger.error(f"Invalid permission_type '{permission_type}'. Must be 'public', 'private', or 'group'.")
+            return {"success": [], "failed": [], "skipped": []}
+        
+        # Handle backward compatibility - if model_identifiers or model_keyword provided
+        if model_identifiers is not None or model_keyword is not None:
+            models_to_update = []
+            
+            if model_identifiers:
+                # Use specific model IDs
+                for model_id in model_identifiers:
+                    model = self.get_model(model_id)
+                    if model:
+                        models_to_update.append(model)
+                    else:
+                        logger.warning(f"Model '{model_id}' not found, skipping.")
+            elif model_keyword:
+                # Filter by keyword
+                all_models = self.list_models()
+                if not all_models:
+                    logger.error("Failed to retrieve models list.")
+                    return {"success": [], "failed": [], "skipped": []}
+                
+                models_to_update = [
+                    model for model in all_models 
+                    if model_keyword.lower() in model.get("id", "").lower()
+                    or model_keyword.lower() in model.get("name", "").lower()
+                ]
+                logger.info(f"Found {len(models_to_update)} models matching keyword '{model_keyword}'")
+        else:
+            # Original signature with models parameter
+            if models is None:
+                logger.error("Either models, model_identifiers, or model_keyword must be provided")
+                return {"success": [], "failed": [], "skipped": []}
+            models_to_update = models
+        
+        if not models_to_update:
+            logger.warning("No models found to update.")
+            return {"success": [], "failed": [], "skipped": []}
+        
+        # Prepare access control configuration
+        access_control = self._build_access_control(permission_type, group_identifiers, user_ids)
+        if access_control is False:  # Error occurred
+            return {"success": [], "failed": [], "skipped": []}
+        
+        # Batch update using ThreadPoolExecutor
+        results = {"success": [], "failed": [], "skipped": []}
+        
+        def update_single_model(model: Dict[str, Any]) -> Tuple[str, bool, str]:
+            """Update a single model's permissions."""
+            model_id = model.get("id", "")
+            try:
+                updated_model = self.update_model(model_id, access_control=access_control)
+                if updated_model:
+                    return model_id, True, "success"
+                else:
+                    return model_id, False, "update_failed"
+            except Exception as e:
+                logger.error(f"Exception updating model '{model_id}': {e}")
+                return model_id, False, str(e)
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_model = {
+                executor.submit(update_single_model, model): model 
+                for model in models_to_update
+            }
+            
+            for future in as_completed(future_to_model):
+                model = future_to_model[future]
+                model_id = model.get("id", "unknown")
+                try:
+                    model_id, success, message = future.result()
+                    if success:
+                        results["success"].append(model_id)
+                        logger.info(f"✅ Successfully updated permissions for model '{model_id}'")
+                    else:
+                        results["failed"].append({"model_id": model_id, "error": message})
+                        logger.error(f"❌ Failed to update permissions for model '{model_id}': {message}")
+                except Exception as e:
+                    results["failed"].append({"model_id": model_id, "error": str(e)})
+                    logger.error(f"❌ Exception processing result for model '{model_id}': {e}")
+        
+        logger.info(f"Batch update completed: {len(results['success'])} successful, {len(results['failed'])} failed")
+        return results
 
     # =============================================================================
     # KNOWLEDGE BASE OPERATIONS - Delegate to KnowledgeBaseManager
