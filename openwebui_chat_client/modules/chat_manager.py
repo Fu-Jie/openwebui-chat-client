@@ -446,7 +446,7 @@ class ChatManager:
         payload = {"chat": {"title": new_title}}
 
         try:
-            response = self.base_client.session.put(url, json=payload, headers=self.base_client.json_headers)
+            response = self.base_client.session.post(url, json=payload, headers=self.base_client.json_headers)
             response.raise_for_status()
             logger.info(f"Successfully renamed chat {chat_id[:8]}... to '{new_title}'")
             return True

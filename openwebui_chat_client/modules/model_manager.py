@@ -207,7 +207,8 @@ class ModelManager:
 
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/models/{model_id}", 
+                f"{self.base_client.base_url}/api/v1/models/model",
+                params={"id": model_id},
                 headers=self.base_client.json_headers
             )
             if response.status_code == 401:
@@ -229,7 +230,8 @@ class ModelManager:
                 # Retry fetching the model details
                 logger.info(f"Retrying to fetch details for model '{model_id}'...")
                 response = self.base_client.session.get(
-                    f"{self.base_client.base_url}/api/models/{model_id}", 
+                    f"{self.base_client.base_url}/api/v1/models/model",
+                    params={"id": model_id},
                     headers=self.base_client.json_headers
                 )
             response.raise_for_status()
@@ -420,7 +422,8 @@ class ModelManager:
 
         try:
             response = self.base_client.session.delete(
-                f"{self.base_client.base_url}/api/models/{model_id}", 
+                f"{self.base_client.base_url}/api/v1/models/model/delete",
+                params={"id": model_id},
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()

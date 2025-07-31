@@ -149,7 +149,7 @@ class KnowledgeBaseManager:
         logger.info(f"🗑️ Deleting knowledge base '{kb_id}'...")
         try:
             response = self.base_client.session.delete(
-                f"{self.base_client.base_url}/api/v1/knowledge/{kb_id}",
+                f"{self.base_client.base_url}/api/v1/knowledge/{kb_id}/delete",
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()

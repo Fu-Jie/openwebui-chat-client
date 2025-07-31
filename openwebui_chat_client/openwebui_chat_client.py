@@ -68,9 +68,19 @@ class OpenWebUIClient:
         self.chat_object_from_server = self._base_client.chat_object_from_server
         self.model_id = self._base_client.model_id
         self.task_model = self._base_client.task_model
-        self.available_model_ids = self._base_client.available_model_ids
         self._auto_cleanup_enabled = self._base_client._auto_cleanup_enabled
         self._first_stream_request = self._base_client._first_stream_request
+
+    @property
+    def available_model_ids(self):
+        """Get available model IDs."""
+        return self._model_manager.available_model_ids
+    
+    @available_model_ids.setter
+    def available_model_ids(self, value):
+        """Set available model IDs and sync with model manager."""
+        self._model_manager.available_model_ids = value
+        self._base_client.available_model_ids = value
 
     def __del__(self):
         """
@@ -199,7 +209,20 @@ class OpenWebUIClient:
 
     def create_folder(self, name: str) -> Optional[str]:
         """Create a new folder for organizing chats."""
-        return self._chat_manager.create_folder(name)
+        # Create the folder using the chat manager
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/folders/",
+                json={"name": name},
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            logger.info(f"Successfully sent request to create folder '{name}'.")
+            # Now get the folder ID to return it, matching original behavior
+            return self.get_folder_id_by_name(name)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to create folder '{name}': {e}")
+            return None
 
     def get_folder_id_by_name(self, folder_name: str) -> Optional[str]:
         """Get folder ID by folder name."""
@@ -236,18 +259,64 @@ class OpenWebUIClient:
     def create_model(
         self,
         model_id: str,
-        base_model_id: str,
-        name: str,
-        description: str = "",
+        name: Optional[str] = None,
+        base_model_id: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        stream_response: bool = True,
+        other_params: Optional[Dict[str, Any]] = None,
+        description: Optional[str] = None,
+        profile_image_url: str = "/static/favicon.png",
+        capabilities: Optional[Dict[str, bool]] = None,
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        is_active: bool = True,
+        # New modular parameters for backward compatibility
         params: Optional[Dict[str, Any]] = None,
         permission_type: str = "public",
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Creates a new model configuration."""
+        """
+        Creates a new model configuration - delegates to ModelManager.
+        Maintains backward compatibility with original signature.
+        """
+        # Ensure we have required fields
+        if not name or not base_model_id:
+            raise ValueError("name and base_model_id are required parameters")
+        
+        # Build params dict from individual parameters if provided
+        if params is None:
+            params = {}
+        
+        if system_prompt is not None:
+            params["system_prompt"] = system_prompt
+        if temperature is not None:
+            params["temperature"] = temperature
+        if stream_response is not None:
+            params["stream_response"] = stream_response
+        if other_params:
+            params.update(other_params)
+        if profile_image_url != "/static/favicon.png":
+            params["profile_image_url"] = profile_image_url
+        if capabilities is not None:
+            params["capabilities"] = capabilities
+        if suggestion_prompts is not None:
+            params["suggestion_prompts"] = suggestion_prompts
+        if tags is not None:
+            params["tags"] = tags
+        if is_active is not None:
+            params["is_active"] = is_active
+            
         return self._model_manager.create_model(
-            model_id, base_model_id, name, description, params,
-            permission_type, group_identifiers, user_ids
+            model_id=model_id,
+            base_model_id=base_model_id,
+            name=name,
+            description=description or "",
+            params=params,
+            permission_type=permission_type,
+            group_identifiers=group_identifiers,
+            user_ids=user_ids,
         )
 
     def update_model(
@@ -423,15 +492,51 @@ class OpenWebUIClient:
 
     def _search_latest_chat_by_title(self, title: str) -> Optional[Dict[str, Any]]:
         """Search for the latest chat with the given title."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_search_latest_chat_by_title not yet implemented in refactored version")
-        return None
+        logger.info(f"Globally searching for chat with title '{title}'...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/chats/search",
+                params={"text": title},
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            chats = response.json()
+            if not chats:
+                logger.info(f"No chats found with title '{title}'.")
+                return None
+            # Filter chats by title and find the most recent one
+            matching_chats = [chat for chat in chats if chat.get("title") == title]
+            if not matching_chats:
+                logger.info(f"No chats found with exact title '{title}'.")
+                return None
+            # Return the most recent chat (highest updated_at)
+            latest_chat = max(matching_chats, key=lambda x: x.get("updated_at", 0))
+            logger.info(f"Found latest chat with title '{title}': {latest_chat['id'][:8]}...")
+            return latest_chat
+        except (requests.exceptions.RequestException, KeyError) as e:
+            logger.error(f"Failed to search for chats with title '{title}': {e}")
+            return None
 
     def _create_new_chat(self, title: str) -> Optional[str]:
         """Create a new chat with the given title."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_create_new_chat not yet implemented in refactored version")
-        return None
+        logger.info(f"Creating new chat with title '{title}'...")
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/chats/new",
+                json={"chat": {"title": title}},
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            chat_id = response.json().get("id")
+            if chat_id:
+                logger.info(f"Successfully created chat with ID: {chat_id[:8]}...")
+                return chat_id
+            else:
+                logger.error("Chat creation response did not contain an ID.")
+                return None
+        except (requests.exceptions.RequestException, KeyError) as e:
+            logger.error(f"Failed to create new chat: {e}")
+            return None
 
     def _get_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information about a chat."""
@@ -447,9 +552,25 @@ class OpenWebUIClient:
         self, chat_data: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Build linear message history for API calls."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_build_linear_history_for_api not yet implemented in refactored version")
-        return []
+        history, current_id = [], chat_data.get("history", {}).get("currentId")
+        messages = chat_data.get("history", {}).get("messages", {})
+        while current_id and current_id in messages:
+            msg = messages[current_id]
+            if msg.get("files"):
+                api_content = [{"type": "text", "text": msg["content"]}]
+                for file_info in msg["files"]:
+                    if file_info.get("type") == "image":
+                        api_content.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": file_info.get("url")},
+                            }
+                        )
+                history.insert(0, {"role": msg["role"], "content": api_content})
+            else:
+                history.insert(0, {"role": msg["role"], "content": msg["content"]})
+            current_id = msg.get("parentId")
+        return history
 
     def _build_linear_history_for_storage(
         self, messages: List[Dict[str, Any]]
@@ -464,3 +585,39 @@ class OpenWebUIClient:
         # TODO: Implement this method in ChatManager
         logger.warning("_update_remote_chat not yet implemented in refactored version")
         return False
+
+    def _handle_rag_references(
+        self, rag_files: Optional[List[str]] = None, rag_collections: Optional[List[str]] = None
+    ) -> Tuple[List[Dict], List[Dict]]:
+        """Handle RAG references for files and knowledge base collections."""
+        api_payload, storage_payload = [], []
+        if rag_files:
+            logger.info("Processing RAG files...")
+            for file_path in rag_files:
+                if file_obj := self._upload_file(file_path):
+                    api_payload.append({"type": "file", "id": file_obj["id"]})
+                    storage_payload.append(
+                        {"type": "file", "file": file_obj, **file_obj}
+                    )
+        if rag_collections:
+            logger.info("Processing RAG knowledge base collections...")
+            for kb_name in rag_collections:
+                if kb_summary := self.get_knowledge_base_by_name(kb_name):
+                    if kb_details := self._get_knowledge_base_details(kb_summary["id"]):
+                        file_ids = [f["id"] for f in kb_details.get("files", [])]
+                        api_payload.append(
+                            {
+                                "type": "collection",
+                                "id": kb_details["id"],
+                                "name": kb_details.get("name"),
+                                "data": {"file_ids": file_ids},
+                            }
+                        )
+                        storage_payload.append(
+                            {
+                                "type": "collection",
+                                "collection": kb_details,
+                                **kb_details,
+                            }
+                        )
+        return api_payload, storage_payload
