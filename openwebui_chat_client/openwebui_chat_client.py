@@ -1069,14 +1069,14 @@ class OpenWebUIClient:
         suggestion_prompts: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         is_active: Optional[bool] = None,
-        access_control: Optional[Dict[str, Any]] = None,
+        access_control: Optional[Union[Dict[str, Any], None]] = ...,
     ) -> Optional[Dict[str, Any]]:
         """
         Updates an existing custom model in Open WebUI with granular changes.
 
         Args:
             model_id: The ID of the model to update.
-            access_control: Optional access control settings for the model.
+            access_control: Optional access control settings for the model. Use None for public access.
             All other arguments are optional and will only be updated if provided.
         """
         logger.info(f"Updating model '{model_id}'...")
@@ -1127,8 +1127,8 @@ class OpenWebUIClient:
         if tags is not None:
             payload["meta"]["tags"] = [{"name": t} for t in tags]
         
-        # Update access_control
-        if access_control is not None:
+        # Update access_control - use ... as sentinel to distinguish between None and not provided
+        if access_control is not ...:
             payload["access_control"] = access_control
 
         # Remove read-only keys before sending the update request

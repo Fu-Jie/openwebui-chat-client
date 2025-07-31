@@ -70,6 +70,66 @@ class TestModelPermissions(unittest.TestCase):
         self.assertIsNone(result)
 
     @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.post")
+    def test_update_model_with_access_control_none_for_public(self, mock_post):
+        """Test updating model with access_control=None for public permissions."""
+        # Mock get_model to return existing model
+        existing_model = {
+            "id": "test-model",
+            "name": "Test Model",
+            "base_model_id": "base-model",
+            "params": {},
+            "meta": {"capabilities": {}}
+        }
+        
+        with patch.object(self.client, 'get_model', return_value=existing_model):
+            mock_response = Mock()
+            mock_response.json.return_value = {"id": "test-model", "updated": True}
+            mock_response.raise_for_status.return_value = None
+            mock_post.return_value = mock_response
+
+            # Test with access_control=None for public permissions
+            result = self.client.update_model("test-model", access_control=None)
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["id"], "test-model")
+            
+            # Verify the payload included access_control set to None
+            call_args = mock_post.call_args
+            payload = call_args[1]["json"]
+            self.assertIn("access_control", payload)
+            self.assertIsNone(payload["access_control"])
+
+    @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.post")
+    def test_update_model_without_access_control_parameter(self, mock_post):
+        """Test updating model without providing access_control parameter."""
+        # Mock get_model to return existing model
+        existing_model = {
+            "id": "test-model",
+            "name": "Test Model",
+            "base_model_id": "base-model",
+            "params": {},
+            "meta": {"capabilities": {}},
+            "access_control": {"read": {"group_ids": ["existing"], "user_ids": []}}
+        }
+        
+        with patch.object(self.client, 'get_model', return_value=existing_model):
+            mock_response = Mock()
+            mock_response.json.return_value = {"id": "test-model", "updated": True}
+            mock_response.raise_for_status.return_value = None
+            mock_post.return_value = mock_response
+
+            # Test without access_control parameter - should preserve existing
+            result = self.client.update_model("test-model", name="New Name")
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["id"], "test-model")
+            
+            # Verify the payload preserved existing access_control
+            call_args = mock_post.call_args
+            payload = call_args[1]["json"]
+            self.assertEqual(payload["access_control"], {"read": {"group_ids": ["existing"], "user_ids": []}})
+
+    @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.post")
     def test_update_model_with_access_control(self, mock_post):
         """Test updating model with access control."""
         # Mock get_model to return existing model
