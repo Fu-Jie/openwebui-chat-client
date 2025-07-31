@@ -644,7 +644,7 @@ class OpenWebUIClient:
 
     def delete_knowledge_bases_by_keyword(
         self, keyword: str, case_sensitive: bool = False
-    ) -> Tuple[int, int]:
+    ) -> Tuple[int, int, List[str]]:
         """Deletes knowledge bases whose names contain a specific keyword."""
         return self._knowledge_base_manager.delete_knowledge_bases_by_keyword(
             keyword, case_sensitive
@@ -723,25 +723,225 @@ class OpenWebUIClient:
     
     def archive_chats_by_age(
         self,
-        days_since_update: Optional[int] = None,
+        days_since_update: int = 30,
         folder_name: Optional[str] = None,
         dry_run: bool = False
     ) -> Dict[str, Any]:
-        """Archive chats older than the specified number of days."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("archive_chats_by_age not yet implemented in refactored version")
-        return {
+        """
+        Archive chats that haven't been updated for a specified number of days.
+        
+        Args:
+            days_since_update: Number of days since last update (default: 30)
+            folder_name: Optional folder name to filter chats. If None, only archives 
+                        chats NOT in folders. If provided, only archives chats IN that folder.
+            dry_run: If True, only shows what would be archived without actually archiving
+                        
+        Returns:
+            Dictionary with archive results including counts and details
+        """
+        logger.info(f"Starting bulk archive operation for chats older than {days_since_update} days")
+        if folder_name:
+            logger.info(f"Filtering to folder: '{folder_name}'")
+        else:
+            logger.info("Filtering to chats NOT in folders")
+            
+        current_timestamp = int(time.time())
+        cutoff_timestamp = current_timestamp - (days_since_update * 24 * 60 * 60)
+        
+        results = {
             "total_checked": 0,
             "total_archived": 0,
             "total_failed": 0,
-            "archived_chats": []
+            "archived_chats": [],
+            "failed_chats": [],
+            "errors": []
         }
+        
+        try:
+            # Get target chats based on folder filter
+            target_chats = []
+            
+            if folder_name:
+                # Get folder ID by name
+                folder_id = self.get_folder_id_by_name(folder_name)
+                if not folder_id:
+                    error_msg = f"Folder '{folder_name}' not found"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+                    return results
+                    
+                # Get chats in the specified folder
+                folder_chats = self.get_chats_by_folder(folder_id)
+                if folder_chats is None:
+                    error_msg = f"Failed to get chats from folder '{folder_name}'"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+                    return results
+                target_chats = folder_chats
+            else:
+                # Get all chats and filter to those NOT in folders
+                all_chats = []
+                page = 1
+                
+                # Handle pagination
+                while True:
+                    page_chats = self.list_chats(page=page)
+                    if not page_chats:
+                        break
+                    all_chats.extend(page_chats)
+                    # If we got fewer than expected, we've reached the end
+                    if len(page_chats) < 50:  # Assuming default page size
+                        break
+                    page += 1
+                
+                if not all_chats:
+                    error_msg = "Failed to get chat list"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+                    return results
+                
+                # Filter to chats not in folders
+                # We need to get detailed chat info to check folder_id
+                target_chats = []
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    future_to_chat = {
+                        executor.submit(self._get_chat_details, chat["id"]): chat 
+                        for chat in all_chats
+                    }
+                    
+                    for future in as_completed(future_to_chat):
+                        chat_basic = future_to_chat[future]
+                        try:
+                            chat_details = future.result()
+                            if chat_details and not chat_details.get("folder_id"):
+                                target_chats.append(chat_details)
+                        except Exception as e:
+                            logger.warning(f"Failed to get details for chat {chat_basic['id']}: {e}")
+                            
+            results["total_checked"] = len(target_chats)
+            logger.info(f"Found {len(target_chats)} chats to check for archiving")
+            
+            # Filter by age and archive
+            chats_to_archive = []
+            for chat in target_chats:
+                updated_at = chat.get("updated_at", 0)
+                if updated_at < cutoff_timestamp:
+                    chats_to_archive.append(chat)
+                    
+            logger.info(f"Found {len(chats_to_archive)} chats older than {days_since_update} days")
+            
+            if dry_run:
+                logger.info("Dry run mode: would archive the following chats:")
+                for chat in chats_to_archive:
+                    logger.info(f"  - {chat.get('title', 'Unknown')} (ID: {chat['id']})")
+                results["total_archived"] = len(chats_to_archive)
+                results["archived_chats"] = [{
+                    "id": chat["id"],
+                    "title": chat.get("title", "Unknown"),
+                    "updated_at": chat.get("updated_at", 0)
+                } for chat in chats_to_archive]
+                return results
+            
+            # Archive chats in parallel
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                future_to_chat = {
+                    executor.submit(self.archive_chat, chat["id"]): chat 
+                    for chat in chats_to_archive
+                }
+                
+                for future in as_completed(future_to_chat):
+                    chat = future_to_chat[future]
+                    try:
+                        success = future.result()
+                        if success:
+                            results["total_archived"] += 1
+                            results["archived_chats"].append({
+                                "id": chat["id"],
+                                "title": chat.get("title", "Unknown"),
+                                "updated_at": chat.get("updated_at", 0)
+                            })
+                        else:
+                            results["total_failed"] += 1
+                            results["failed_chats"].append({
+                                "id": chat["id"],
+                                "title": chat.get("title", "Unknown"),
+                                "error": "Archive request failed"
+                            })
+                    except Exception as e:
+                        results["total_failed"] += 1
+                        results["failed_chats"].append({
+                            "id": chat["id"],
+                            "title": chat.get("title", "Unknown"),
+                            "error": str(e)
+                        })
+                        logger.error(f"Error archiving chat {chat['id']}: {e}")
+            
+            logger.info(f"Archive operation completed: {results['total_archived']} archived, {results['total_failed']} failed")
+            return results
+            
+        except Exception as e:
+            error_msg = f"Bulk archive operation failed: {e}"
+            logger.error(error_msg)
+            results["errors"].append(error_msg)
+            return results
 
     def _cleanup_unused_placeholder_messages(self) -> int:
-        """Clean up unused placeholder messages."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_cleanup_unused_placeholder_messages not yet implemented in refactored version")
-        return 0
+        """
+        Clean up all unused empty placeholder messages in the current chat_object_from_server.
+        Returns the number of message pairs cleaned up.
+        """
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not initialized, cannot cleanup placeholder messages."
+            )
+            return 0
+
+        chat_core = self.chat_object_from_server["chat"]
+        messages = chat_core["history"]["messages"]
+
+        # Collect all placeholder message IDs to be deleted
+        message_ids_to_delete = []
+        for msg_id, msg in messages.items():
+            if self._is_placeholder_message(msg):
+                message_ids_to_delete.append(msg_id)
+
+        cleaned_count = 0
+        if message_ids_to_delete:
+            for msg_id in message_ids_to_delete:
+                del messages[msg_id]
+            cleaned_count = len(message_ids_to_delete) / 2  # Each pair contains user and assistant messages
+            logger.info(
+                f"Cleaned up {int(cleaned_count)} unused placeholder message pairs."
+            )
+
+            # After cleanup, need to rebuild the messages list and currentId to ensure history chain correctness
+            # Find the new currentId (the ID of the last non-placeholder message)
+            new_current_id = None
+            for msg_id in reversed(list(messages.keys())):  # Search backwards
+                msg = messages[msg_id]
+                if not self._is_placeholder_message(msg):
+                    new_current_id = msg_id
+                    break
+
+            chat_core["history"]["currentId"] = new_current_id
+            chat_core["messages"] = self._build_linear_history_for_storage(
+                chat_core, new_current_id
+            )
+
+            # Also need to sync with the backend
+            if self._update_remote_chat():
+                logger.info("Successfully synced chat state after cleanup.")
+            else:
+                logger.warning("Failed to sync chat state after cleanup.")
+
+        return int(cleaned_count)
+
+    def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
+        """Check if message is a placeholder (content is empty and not marked as done)"""
+        return message.get("content", "").strip() == "" and not message.get("done", False)
 
     def _find_or_create_chat_by_title(self, title: str):
         """Find an existing chat by title or create a new one."""
@@ -805,9 +1005,16 @@ class OpenWebUIClient:
 
     def _get_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information about a chat."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_get_chat_details not yet implemented in refactored version")
-        return None
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/chats/{chat_id}",
+                headers=self.json_headers
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get chat details for {chat_id}: {e}")
+            return None
 
     def _get_knowledge_base_details(self, kb_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information about a knowledge base."""
@@ -850,9 +1057,16 @@ class OpenWebUIClient:
 
     def _update_remote_chat(self) -> bool:
         """Update the remote chat with local changes."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_update_remote_chat not yet implemented in refactored version")
-        return False
+        try:
+            self.session.post(
+                f"{self.base_url}/api/v1/chats/{self.chat_id}",
+                json={"chat": self.chat_object_from_server["chat"]},
+                headers=self.json_headers,
+            ).raise_for_status()
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to update remote chat: {e}")
+            return False
 
     def _handle_rag_references(
         self, rag_files: Optional[List[str]] = None, rag_collections: Optional[List[str]] = None
