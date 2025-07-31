@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
   - `get_note_by_id()`: Retrieve specific notes by their ID
   - `update_note_by_id()`: Update existing notes with new content and metadata
   - `delete_note_by_id()`: Delete notes by their ID
-- **Notes API Examples**: Added comprehensive example script `examples/notes_api_example.py` demonstrating all notes functionality
+- **Notes API Examples**: Added comprehensive example script `examples/notes_api/basic_notes.py` demonstrating all notes functionality
 - **Notes Unit Tests**: Added complete test coverage in `tests/test_notes_functionality.py` with 118 test cases
 
 ### Changed in 0.1.13
