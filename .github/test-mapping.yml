@@ -1,0 +1,101 @@
+# Configuration file mapping source code files/directories to integration test categories
+# This is used by GitHub Actions to run only relevant integration tests for changed files
+
+# Integration test categories and their corresponding test commands
+test_categories:
+  notes_api:
+    name: "Notes API Integration Test"
+    command: "python examples/notes_api/basic_notes.py"
+    description: "Tests notes CRUD operations and API functionality"
+    
+  basic_chat:
+    name: "Basic Usage Integration Test"
+    command: "python examples/getting_started/basic_chat.py"
+    description: "Tests basic chat functionality and client initialization"
+    
+  rag_integration:
+    name: "RAG Integration Test"
+    command: "python examples/rag_knowledge/file_rag.py"
+    description: "Tests RAG (Retrieval Augmented Generation) with files"
+    
+  model_management:
+    name: "Model Management Integration Test"
+    command: "python examples/model_management/model_operations.py"
+    description: "Tests model CRUD operations and management"
+    
+  model_switching:
+    name: "Model Switch Integration Test"
+    command: "python examples/chat_features/model_switching.py"
+    description: "Tests model switching functionality in existing chats"
+    
+  comprehensive_demos:
+    name: "Comprehensive Demos Test"
+    command: "python examples/getting_started/quick_start.py"
+    description: "Tests comprehensive feature integration and workflows"
+    
+  connectivity:
+    name: "Basic Connectivity Test"
+    command: "python -c \"from openwebui_chat_client import OpenWebUIClient; import os; import sys; client = OpenWebUIClient(os.getenv('OUI_BASE_URL'), os.getenv('OUI_AUTH_TOKEN'), os.getenv('OUI_DEFAULT_MODEL')); models = client.list_models(); print(f'✅ Connected. Found {len(models) if models else 0} models.') if models is not None else sys.exit(1)\""
+    description: "Tests basic client connectivity and authentication"
+
+# File patterns mapped to test categories
+# When files matching these patterns change, the corresponding tests will run
+file_mappings:
+  # Core client functionality - triggers multiple tests
+  - pattern: "openwebui_chat_client/openwebui_chat_client.py"
+    categories: ["connectivity", "basic_chat", "model_management"]
+    
+  # Chat-related functionality
+  - pattern: "openwebui_chat_client/**/*chat*"
+    categories: ["basic_chat", "model_switching", "comprehensive_demos"]
+    
+  # Notes API functionality
+  - pattern: "**/*note*"
+    categories: ["notes_api"]
+    
+  # RAG and knowledge base functionality
+  - pattern: "**/*rag*"
+    categories: ["rag_integration", "comprehensive_demos"]
+    
+  - pattern: "**/*knowledge*"
+    categories: ["rag_integration", "comprehensive_demos"]
+    
+  # Model management functionality
+  - pattern: "**/*model*"
+    categories: ["model_management", "model_switching", "connectivity"]
+    
+  # Examples - run corresponding integration tests
+  - pattern: "examples/notes_api/**"
+    categories: ["notes_api"]
+    
+  - pattern: "examples/getting_started/**"
+    categories: ["basic_chat", "comprehensive_demos", "connectivity"]
+    
+  - pattern: "examples/rag_knowledge/**"
+    categories: ["rag_integration"]
+    
+  - pattern: "examples/model_management/**"
+    categories: ["model_management"]
+    
+  - pattern: "examples/chat_features/**"
+    categories: ["basic_chat", "model_switching"]
+    
+  # Test files - run basic connectivity to ensure changes don't break core functionality
+  - pattern: "tests/**"
+    categories: ["connectivity"]
+    
+  # Configuration and workflow changes - run connectivity test
+  - pattern: ".github/**"
+    categories: ["connectivity"]
+    
+  - pattern: "pyproject.toml"
+    categories: ["connectivity"]
+    
+  - pattern: "setup.py"
+    categories: ["connectivity"]
+
+# Default categories to run when no specific mapping is found
+# This ensures that at least basic functionality is tested for any changes
+default_categories:
+  - "connectivity"
+  - "basic_chat"
