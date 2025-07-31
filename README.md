@@ -214,37 +214,95 @@ if result_1 and result_2:
 
 ## 📚 API Reference
 
-| Method | Description | Example |
-|--------|-------------|---------|
-| `chat()` | Start/continue a single-model conversation. Returns a dictionary with `response`, `chat_id`, and `message_id`. | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
-| `stream_chat()` | Start/continue a single-model streaming conversation with real-time updates. Yields content chunks and returns full response/sources at the end. | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
-| `chat()` | Start/continue a single-model conversation. Returns a dictionary with `response`, `chat_id`, and `message_id`. Supports follow-up generation options. | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
-| `parallel_chat()` | Start/continue a multi-model conversation. Returns a dictionary with `responses`, `chat_id`, and `message_ids`. Supports follow-up generation options. | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
-| `update_chat_metadata()` | Regenerate and update tags and/or title for an existing chat. | `client.update_chat_metadata(chat_id, regenerate_tags=True, regenerate_title=True)` |
-| `rename_chat()` | Rename an existing chat. | `client.rename_chat(chat_id, "New Title")` |
-| `set_chat_tags()` | Apply tags to a chat. | `client.set_chat_tags(chat_id, ["tag1"])` |
-| `create_folder()` | Create a chat folder. | `client.create_folder("ProjectX")` |
-| `list_models()` | List all available model entries (now with improved reliability). | `client.list_models()` |
-| `list_base_models()` | List all available base models (now with improved reliability). | `client.list_base_models()` |
-| `get_model()` | Retrieve details for a specific model entry. Automatically attempts model creation and retries fetching if the model does not exist and API returns 401. | `client.get_model("id")` |
-| `create_model()` | Create a detailed, custom model variant. | `client.create_model(...)` |
-| `update_model()` | Update an existing model entry with granular changes. | `client.update_model("id", temperature=0.5)` |
-| `delete_model()` | Delete a model entry from the server. | `client.delete_model("id")` |
-| `create_knowledge_base()`| Create a new knowledge base. | `client.create_knowledge_base("MyKB")` |
-| `add_file_to_knowledge_base()`| Add a file to a knowledge base. | `client.add_file_to_knowledge_base(...)` |
-| `get_knowledge_base_by_name()`| Retrieve a knowledge base by its name. | `client.get_knowledge_base_by_name("MyKB")` |
-| `delete_knowledge_base()` | Delete a knowledge base by its ID. | `client.delete_knowledge_base("kb_id")` |
-| `delete_all_knowledge_bases()` | Delete all knowledge bases. | `client.delete_all_knowledge_bases()` |
-| `delete_knowledge_bases_by_keyword()` | Delete knowledge bases whose names contain the given keyword. | `client.delete_knowledge_bases_by_keyword("keyword")` |
-| `create_knowledge_bases_with_files()` | Create multiple knowledge bases and add files to each. | `client.create_knowledge_bases_with_files({"KB1": ["file1.txt"]})` |
-| `switch_chat_model()` | Switch the model(s) for an existing chat. | `client.switch_chat_model(chat_id, "new-model-id")` |
-| **Notes API** |
-| `get_notes()` | Get all notes for the current user with full details including user information. | `client.get_notes()` |
-| `get_notes_list()` | Get a simplified list of notes with only id, title, and timestamps. | `client.get_notes_list()` |
-| `create_note()` | Create a new note with title and optional data, metadata, and access control. | `client.create_note("My Note", data={"content": "..."}, meta={"tags": [...]})` |
-| `get_note_by_id()` | Retrieve a specific note by its ID. | `client.get_note_by_id("note_id")` |
-| `update_note_by_id()` | Update an existing note with new title, data, metadata, or access control. | `client.update_note_by_id("note_id", "New Title", data={...})` |
-| `delete_note_by_id()` | Delete a note by its ID. Returns True if successful. | `client.delete_note_by_id("note_id")` |
+### 💬 Chat Operations
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `chat()` | Start/continue a single-model conversation with support for follow-up generation options | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+| `stream_chat()` | Start/continue a single-model streaming conversation with real-time updates | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+| `parallel_chat()` | Start/continue a multi-model conversation with parallel processing | `question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+
+### 🛠️ Chat Management
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `rename_chat()` | Rename an existing chat | `chat_id, new_title` |
+| `set_chat_tags()` | Apply tags to a chat | `chat_id, tags` |
+| `update_chat_metadata()` | Regenerate and update tags and/or title for an existing chat | `chat_id, regenerate_tags, regenerate_title` |
+| `switch_chat_model()` | Switch the model(s) for an existing chat | `chat_id, new_model_id` |
+| `create_folder()` | Create a chat folder for organization | `folder_name` |
+
+### 🤖 Model Management
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `list_models()` | List all available model entries with improved reliability | None |
+| `list_base_models()` | List all available base models with improved reliability | None |
+| `get_model()` | Retrieve details for a specific model with auto-retry on creation | `model_id` |
+| `create_model()` | Create a detailed, custom model variant | `model_config` |
+| `update_model()` | Update an existing model entry with granular changes | `model_id, **kwargs` |
+| `delete_model()` | Delete a model entry from the server | `model_id` |
+
+### 📚 Knowledge Base Operations
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `create_knowledge_base()` | Create a new knowledge base | `name, description` |
+| `add_file_to_knowledge_base()` | Add a file to an existing knowledge base | `kb_id, file_path` |
+| `get_knowledge_base_by_name()` | Retrieve a knowledge base by its name | `name` |
+| `delete_knowledge_base()` | Delete a specific knowledge base by ID | `kb_id` |
+| `delete_all_knowledge_bases()` | Delete all knowledge bases (bulk operation) | None |
+| `delete_knowledge_bases_by_keyword()` | Delete knowledge bases whose names contain keyword | `keyword` |
+| `create_knowledge_bases_with_files()` | Create multiple knowledge bases and add files to each | `kb_file_mapping` |
+
+### 📝 Notes API
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `get_notes()` | Get all notes for the current user with full details | None |
+| `get_notes_list()` | Get a simplified list of notes with basic information | None |
+| `create_note()` | Create a new note with optional metadata and access control | `title, data, meta, access_control` |
+| `get_note_by_id()` | Retrieve a specific note by its ID | `note_id` |
+| `update_note_by_id()` | Update an existing note with new content or metadata | `note_id, title, data, meta, access_control` |
+| `delete_note_by_id()` | Delete a note by its ID | `note_id` |
+
+### 📊 Return Value Examples
+
+**Chat Operations Return:**
+```python
+{
+    "response": "Generated response text",
+    "chat_id": "chat-uuid-string",
+    "message_id": "message-uuid-string",
+    "sources": [...]  # For RAG operations
+}
+```
+
+**Parallel Chat Returns:**
+```python
+{
+    "responses": {
+        "model-1": "Response from model 1",
+        "model-2": "Response from model 2"
+    },
+    "chat_id": "chat-uuid-string",
+    "message_ids": {
+        "model-1": "message-uuid-1",
+        "model-2": "message-uuid-2"
+    }
+}
+```
+
+**Knowledge Base/Notes Return:**
+```python
+{
+    "id": "resource-uuid",
+    "name": "Resource Name", 
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+    ...
+}
+```
 
 ---
 
