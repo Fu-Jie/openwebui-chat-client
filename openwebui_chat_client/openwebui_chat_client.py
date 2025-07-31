@@ -185,12 +185,67 @@ class OpenWebUIClient:
     def update_chat_metadata(
         self,
         chat_id: str,
+        regenerate_tags: bool = False,
+        regenerate_title: bool = False,
         title: Optional[str] = None,
         tags: Optional[List[str]] = None,
         folder_name: Optional[str] = None
-    ) -> bool:
-        """Update various metadata for a chat."""
-        return self._chat_manager.update_chat_metadata(chat_id, title, tags, folder_name)
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Regenerates and updates the tags and/or title for an existing chat based on its history.
+
+        Args:
+            chat_id: The ID of the chat to update.
+            regenerate_tags: If True, new tags will be generated and applied.
+            regenerate_title: If True, a new title will be generated and applied.
+            title: Direct title to set (alternative to regenerate_title)
+            tags: Direct tags to set (alternative to regenerate_tags)
+            folder_name: Folder to move chat to
+
+        Returns:
+            A dictionary containing the 'suggested_tags' and/or 'suggested_title' that were updated,
+            or None if the chat could not be found or no action was requested.
+        """
+        if not regenerate_tags and not regenerate_title and title is None and tags is None and folder_name is None:
+            logger.warning("No action requested for update_chat_metadata. Set regenerate_tags or regenerate_title to True, or provide title/tags/folder_name.")
+            return None
+
+        logger.info(f"Updating metadata for chat {chat_id[:8]}...")
+        
+        # For backward compatibility with the regenerate_ parameters, we need to implement the original behavior
+        if regenerate_tags or regenerate_title:
+            if not self._load_chat_details(chat_id):
+                logger.error(f"Cannot update metadata, failed to load chat: {chat_id}")
+                return None
+
+            api_messages = self._build_linear_history_for_api(self.chat_object_from_server["chat"])
+            return_data = {}
+
+            if regenerate_tags:
+                logger.info("Regenerating tags...")
+                suggested_tags = self._get_tags(api_messages)
+                if suggested_tags:
+                    self.set_chat_tags(chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+                    logger.info(f"  > Applied new tags: {suggested_tags}")
+                else:
+                    logger.warning("No tags were generated.")
+
+            if regenerate_title:
+                logger.info("Regenerating title...")
+                suggested_title = self._get_title(api_messages)
+                if suggested_title:
+                    self.rename_chat(chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+                    logger.info(f"  > Applied new title: '{suggested_title}'")
+                else:
+                    logger.warning("No title was generated.")
+
+            return return_data if return_data else None
+        else:
+            # Use the new delegation to chat manager for direct values
+            success = self._chat_manager.update_chat_metadata(chat_id, title, tags, folder_name)
+            return {"updated": success} if success else None
 
     def switch_chat_model(self, chat_id: str, model_ids: Union[str, List[str]]) -> bool:
         """Switch the model(s) for an existing chat."""
@@ -1171,6 +1226,81 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Completions API Network Error for {active_model_id}: {e}")
             return None, []
+
+    def _get_model_completion_stream(
+        self,
+        chat_id: str,
+        messages: List[Dict[str, Any]],
+        api_rag_payload: Optional[List[Dict]] = None,
+        model_id: Optional[str] = None,
+        tool_ids: Optional[List[str]] = None,
+    ) -> Generator[str, None, List]:
+        """Get streaming completion from a model."""
+        active_model_id = model_id or self.model_id
+        payload = {
+            "model": active_model_id,
+            "messages": messages,
+            "stream": True,  # Enable streaming
+        }
+        if api_rag_payload:
+            payload["files"] = api_rag_payload
+        if tool_ids:
+            payload["tool_ids"] = tool_ids
+
+        logger.debug(
+            f"Sending STREAMING completion request: {json.dumps(payload, indent=2)}"
+        )
+
+        try:
+            # Use stream=True to keep the connection open
+            with self.session.post(
+                f"{self.base_url}/api/chat/completions",
+                json=payload,
+                headers=self.json_headers,
+                stream=True,  # Enable streaming on requests session
+            ) as response:
+                response.raise_for_status()
+
+                sources = []
+
+                for line in response.iter_lines():
+                    if line:
+                        decoded_line = line.decode("utf-8")
+                        if decoded_line.startswith("data:"):
+                            json_data = decoded_line[len("data:") :].strip()
+                            if json_data == "[DONE]":
+                                break
+
+                            try:
+                                data = json.loads(json_data)
+                                if "choices" in data and len(data["choices"]) > 0:
+                                    delta = data["choices"][0].get("delta", {})
+                                    content_chunk = delta.get("content", "")
+
+                                    # Handle sources if they come in streaming chunks (though usually at end)
+                                    if "sources" in data:
+                                        sources.extend(data["sources"])
+
+                                    if content_chunk:
+                                        yield content_chunk  # Yield each chunk of content
+
+                                # Handle final sources if they are sent as part of a non-delta message at the end
+                                if (
+                                    "sources" in data and not sources
+                                ):  # Only if sources haven't been collected yet
+                                    sources.extend(data["sources"])
+
+                            except json.JSONDecodeError:
+                                logger.warning(
+                                    f"Failed to decode JSON from stream: {json_data}"
+                                )
+                                continue
+                return sources  # Return sources at the end of the generator
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"Streaming Completions API Network Error for {active_model_id}: {e}"
+            )
+            raise
 
     def _get_task_model(self) -> Optional[str]:
         """Get the task model for metadata operations."""

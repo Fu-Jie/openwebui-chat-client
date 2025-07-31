@@ -158,4 +158,39 @@ class BaseClient:
             if param not in params or not params[param]:
                 logger.error(f"Required parameter '{param}' is missing or empty")
                 return False
-        return True
+    
+    def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """
+        Upload a file to the OpenWebUI server.
+        
+        Args:
+            file_path: Path to the file to upload
+            
+        Returns:
+            File metadata dictionary or None if upload failed
+        """
+        import os
+        
+        if not os.path.exists(file_path):
+            logger.error(f"File not found at path: {file_path}")
+            return None
+            
+        file_name = os.path.basename(file_path)
+        url = f"{self.base_url}/api/v1/files/"
+        
+        try:
+            with open(file_path, "rb") as f:
+                files = {"file": (file_name, f, "application/octet-stream")}
+                response = self.session.post(url, files=files)
+                response.raise_for_status()
+                file_metadata = response.json()
+                logger.info(f"Successfully uploaded file: {file_name}")
+                return file_metadata
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to upload file '{file_name}': {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"Response content: {e.response.text}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error uploading file '{file_name}': {e}")
+            return None
