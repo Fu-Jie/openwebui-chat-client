@@ -244,6 +244,11 @@ class TestNotesFunctionality(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # Override list_models to avoid HTTP calls during initialization
-    with patch.object(OpenWebUIClient, 'list_models', return_value=['test_model']):
+    # Override HTTP requests to avoid connection errors during initialization
+    with patch('openwebui_chat_client.modules.model_manager.requests.Session.get') as mock_get:
+        # Mock the models list response during initialization
+        mock_response = Mock()
+        mock_response.json.return_value = {"data": [{"id": "test_model", "name": "Test Model"}]}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
         unittest.main()

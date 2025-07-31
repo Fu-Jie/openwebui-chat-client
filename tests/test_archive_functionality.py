@@ -9,7 +9,14 @@ class TestArchiveFunctionality(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        with patch.object(OpenWebUIClient, 'list_models', return_value=[]):
+        # Mock HTTP requests during client initialization
+        with patch('openwebui_chat_client.modules.model_manager.requests.Session.get') as mock_get:
+            # Mock the models list response during initialization
+            mock_response = Mock()
+            mock_response.json.return_value = {"data": [{"id": "test-model", "name": "Test Model"}]}
+            mock_response.raise_for_status.return_value = None
+            mock_get.return_value = mock_response
+            
             self.client = OpenWebUIClient(
                 base_url="http://localhost:3000",
                 token="test-token",

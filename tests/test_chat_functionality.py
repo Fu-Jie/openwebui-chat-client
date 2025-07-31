@@ -15,11 +15,20 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        self.client = OpenWebUIClient(
-            base_url=self.base_url,
-            token=self.token,
-            default_model_id=self.default_model,
-        )
+        
+        # Mock HTTP requests during client initialization
+        with patch('openwebui_chat_client.modules.model_manager.requests.Session.get') as mock_get:
+            # Mock the models list response during initialization
+            mock_response = Mock()
+            mock_response.json.return_value = {"data": [{"id": "test-model:latest", "name": "Test Model"}]}
+            mock_response.raise_for_status.return_value = None
+            mock_get.return_value = mock_response
+            
+            self.client = OpenWebUIClient(
+                base_url=self.base_url,
+                token=self.token,
+                default_model_id=self.default_model,
+            )
         self.client._auto_cleanup_enabled = False
 
     @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.post")
