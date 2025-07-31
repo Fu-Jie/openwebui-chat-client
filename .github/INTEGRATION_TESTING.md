@@ -2,14 +2,67 @@
 
 This repository includes a comprehensive integration testing workflow that runs against a real OpenWebUI instance to verify that all API functionality works correctly.
 
+## 🎯 Selective Testing (New!)
+
+**GitHub Actions now runs only relevant integration tests based on changed files**, significantly reducing CI time while maintaining comprehensive coverage.
+
+### How Selective Testing Works
+
+- **Automatic Detection**: Analyzes changed files to determine required tests
+- **Intelligent Mapping**: Maps file patterns to corresponding test categories  
+- **Parallel Execution**: Runs multiple test categories simultaneously
+- **Manual Override**: Option to run all tests when needed
+
+### Example: What Tests Run
+
+| Changed Files | Tests Executed |
+|---------------|----------------|
+| Core client code | `connectivity`, `basic_chat`, `model_management` |
+| Notes examples | `notes_api` only |
+| RAG functionality | `rag_integration`, `comprehensive_demos` |
+| Documentation only | No tests (unless manually triggered) |
+
+### Manual Full Testing
+
+Users can still run **all integration tests** manually:
+
+```bash
+# Run all integration tests locally
+python .github/scripts/run_all_integration_tests.py
+
+# Run specific test category
+python .github/scripts/run_all_integration_tests.py --category notes_api
+
+# List available test categories
+python .github/scripts/run_all_integration_tests.py --list-categories
+```
+
 ## How It Works
 
-The integration testing workflow (`.github/workflows/integration-test.yml`) automatically runs after the main test suite passes. It performs the following:
+The integration testing workflow (`.github/workflows/integration-test.yml`) uses intelligent selective testing:
 
-1. **Automatic Trigger**: Runs when the main test workflow completes successfully
-2. **Environment Setup**: Configures a real OpenWebUI environment using secrets or manual inputs
-3. **Comprehensive Testing**: Executes all example scripts to verify complete functionality
-4. **Connectivity Testing**: Performs basic connectivity tests to ensure the client can communicate with OpenWebUI
+### Automatic Selective Testing
+
+1. **Change Detection**: Analyzes modified files in PR/push
+2. **Test Mapping**: Determines relevant test categories using pattern matching
+3. **Parallel Execution**: Runs only required tests simultaneously
+4. **Smart Defaults**: Falls back to core tests if no patterns match
+
+### Manual Full Testing
+
+1. **Local Execution**: Run comprehensive test suite locally
+2. **GitHub Actions Override**: Use workflow_dispatch with "run_all_tests" = true
+3. **Category-Specific**: Run individual test categories as needed
+
+### Test Categories
+
+- **`connectivity`**: Basic client initialization and API connection
+- **`basic_chat`**: Fundamental chat functionality  
+- **`notes_api`**: Notes CRUD operations and API functionality
+- **`rag_integration`**: RAG and knowledge base features
+- **`model_management`**: Model CRUD operations and management
+- **`model_switching`**: Model switching in existing chats
+- **`comprehensive_demos`**: End-to-end workflow testing
 
 ## Configuration
 
@@ -29,7 +82,7 @@ For automatic integration testing on every successful test run, configure these 
 
 ### Manual Workflow Dispatch
 
-You can also trigger the integration tests manually with custom parameters:
+You can also trigger integration tests manually with custom parameters:
 
 1. Go to the Actions tab in your repository
 2. Select "Integration Test" workflow
@@ -39,6 +92,16 @@ You can also trigger the integration tests manually with custom parameters:
    - Auth Token  
    - Default Model ID
    - Parallel Models (optional)
+   - **Run All Tests**: Check this to override selective testing and run all categories
+
+### Selective Testing Configuration
+
+The selective testing system uses `.github/test-mapping.yml` to define:
+- File patterns that trigger specific test categories
+- Available test categories and their commands
+- Default fallback tests for unmatched changes
+
+See [Selective Testing Documentation](.github/scripts/README-selective-testing.md) for detailed configuration and usage.
 
 ## What Gets Tested
 

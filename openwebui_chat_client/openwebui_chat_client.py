@@ -3205,3 +3205,4 @@ class OpenWebUIClient:
         except Exception as e:
             logger.error(f"Unexpected error deleting note ID {note_id}: {e}")
             return False
+# Test change
