@@ -778,12 +778,15 @@ class OpenWebUIClient:
         return history
 
     def _build_linear_history_for_storage(
-        self, messages: List[Dict[str, Any]]
+        self, chat_core: Dict[str, Any], start_id: str
     ) -> List[Dict[str, Any]]:
         """Build linear message history for storage."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_build_linear_history_for_storage not yet implemented in refactored version")
-        return []
+        history, current_id = [], start_id
+        messages = chat_core.get("history", {}).get("messages", {})
+        while current_id and current_id in messages:
+            history.insert(0, messages[current_id])
+            current_id = messages[current_id].get("parentId")
+        return history
 
     def _update_remote_chat(self) -> bool:
         """Update the remote chat with local changes."""
@@ -826,3 +829,139 @@ class OpenWebUIClient:
                             }
                         )
         return api_payload, storage_payload
+
+    def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """Upload a file and return the file metadata."""
+        return self._file_manager.upload_file(file_path)
+
+    def _get_tags(self, messages: List[Dict[str, Any]]) -> Optional[List[str]]:
+        """
+        Gets tag suggestions based on the conversation history.
+        """
+        task_model = self._get_task_model()
+        if not task_model:
+            logger.error("Could not determine task model for tags. Aborting.")
+            return None
+
+        logger.info("Requesting tag suggestions...")
+        payload = {"model": task_model, "messages": messages, "stream": False}
+        url = f"{self.base_url}/api/v1/tasks/tags/completions"
+
+        logger.debug(f"Sending tags request to {url}: {json.dumps(payload, indent=2)}")
+
+        try:
+            response = self.session.post(url, json=payload, headers=self.json_headers)
+            response.raise_for_status()
+            response_data = response.json()
+            
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                content = response_data["choices"][0]["message"]["content"]
+                try:
+                    tags = json.loads(content)
+                    if isinstance(tags, list):
+                        logger.info(f"  > Generated tags: {tags}")
+                        return tags
+                    else:
+                        logger.warning(f"Tags response not a list: {tags}")
+                        return None
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse tags JSON: {e}")
+                    return None
+            else:
+                logger.error(f"Invalid tags response format: {response_data}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Tags request failed: {e}")
+            return None
+
+    def _ask(
+        self,
+        question: str,
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+    ) -> Tuple[Optional[str], Optional[str], Optional[List[str]]]:
+        """Internal method for making chat requests."""
+        if not self.chat_id:
+            return None, None, None
+        
+        # For now, delegate to the chat manager's chat method
+        # This is a simplified implementation for backward compatibility
+        try:
+            result = self._chat_manager.chat(
+                question=question,
+                chat_title=None,  # Use existing chat
+                model_id=self.model_id,
+                image_paths=image_paths,
+                rag_files=rag_files,
+                rag_collections=rag_collections,
+                tool_ids=tool_ids,
+                enable_follow_up=enable_follow_up
+            )
+            if result and "response" in result:
+                response = result["response"]
+                message_id = result.get("assistant_message_id")
+                follow_up = result.get("suggested_follow_ups")
+                return response, message_id, follow_up
+            return None, None, None
+        except Exception as e:
+            logger.error(f"_ask failed: {e}")
+            return None, None, None
+
+    def _ask_stream(
+        self,
+        question: str,
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+        cleanup_placeholder_messages: bool = False,
+        placeholder_pool_size: int = 30,
+        min_available_messages: int = 10,
+    ) -> Generator[str, None, Tuple[str, List, Optional[List[str]]]]:
+        """Internal method for making streaming chat requests."""
+        if not self.chat_id:
+            raise ValueError("Chat ID not set. Initialize chat first.")
+
+        # For now, delegate to the chat manager's stream_chat method
+        # This is a simplified implementation for backward compatibility
+        try:
+            generator = self._chat_manager.stream_chat(
+                question=question,
+                chat_title=None,  # Use existing chat
+                model_id=self.model_id,
+                image_paths=image_paths,
+                rag_files=rag_files,
+                rag_collections=rag_collections,
+                tool_ids=tool_ids,
+                enable_follow_up=enable_follow_up
+            )
+            
+            # Yield the streaming content and return final result
+            final_response = ""
+            for chunk in generator:
+                if isinstance(chunk, str):
+                    final_response += chunk
+                    yield chunk
+                elif isinstance(chunk, dict):
+                    # Final result
+                    response = chunk.get("response", final_response)
+                    sources = chunk.get("sources", [])
+                    follow_up = chunk.get("suggested_follow_ups")
+                    return response, sources, follow_up
+            
+            # If we reach here, return the accumulated response
+            return final_response, [], None
+            
+        except Exception as e:
+            logger.error(f"_ask_stream failed: {e}")
+            return "", [], None
+
+    def _get_task_model(self) -> Optional[str]:
+        """Get the task model for metadata operations."""
+        # Use the current model or task model
+        return getattr(self, 'task_model', None) or self.model_id

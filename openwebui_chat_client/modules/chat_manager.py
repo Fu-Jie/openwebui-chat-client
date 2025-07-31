@@ -572,7 +572,7 @@ class ChatManager:
             List of chat dictionaries or None if failed
         """
         logger.info("Fetching chat list...")
-        url = f"{self.base_client.base_url}/api/v1/chats/"
+        url = f"{self.base_client.base_url}/api/v1/chats/list"
         params = {}
         if page is not None:
             params["page"] = page
@@ -602,7 +602,7 @@ class ChatManager:
             List of chat dictionaries in the folder or None if failed
         """
         logger.info(f"Fetching chats from folder: {folder_id}")
-        url = f"{self.base_client.base_url}/api/v1/folders/{folder_id}/chats"
+        url = f"{self.base_client.base_url}/api/v1/chats/folder/{folder_id}"
 
         try:
             response = self.base_client.session.get(url, headers=self.base_client.json_headers)
