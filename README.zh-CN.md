@@ -191,6 +191,41 @@ if result_1 and result_2:
     print(f"\n两次交互的 Chat ID: {result_1['chat_id']}")
 ```
 
+### 4. 批量模型权限管理
+
+您可以一次性管理多个模型的权限，支持公共、私有和基于群组的访问控制。
+
+```python
+# 将多个模型设置为公共访问
+result = client.batch_update_model_permissions(
+    model_identifiers=["gpt-4.1", "gemini-2.5-flash"],
+    permission_type="public"
+)
+
+# 将包含"gpt"的所有模型设置为特定用户的私有访问
+result = client.batch_update_model_permissions(
+    model_keyword="gpt",
+    permission_type="private",
+    user_ids=["user-id-1", "user-id-2"]
+)
+
+# 使用群组名称将模型设置为基于群组的权限
+result = client.batch_update_model_permissions(
+    model_keyword="claude",
+    permission_type="group",
+    group_identifiers=["admin", "normal"]  # 群组名称将被解析为ID
+)
+
+print(f"✅ 成功更新: {len(result['success'])} 个模型")
+print(f"❌ 更新失败: {len(result['failed'])} 个模型")
+
+# 列出可用于权限管理的群组
+groups = client.list_groups()
+if groups:
+    for group in groups:
+        print(f"群组: {group['name']} (ID: {group['id']})")
+```
+
 ---
 
 ## 🔑 如何获取你的 API 密钥
@@ -229,10 +264,12 @@ if result_1 and result_2:
 |--------|-------------|---------|
 | `list_models()` | 列出所有可用模型条目，提高了可靠性 | None |
 | `list_base_models()` | 列出所有可用基础模型，提高了可靠性 | None |
+| `list_groups()` | 列出所有可用的权限管理用户组 | None |
 | `get_model()` | 获取特定模型的详细信息，支持自动重试创建 | `model_id` |
 | `create_model()` | 创建详细的自定义模型变体 | `model_config` |
-| `update_model()` | 使用细粒度更改更新现有模型条目 | `model_id, **kwargs` |
+| `update_model()` | 使用细粒度更改更新现有模型条目 | `model_id, access_control, **kwargs` |
 | `delete_model()` | 从服务器删除模型条目 | `model_id` |
+| `batch_update_model_permissions()` | 批量更新多个模型的访问控制权限 | `model_identifiers, model_keyword, permission_type, group_identifiers, user_ids, max_workers` |
 
 ### 📚 知识库操作
 

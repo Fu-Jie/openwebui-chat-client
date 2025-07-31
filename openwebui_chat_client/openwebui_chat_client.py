@@ -867,6 +867,39 @@ class OpenWebUIClient:
             )
             return None
 
+    def list_groups(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Lists all available groups from the Open WebUI instance.
+        
+        Returns:
+            A list of group dictionaries containing id, name, and other metadata,
+            or None if the request fails.
+        """
+        logger.info("Listing all available groups...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/groups/", headers=self.json_headers
+            )
+            response.raise_for_status()
+            data = response.json()
+            if not isinstance(data, list):
+                logger.error(
+                    f"API response for groups did not contain expected list. Response: {data}"
+                )
+                return None
+            logger.info(f"Successfully listed {len(data)} groups.")
+            return data
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to list groups. Request error: {e}")
+            if e.response is not None:
+                logger.error(f"Response content: {e.response.text}")
+            return None
+        except json.JSONDecodeError:
+            logger.error(
+                f"Failed to decode JSON response when listing groups. Invalid JSON received."
+            )
+            return None
+
     def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
         """
         Fetches the details of a specific model by its ID.
@@ -1036,12 +1069,14 @@ class OpenWebUIClient:
         suggestion_prompts: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         is_active: Optional[bool] = None,
+        access_control: Optional[Union[Dict[str, Any], None]] = ...,
     ) -> Optional[Dict[str, Any]]:
         """
         Updates an existing custom model in Open WebUI with granular changes.
 
         Args:
             model_id: The ID of the model to update.
+            access_control: Optional access control settings for the model. Use None for public access.
             All other arguments are optional and will only be updated if provided.
         """
         logger.info(f"Updating model '{model_id}'...")
@@ -1091,6 +1126,10 @@ class OpenWebUIClient:
             ]
         if tags is not None:
             payload["meta"]["tags"] = [{"name": t} for t in tags]
+        
+        # Update access_control - use ... as sentinel to distinguish between None and not provided
+        if access_control is not ...:
+            payload["access_control"] = access_control
 
         # Remove read-only keys before sending the update request
         for key in ["user", "user_id", "created_at", "updated_at"]:
@@ -1155,6 +1194,191 @@ class OpenWebUIClient:
             error_msg = getattr(e.response, "text", str(e))
             logger.error(f"Failed to delete model '{model_id}': {error_msg}")
             return False
+
+    def batch_update_model_permissions(
+        self,
+        model_identifiers: Optional[List[str]] = None,
+        model_keyword: Optional[str] = None,
+        permission_type: str = "public",
+        group_identifiers: Optional[List[str]] = None,
+        user_ids: Optional[List[str]] = None,
+        max_workers: int = 5,
+    ) -> Dict[str, Any]:
+        """
+        Batch update access control permissions for multiple models.
+        
+        Args:
+            model_identifiers: List of specific model IDs to update. If None, uses keyword filtering.
+            model_keyword: Keyword to filter models by name/ID. Used when model_identifiers is None.
+            permission_type: Type of permission - "public", "private", or "group". Defaults to "public".
+            group_identifiers: List of group IDs or group names for group permissions.
+            user_ids: List of user IDs for user-specific permissions.
+            max_workers: Maximum number of concurrent update operations.
+            
+        Returns:
+            Dictionary with update results: {"success": [], "failed": [], "skipped": []}
+        """
+        logger.info("Starting batch model permission update...")
+        
+        # Validate permission type
+        if permission_type not in ["public", "private", "group"]:
+            logger.error(f"Invalid permission_type '{permission_type}'. Must be 'public', 'private', or 'group'.")
+            return {"success": [], "failed": [], "skipped": []}
+        
+        # Get models to update
+        models_to_update = []
+        if model_identifiers:
+            # Use specific model IDs
+            for model_id in model_identifiers:
+                model = self.get_model(model_id)
+                if model:
+                    models_to_update.append(model)
+                else:
+                    logger.warning(f"Model '{model_id}' not found, skipping.")
+        else:
+            # Filter by keyword
+            all_models = self.list_models()
+            if not all_models:
+                logger.error("Failed to retrieve models list.")
+                return {"success": [], "failed": [], "skipped": []}
+            
+            if model_keyword:
+                models_to_update = [
+                    model for model in all_models 
+                    if model_keyword.lower() in model.get("id", "").lower() 
+                    or model_keyword.lower() in model.get("name", "").lower()
+                ]
+                logger.info(f"Found {len(models_to_update)} models matching keyword '{model_keyword}'")
+            else:
+                models_to_update = all_models
+                logger.info(f"Updating all {len(models_to_update)} models")
+        
+        if not models_to_update:
+            logger.warning("No models found to update.")
+            return {"success": [], "failed": [], "skipped": []}
+        
+        # Prepare access control configuration
+        access_control = self._build_access_control(permission_type, group_identifiers, user_ids)
+        if access_control is False:  # Error occurred
+            return {"success": [], "failed": [], "skipped": []}
+        
+        # Batch update using ThreadPoolExecutor
+        results = {"success": [], "failed": [], "skipped": []}
+        
+        def update_single_model(model: Dict[str, Any]) -> Tuple[str, bool, str]:
+            """Update a single model's permissions."""
+            model_id = model.get("id", "")
+            try:
+                updated_model = self.update_model(model_id, access_control=access_control)
+                if updated_model:
+                    return model_id, True, "success"
+                else:
+                    return model_id, False, "update_failed"
+            except Exception as e:
+                logger.error(f"Exception updating model '{model_id}': {e}")
+                return model_id, False, str(e)
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_model = {
+                executor.submit(update_single_model, model): model 
+                for model in models_to_update
+            }
+            
+            for future in as_completed(future_to_model):
+                model = future_to_model[future]
+                model_id = model.get("id", "unknown")
+                try:
+                    model_id, success, message = future.result()
+                    if success:
+                        results["success"].append(model_id)
+                        logger.info(f"✅ Successfully updated permissions for model '{model_id}'")
+                    else:
+                        results["failed"].append({"model_id": model_id, "error": message})
+                        logger.error(f"❌ Failed to update permissions for model '{model_id}': {message}")
+                except Exception as e:
+                    results["failed"].append({"model_id": model_id, "error": str(e)})
+                    logger.error(f"❌ Exception processing model '{model_id}': {e}")
+        
+        logger.info(f"Batch update completed: {len(results['success'])} successful, {len(results['failed'])} failed")
+        return results
+    
+    def _build_access_control(
+        self,
+        permission_type: str,
+        group_identifiers: Optional[List[str]] = None,
+        user_ids: Optional[List[str]] = None,
+    ) -> Union[Dict[str, Any], None, bool]:
+        """
+        Build access control configuration based on permission type.
+        
+        Args:
+            permission_type: "public", "private", or "group"
+            group_identifiers: List of group IDs or names
+            user_ids: List of user IDs
+            
+        Returns:
+            Access control dict, None for public, or False for error
+        """
+        if permission_type == "public":
+            return None
+        
+        if permission_type == "private":
+            return {
+                "read": {"group_ids": [], "user_ids": user_ids or []},
+                "write": {"group_ids": [], "user_ids": user_ids or []}
+            }
+        
+        if permission_type == "group":
+            if not group_identifiers:
+                logger.error("Group identifiers required for group permission type.")
+                return False
+            
+            # Resolve group names to IDs if needed
+            group_ids = self._resolve_group_ids(group_identifiers)
+            if group_ids is False:
+                return False
+            
+            return {
+                "read": {"group_ids": group_ids, "user_ids": user_ids or []},
+                "write": {"group_ids": group_ids, "user_ids": user_ids or []}
+            }
+        
+        logger.error(f"Invalid permission type: {permission_type}")
+        return False
+    
+    def _resolve_group_ids(self, group_identifiers: List[str]) -> Union[List[str], bool]:
+        """
+        Resolve group names to group IDs.
+        
+        Args:
+            group_identifiers: List of group IDs or group names
+            
+        Returns:
+            List of group IDs, or False if resolution failed
+        """
+        groups = self.list_groups()
+        if not groups:
+            logger.error("Failed to fetch groups for name resolution.")
+            return False
+        
+        # Create name-to-id mapping
+        name_to_id = {group["name"]: group["id"] for group in groups}
+        id_set = {group["id"] for group in groups}
+        
+        resolved_ids = []
+        for identifier in group_identifiers:
+            if identifier in id_set:
+                # It's already a valid group ID
+                resolved_ids.append(identifier)
+            elif identifier in name_to_id:
+                # It's a group name, resolve to ID
+                resolved_ids.append(name_to_id[identifier])
+                logger.info(f"Resolved group name '{identifier}' to ID '{name_to_id[identifier]}'")
+            else:
+                logger.error(f"Group identifier '{identifier}' not found in available groups.")
+                return False
+        
+        return resolved_ids
 
     def update_chat_metadata(
         self,
