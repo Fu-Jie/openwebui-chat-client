@@ -216,7 +216,7 @@ class KnowledgeBaseManager:
 
     def delete_knowledge_bases_by_keyword(
         self, keyword: str, case_sensitive: bool = False
-    ) -> Tuple[int, int]:
+    ) -> Tuple[int, int, List[str]]:
         """
         Deletes knowledge bases whose names contain a specific keyword.
         
@@ -225,11 +225,11 @@ class KnowledgeBaseManager:
             case_sensitive: Whether the search should be case-sensitive
             
         Returns:
-            Tuple of (successful_deletions, failed_deletions)
+            Tuple of (successful_deletions, failed_deletions, processed_names)
         """
         if not keyword:
             logger.error("Keyword cannot be empty for knowledge base deletion.")
-            return 0, 0
+            return 0, 0, []
         
         logger.info(f"🔍 Searching for knowledge bases containing keyword: '{keyword}'")
         logger.info(f"   Case sensitive: {case_sensitive}")
@@ -243,11 +243,11 @@ class KnowledgeBaseManager:
             knowledge_bases = response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to list knowledge bases for keyword deletion: {e}")
-            return 0, 0
+            return 0, 0, []
         
         if not knowledge_bases:
             logger.info("   ℹ️ No knowledge bases found.")
-            return 0, 0
+            return 0, 0, []
         
         # Filter knowledge bases by keyword
         search_keyword = keyword if case_sensitive else keyword.lower()
@@ -262,16 +262,18 @@ class KnowledgeBaseManager:
         
         if not matching_kbs:
             logger.info(f"   ℹ️ No knowledge bases found containing keyword '{keyword}'.")
-            return 0, 0
+            return 0, 0, []
         
         logger.info(f"   📊 Found {len(matching_kbs)} knowledge bases matching keyword.")
         
         successful = 0
         failed = 0
+        processed_names = []
         
         for kb in matching_kbs:
             kb_id = kb.get("id")
             kb_name = kb.get("name", "Unknown")
+            processed_names.append(kb_name)
             
             if not kb_id:
                 logger.warning(f"   ⚠️ Skipping knowledge base with missing ID: {kb_name}")
@@ -291,11 +293,11 @@ class KnowledgeBaseManager:
             time.sleep(0.1)
         
         logger.info(f"🔍 Keyword deletion completed: {successful} successful, {failed} failed.")
-        return successful, failed
+        return successful, failed, processed_names
 
     def create_knowledge_bases_with_files(
         self, kb_configs: List[Dict[str, Any]], max_workers: int = 3
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> Dict[str, List[str]]:
         """
         Creates multiple knowledge bases with files in parallel.
         
@@ -304,11 +306,11 @@ class KnowledgeBaseManager:
             max_workers: Maximum number of parallel workers
             
         Returns:
-            Dictionary mapping KB names to creation results
+            Dictionary with 'success' and 'failed' keys containing lists of KB names
         """
         if not kb_configs:
             logger.warning("No knowledge base configurations provided.")
-            return {}
+            return {"success": [], "failed": []}
         
         logger.info(f"🚀 Starting parallel creation of {len(kb_configs)} knowledge bases...")
         
@@ -354,7 +356,8 @@ class KnowledgeBaseManager:
                 logger.error(f"Exception processing KB '{kb_name}': {str(e)}")
                 return kb_name, False, f"Exception: {str(e)}"
         
-        results = {}
+        successful_kbs = []
+        failed_kbs = []
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
@@ -370,18 +373,19 @@ class KnowledgeBaseManager:
                 try:
                     kb_name, success, message = future.result()
                     if kb_name:  # Only add if we got a valid KB name
-                        results[kb_name] = {"success": success, "message": message}
+                        if success:
+                            successful_kbs.append(kb_name)
+                        else:
+                            failed_kbs.append(kb_name)
                         status = "✅" if success else "❌"
                         logger.info(f"{status} KB {completed}/{len(kb_configs)}: {kb_name}")
                 except Exception as e:
                     logger.error(f"Exception in KB creation task: {e}")
         
         # Summary
-        successful = sum(1 for r in results.values() if r["success"])
-        failed = len(results) - successful
-        logger.info(f"🎯 Parallel KB creation completed: {successful} successful, {failed} failed")
+        logger.info(f"🎯 Parallel KB creation completed: {len(successful_kbs)} successful, {len(failed_kbs)} failed")
         
-        return results
+        return {"success": successful_kbs, "failed": failed_kbs}
 
     def get_knowledge_base_details(self, kb_id: str) -> Optional[Dict[str, Any]]:
         """

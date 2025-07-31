@@ -834,6 +834,91 @@ class OpenWebUIClient:
         """Upload a file and return the file metadata."""
         return self._file_manager.upload_file(file_path)
 
+    def _get_single_model_response_in_parallel(
+        self,
+        chat_core,
+        model_id,
+        question,
+        image_paths,
+        api_rag_payload,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+    ) -> Tuple[Optional[str], List, Optional[List[str]]]:
+        """Get response from a single model for parallel chat functionality."""
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for path in image_paths:
+                url = self._encode_image_to_base64(path)
+                if url:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+        content, sources = self._get_model_completion(
+            self.chat_id, api_messages, api_rag_payload, model_id, tool_ids
+        )
+
+        follow_ups = None
+        if content and enable_follow_up:
+            # To get follow-ups, we need the assistant's response in the history
+            temp_history_for_follow_up = api_messages + [
+                {"role": "assistant", "content": content}
+            ]
+            follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
+
+        return content, sources, follow_ups
+
+    def _get_title(self, messages: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Gets a title suggestion based on the conversation history.
+        """
+        task_model = self._get_task_model()
+        if not task_model:
+            logger.error("Could not determine task model for title. Aborting.")
+            return None
+
+        logger.info("Requesting title suggestion...")
+        payload = {"model": task_model, "messages": messages, "stream": False}
+        url = f"{self.base_url}/api/v1/tasks/title/completions"
+
+        logger.debug(f"Sending title request to {url}: {json.dumps(payload, indent=2)}")
+
+        try:
+            response = self.session.post(url, json=payload, headers=self.json_headers)
+            response.raise_for_status()
+            data = response.json()
+
+            if "choices" in data and data["choices"]:
+                message = data["choices"][0].get("message", {})
+                content = message.get("content")
+                if content:
+                    try:
+                        content_json = json.loads(content)
+                        title = content_json.get("title")
+                        if isinstance(title, str):
+                            logger.info(f"   ✅ Received title suggestion: '{title}'")
+                            return title
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to decode JSON from title content: {content}")
+                        return None
+            logger.warning(f"   ⚠️ Unexpected format for title response: {data}")
+            return None
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Title API HTTP Error: {e.response.text}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Title API Network Error: {e}")
+            return None
+        except (json.JSONDecodeError, KeyError, IndexError):
+            logger.error("Failed to parse JSON or find expected keys in title response.")
+            return None
+
     def _get_tags(self, messages: List[Dict[str, Any]]) -> Optional[List[str]]:
         """
         Gets tag suggestions based on the conversation history.
@@ -960,6 +1045,127 @@ class OpenWebUIClient:
         except Exception as e:
             logger.error(f"_ask_stream failed: {e}")
             return "", [], None
+
+    def _get_follow_up_completions(
+        self, messages: List[Dict[str, Any]]
+    ) -> Optional[List[str]]:
+        """
+        Gets follow-up suggestions based on the conversation history.
+        """
+        task_model = self._get_task_model()
+        if not task_model:
+            logger.error(
+                "Could not determine task model for follow-up suggestions. Aborting."
+            )
+            return None
+
+        logger.info("Requesting follow-up suggestions...")
+        payload = {
+            "model": task_model,
+            "messages": messages,
+            "stream": False,
+        }
+        url = f"{self.base_url}/api/v1/tasks/follow_up/completions"
+
+        logger.debug(
+            f"Sending follow-up request to {url}: {json.dumps(payload, indent=2)}"
+        )
+
+        try:
+            response = self.session.post(url, json=payload, headers=self.json_headers)
+            response.raise_for_status()
+            data = response.json()
+
+            if "choices" in data and data["choices"]:
+                message = data["choices"][0].get("message", {})
+                content = message.get("content")
+                if content:
+                    try:
+                        # The actual suggestions are in a JSON string inside the content
+                        content_json = json.loads(content)
+                        follow_ups = content_json.get(
+                            "follow_ups"
+                        )  # Note: key is 'follow_ups' not 'followUps'
+                        if isinstance(follow_ups, list):
+                            logger.info(
+                                f"   ✅ Received {len(follow_ups)} follow-up suggestions."
+                            )
+                            return follow_ups
+                    except json.JSONDecodeError:
+                        logger.error(
+                            f"Failed to decode JSON from follow-up content: {content}"
+                        )
+                        return None
+
+            logger.warning(f"   ⚠️ Unexpected format for follow-up response: {data}")
+            return None
+
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Follow-up API HTTP Error: {e.response.text}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Follow-up API Network Error: {e}")
+            return None
+        except (json.JSONDecodeError, KeyError, IndexError):
+            logger.error(
+                "Failed to parse JSON or find expected keys in follow-up response."
+            )
+            return None
+
+    def _get_model_completion(
+        self,
+        chat_id: str,
+        messages: List[Dict[str, Any]],
+        api_rag_payload: Optional[List[Dict]] = None,
+        model_id: Optional[str] = None,
+        tool_ids: Optional[List[str]] = None,
+    ) -> Tuple[Optional[str], List]:
+        """Get completion from a model."""
+        active_model_id = model_id or self.model_id
+        payload = {
+            "model": active_model_id,
+            "messages": messages,
+            "stream": False,  # Non-streaming
+        }
+        if api_rag_payload:
+            payload["files"] = api_rag_payload
+            logger.info(
+                f"Attaching {len(api_rag_payload)} RAG references to completion request for model {active_model_id}."
+            )
+
+        if tool_ids:
+            # The backend expects a list of objects, each with an 'id'
+            payload["tool_ids"] = tool_ids
+            logger.info(
+                f"Attaching {len(tool_ids)} tools to completion request for model {active_model_id}."
+            )
+
+        logger.debug(
+            f"Sending NON-STREAMING completion request: {json.dumps(payload, indent=2)}"
+        )
+
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/chat/completions",
+                json=payload,
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            sources = data.get("sources", [])
+            return content, sources
+        except requests.exceptions.HTTPError as e:
+            logger.error(
+                f"Completions API HTTP Error for {active_model_id}: {e.response.text}"
+            )
+            raise e
+        except (KeyError, IndexError) as e:
+            logger.error(f"Completions API Response Error for {active_model_id}: {e}")
+            return None, []
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Completions API Network Error for {active_model_id}: {e}")
+            return None, []
 
     def _get_task_model(self) -> Optional[str]:
         """Get the task model for metadata operations."""
