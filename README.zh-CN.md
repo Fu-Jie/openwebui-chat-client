@@ -205,29 +205,94 @@ if result_1 and result_2:
 
 ## 📚 API 参考
 
-| 方法 | 说明 | 示例 |
+### 💬 聊天操作
+
+| 方法 | 说明 | 参数 |
 |--------|-------------|---------|
-| `chat()` | 启动/继续单模型对话。返回包含 `response`, `chat_id`, `message_id` 的字典。 | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids)` |
-| `stream_chat()` | 启动/继续单模型流式对话，支持实时更新。生成内容块并在结束时返回完整响应/来源。 | `client.stream_chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
-| `chat()` | 启动/继续单模型对话。返回包含 `response`, `chat_id`, `message_id` 的字典。支持追问生成选项。 | `client.chat(question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
-| `parallel_chat()` | 启动/继续多模型对话。返回包含 `responses`, `chat_id`, `message_ids` 的字典。支持追问生成选项。 | `client.parallel_chat(question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling)` |
-| `update_chat_metadata()` | 为现有对话重新生成和更新标签和/或标题。 | `client.update_chat_metadata(chat_id, regenerate_tags=True, regenerate_title=True)` |
-| `rename_chat()` | 聊天重命名 | `client.rename_chat(chat_id, "新标题")` |
-| `set_chat_tags()` | 聊天打标签 | `client.set_chat_tags(chat_id, ["tag1"])` |
-| `create_folder()` | 创建聊天文件夹 | `client.create_folder("ProjectX")` |
-| `list_models()` | 列出所有模型条目（现已提高可靠性） | `client.list_models()` |
-| `list_base_models()` | 列出所有基础模型（现已提高可靠性） | `client.list_base_models()` |
-| `get_model()` | 获取指定模型详情。当模型不存在且 API 返回 401 时，自动尝试创建模型并重试获取。 | `client.get_model("id")` |
-| `create_model()` | 创建自定义模型 | `client.create_model(...)` |
-| `update_model()` | 更新模型参数 | `client.update_model("id", temperature=0.5)` |
-| `delete_model()` | 删除模型条目 | `client.delete_model("id")` |
-| `create_knowledge_base()`| 创建知识库 | `client.create_knowledge_base("MyKB")` |
-| `add_file_to_knowledge_base()`| 向知识库添加文件 | `client.add_file_to_knowledge_base(...)` |
-| `get_knowledge_base_by_name()`| 获取知识库 | `client.get_knowledge_base_by_name("MyKB")` |
-| `delete_knowledge_base()` | 根据ID删除知识库。 | `client.delete_knowledge_base("kb_id")` |
-| `delete_all_knowledge_bases()` | 删除所有知识库。 | `client.delete_all_knowledge_bases()` |
-| `delete_knowledge_bases_by_keyword()` | 根据关键字删除知识库。 | `client.delete_knowledge_bases_by_keyword("关键字")` |
-| `create_knowledge_bases_with_files()` | 批量创建知识库并添加文件。 | `client.create_knowledge_bases_with_files({"KB1": ["file1.txt"]})` |
-| `switch_chat_model()` | 切换现有聊天的模型 | `client.switch_chat_model(chat_id, "new-model-id")` |
+| `chat()` | 启动/继续单模型对话，支持追问生成选项 | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+| `stream_chat()` | 启动/继续单模型流式对话，支持实时更新 | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+| `parallel_chat()` | 启动/继续多模型并行对话 | `question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+
+### 🛠️ 聊天管理
+
+| 方法 | 说明 | 参数 |
+|--------|-------------|---------|
+| `rename_chat()` | 重命名现有聊天 | `chat_id, new_title` |
+| `set_chat_tags()` | 为聊天应用标签 | `chat_id, tags` |
+| `update_chat_metadata()` | 为现有聊天重新生成和更新标签和/或标题 | `chat_id, regenerate_tags, regenerate_title` |
+| `switch_chat_model()` | 切换现有聊天的模型 | `chat_id, new_model_id` |
+| `create_folder()` | 创建聊天文件夹进行组织 | `folder_name` |
+
+### 🤖 模型管理
+
+| 方法 | 说明 | 参数 |
+|--------|-------------|---------|
+| `list_models()` | 列出所有可用模型条目，提高了可靠性 | None |
+| `list_base_models()` | 列出所有可用基础模型，提高了可靠性 | None |
+| `get_model()` | 获取特定模型的详细信息，支持自动重试创建 | `model_id` |
+| `create_model()` | 创建详细的自定义模型变体 | `model_config` |
+| `update_model()` | 使用细粒度更改更新现有模型条目 | `model_id, **kwargs` |
+| `delete_model()` | 从服务器删除模型条目 | `model_id` |
+
+### 📚 知识库操作
+
+| 方法 | 说明 | 参数 |
+|--------|-------------|---------|
+| `create_knowledge_base()` | 创建新的知识库 | `name, description` |
+| `add_file_to_knowledge_base()` | 向现有知识库添加文件 | `kb_id, file_path` |
+| `get_knowledge_base_by_name()` | 根据名称检索知识库 | `name` |
+| `delete_knowledge_base()` | 根据ID删除特定知识库 | `kb_id` |
+| `delete_all_knowledge_bases()` | 删除所有知识库（批量操作） | None |
+| `delete_knowledge_bases_by_keyword()` | 删除名称包含关键字的知识库 | `keyword` |
+| `create_knowledge_bases_with_files()` | 创建多个知识库并向每个库添加文件 | `kb_file_mapping` |
+
+### 📝 笔记 API
+
+| 方法 | 说明 | 参数 |
+|--------|-------------|---------|
+| `get_notes()` | 获取当前用户的所有笔记及完整详细信息 | None |
+| `get_notes_list()` | 获取基本信息的简化笔记列表 | None |
+| `create_note()` | 创建具有可选元数据和访问控制的新笔记 | `title, data, meta, access_control` |
+| `get_note_by_id()` | 根据ID检索特定笔记 | `note_id` |
+| `update_note_by_id()` | 使用新内容或元数据更新现有笔记 | `note_id, title, data, meta, access_control` |
+| `delete_note_by_id()` | 根据ID删除笔记 | `note_id` |
+
+### 📊 返回值示例
+
+**聊天操作返回：**
+```python
+{
+    "response": "生成的响应文本",
+    "chat_id": "聊天-uuid-字符串",
+    "message_id": "消息-uuid-字符串",
+    "sources": [...]  # RAG 操作时
+}
+```
+
+**并行聊天返回：**
+```python
+{
+    "responses": {
+        "model-1": "模型 1 的响应",
+        "model-2": "模型 2 的响应"
+    },
+    "chat_id": "聊天-uuid-字符串",
+    "message_ids": {
+        "model-1": "消息-uuid-1",
+        "model-2": "消息-uuid-2"
+    }
+}
+```
+
+**知识库/笔记返回：**
+```python
+{
+    "id": "资源-uuid",
+    "name": "资源名称",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+    ...
+}
+```
 
 ---
