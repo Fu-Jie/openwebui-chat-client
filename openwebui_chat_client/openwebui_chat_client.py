@@ -51,6 +51,9 @@ class OpenWebUIClient:
         # Initialize base client
         self._base_client = BaseClient(base_url, token, default_model_id)
         
+        # Set parent reference so managers can access main client methods
+        self._base_client._parent_client = self
+        
         # Initialize specialized managers
         self._model_manager = ModelManager(self._base_client, skip_initial_refresh=skip_model_refresh)
         self._notes_manager = NotesManager(self._base_client)
@@ -1004,15 +1007,48 @@ class OpenWebUIClient:
 
     def _find_or_create_chat_by_title(self, title: str):
         """Find an existing chat by title or create a new one."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_find_or_create_chat_by_title not yet implemented in refactored version")
-        pass
+        logger.info(f"Finding or creating chat with title: '{title}'")
+        
+        # First, search for existing chat
+        existing_chat = self._search_latest_chat_by_title(title)
+        if existing_chat:
+            chat_id = existing_chat["id"]
+            logger.info(f"Found existing chat: {chat_id}")
+            self.chat_id = chat_id
+            
+            # Load chat details
+            if self._load_chat_details(chat_id):
+                logger.info(f"Successfully loaded existing chat: {chat_id}")
+                return chat_id
+            else:
+                logger.warning(f"Failed to load details for existing chat: {chat_id}")
+        
+        # If no existing chat found or failed to load, create new one
+        new_chat_id = self._create_new_chat(title)
+        if new_chat_id:
+            self.chat_id = new_chat_id
+            logger.info(f"Successfully created new chat: {new_chat_id}")
+            return new_chat_id
+        else:
+            logger.error(f"Failed to create new chat with title: '{title}'")
+            return None
 
     def _load_chat_details(self, chat_id: str) -> bool:
         """Load chat details from server."""
-        # TODO: Implement this method in ChatManager
-        logger.warning("_load_chat_details not yet implemented in refactored version")
-        return False
+        logger.info(f"Loading chat details for: {chat_id}")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/chats/{chat_id}",
+                headers=self.json_headers,
+            )
+            response.raise_for_status()
+            chat_data = response.json()
+            self.chat_object_from_server = chat_data
+            logger.info(f"Successfully loaded chat details for: {chat_id}")
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get chat details for {chat_id}: {e}")
+            return False
 
     def _search_latest_chat_by_title(self, title: str) -> Optional[Dict[str, Any]]:
         """Search for the latest chat with the given title."""
@@ -1304,26 +1340,119 @@ class OpenWebUIClient:
     ) -> Tuple[Optional[str], Optional[str], Optional[List[str]]]:
         """Internal method for making chat requests."""
         if not self.chat_id:
+            logger.error("Chat ID not set. Cannot proceed with _ask.")
             return None, None, None
         
-        # For now, delegate to the chat manager's chat method
-        # This is a simplified implementation for backward compatibility
+        if not self.chat_object_from_server:
+            logger.error("Chat object not loaded. Cannot proceed with _ask.")
+            return None, None, None
+        
+        logger.info(f"Sending message to chat {self.chat_id}: {question[:50]}...")
+        
         try:
-            result = self._chat_manager.chat(
-                question=question,
-                chat_title=None,  # Use existing chat
-                model_id=self.model_id,
-                image_paths=image_paths,
-                rag_files=rag_files,
-                rag_collections=rag_collections,
-                tool_ids=tool_ids,
-                enable_follow_up=enable_follow_up
+            # Build message payload
+            user_message_id = str(uuid.uuid4())
+            assistant_message_id = str(uuid.uuid4())
+            
+            # Get the current message history
+            chat_data = self.chat_object_from_server.get("chat", {})
+            history = chat_data.get("history", {"messages": {}})
+            messages = history.get("messages", {})
+            
+            # Create user message
+            user_message = {
+                "id": user_message_id,
+                "role": "user", 
+                "content": question,
+                "timestamp": int(time.time()),
+                "done": True
+            }
+            
+            # Handle images if provided
+            if image_paths:
+                uploaded_images = []
+                for image_path in image_paths:
+                    uploaded_file = self._upload_file(image_path)
+                    if uploaded_file:
+                        uploaded_images.append(uploaded_file)
+                if uploaded_images:
+                    user_message["files"] = uploaded_images
+            
+            # Handle RAG files
+            if rag_files:
+                uploaded_rag_files = []
+                for rag_file in rag_files:
+                    uploaded_file = self._upload_file(rag_file)
+                    if uploaded_file:
+                        uploaded_rag_files.append(uploaded_file)
+                if uploaded_rag_files:
+                    user_message["files"] = user_message.get("files", []) + uploaded_rag_files
+            
+            # Create assistant placeholder message
+            assistant_message = {
+                "id": assistant_message_id,
+                "role": "assistant",
+                "content": "",
+                "timestamp": int(time.time()),
+                "done": False
+            }
+            
+            # Add messages to history
+            messages[user_message_id] = user_message
+            messages[assistant_message_id] = assistant_message
+            
+            # Build chat payload
+            chat_payload = {
+                "id": self.chat_id,
+                "model": self.model_id,
+                "messages": self._build_linear_history_for_api(chat_data),
+                "stream": False
+            }
+            
+            # Add knowledge base collections if specified
+            if rag_collections:
+                chat_payload["knowledge_base"] = {"collections": rag_collections}
+            
+            # Add tools if specified
+            if tool_ids:
+                chat_payload["tools"] = {"ids": tool_ids}
+            
+            # Make the chat request
+            response = self.session.post(
+                f"{self.base_url}/api/chat/completions",
+                json=chat_payload,
+                headers=self.json_headers
             )
-            if result and "response" in result:
-                response = result["response"]
-                message_id = result.get("assistant_message_id")
-                follow_up = result.get("suggested_follow_ups")
-                return response, message_id, follow_up
+            response.raise_for_status()
+            response_data = response.json()
+            
+            # Extract response content
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                content = response_data["choices"][0]["message"]["content"]
+                
+                # Update the assistant message with the response
+                assistant_message["content"] = content
+                assistant_message["done"] = True
+                
+                # Update chat object
+                self.chat_object_from_server["chat"]["history"]["messages"] = messages
+                
+                # Handle follow-up suggestions if enabled
+                follow_ups = None
+                if enable_follow_up:
+                    follow_ups = self._get_follow_up_completions([
+                        {"role": "user", "content": question},
+                        {"role": "assistant", "content": content}
+                    ])
+                
+                logger.info(f"Successfully received response for chat {self.chat_id}")
+                return content, assistant_message_id, follow_ups
+            else:
+                logger.error(f"Invalid response format: {response_data}")
+                return None, None, None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Chat request failed: {e}")
             return None, None, None
         except Exception as e:
             logger.error(f"_ask failed: {e}")

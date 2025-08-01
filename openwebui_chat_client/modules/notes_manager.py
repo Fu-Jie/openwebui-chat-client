@@ -210,8 +210,8 @@ class NotesManager:
             return None
         
         try:
-            response = self.base_client.session.put(
-                f"{self.base_client.base_url}/api/v1/notes/{note_id}",
+            response = self.base_client.session.post(
+                f"{self.base_client.base_url}/api/v1/notes/{note_id}/update",
                 json=update_data,
                 headers=self.base_client.json_headers
             )

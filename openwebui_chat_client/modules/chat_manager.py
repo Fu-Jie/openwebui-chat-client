@@ -90,7 +90,12 @@ class ChatManager:
             logger.info(f"Using tools: {tool_ids}")
         logger.info("=" * 60)
 
-        self._find_or_create_chat_by_title(chat_title)
+        # Use the main client's method if available (for test mocking)
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
+            parent_client._find_or_create_chat_by_title(chat_title)
+        else:
+            self._find_or_create_chat_by_title(chat_title)
 
         if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
             logger.error("Chat object not loaded or malformed, cannot proceed with chat.")
@@ -114,14 +119,26 @@ class ChatManager:
             if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
                 self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
-        response, message_id, follow_ups = self._ask(
-            question,
-            image_paths,
-            rag_files,
-            rag_collections,
-            tool_ids,
-            enable_follow_up,
-        )
+        # Use the main client's _ask method if available (for test mocking)
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_ask'):
+            response, message_id, follow_ups = parent_client._ask(
+                question,
+                image_paths,
+                rag_files,
+                rag_collections,
+                tool_ids,
+                enable_follow_up,
+            )
+        else:
+            response, message_id, follow_ups = self._ask(
+                question,
+                image_paths,
+                rag_files,
+                rag_collections,
+                tool_ids,
+                enable_follow_up,
+            )
         if response:
             if tags:
                 self.set_chat_tags(self.base_client.chat_id, tags)
@@ -1298,7 +1315,7 @@ class ChatManager:
         try:
             response = self.base_client.session.post(  # Changed from PUT to POST
                 f"{self.base_client.base_url}/api/v1/chats/{chat_id}",
-                json={"title": new_title},
+                json={"chat": {"title": new_title}},
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
