@@ -27,6 +27,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
 
+    - name: Set environment variables for integration tests
+      run: |
+        echo "OPENWEBUI_BASE_URL=http://localhost:3000" >> $GITHUB_ENV
+        echo "OPENWEBUI_TOKEN=test-token-for-ci" >> $GITHUB_ENV
+        echo "OPENWEBUI_DEFAULT_MODEL=test-model" >> $GITHUB_ENV
+
     - name: Run tests
       run: |
         python -m unittest discover -s tests -p "test_*.py" -v

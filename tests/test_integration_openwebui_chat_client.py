@@ -35,7 +35,6 @@ class TestIntegrationOpenWebUIClient(unittest.TestCase):
             default_model_id=self.default_model,
             # Note: Integration tests need real HTTP requests, so skip_model_refresh=False
         )
-        )
         self.client._auto_cleanup_enabled = False
         self.test_model_id = "my-test-model:latest"
 
