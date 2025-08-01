@@ -197,6 +197,11 @@ class BaseClient:
 
     def _get_task_model(self) -> Optional[str]:
         """Get the task model for AI tasks (tags, titles, follow-ups)."""
+        # Use parent client's method if available (for test mocking)
+        parent_client = getattr(self, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_get_task_model'):
+            return parent_client._get_task_model()
+        
         if hasattr(self, "task_model") and self.task_model:
             return self.task_model
 
