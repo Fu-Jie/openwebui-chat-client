@@ -18,6 +18,7 @@ class TestFollowUpFeature(unittest.TestCase):
         # Mock the session object to control API responses for other methods
         self.mock_session = MagicMock()
         self.client.session = self.mock_session
+        self.client._base_client.session = self.mock_session  # Also mock the base client session
 
     def _mock_chat_creation_and_loading(
         self, chat_id="test_chat_id", title="Test Chat"
@@ -67,7 +68,7 @@ class TestFollowUpFeature(unittest.TestCase):
         )
 
     @patch(
-        "openwebui_chat_client.openwebui_chat_client.OpenWebUIClient._update_remote_chat"
+        "openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat"
     )
     def test_chat_with_follow_up(self, mock_update_remote_chat):
         """Test that `chat` with `enable_follow_up=True` calls the follow-up API."""

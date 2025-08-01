@@ -61,17 +61,75 @@ class OpenWebUIClient:
         # Set up available model IDs from model manager
         self._base_client.available_model_ids = self._model_manager.available_model_ids
         
-        # For backward compatibility, expose base client properties
-        self.base_url = self._base_client.base_url
-        self.default_model_id = self._base_client.default_model_id
-        self.session = self._base_client.session
-        self.json_headers = self._base_client.json_headers
-        self.chat_id = self._base_client.chat_id
-        self.chat_object_from_server = self._base_client.chat_object_from_server
-        self.model_id = self._base_client.model_id
-        self.task_model = self._base_client.task_model
-        self._auto_cleanup_enabled = self._base_client._auto_cleanup_enabled
-        self._first_stream_request = self._base_client._first_stream_request
+        # For backward compatibility, expose base client properties as dynamic properties
+        
+    @property 
+    def base_url(self):
+        return self._base_client.base_url
+        
+    @property
+    def default_model_id(self):
+        return self._base_client.default_model_id
+        
+    @property
+    def session(self):
+        return self._base_client.session
+        
+    @session.setter
+    def session(self, value):
+        self._base_client.session = value
+        
+    @property
+    def json_headers(self):
+        return self._base_client.json_headers
+        
+    @property 
+    def chat_id(self):
+        return self._base_client.chat_id
+        
+    @chat_id.setter
+    def chat_id(self, value):
+        self._base_client.chat_id = value
+        
+    @property
+    def chat_object_from_server(self):
+        return self._base_client.chat_object_from_server
+        
+    @chat_object_from_server.setter  
+    def chat_object_from_server(self, value):
+        self._base_client.chat_object_from_server = value
+        
+    @property
+    def model_id(self):
+        return self._base_client.model_id
+        
+    @model_id.setter
+    def model_id(self, value):
+        self._base_client.model_id = value
+        
+    @property
+    def task_model(self):
+        return self._base_client.task_model
+        
+    @task_model.setter
+    def task_model(self, value):
+        self._base_client.task_model = value
+        
+    @property
+    def _auto_cleanup_enabled(self):
+        return self._base_client._auto_cleanup_enabled
+        
+    @_auto_cleanup_enabled.setter
+    def _auto_cleanup_enabled(self, value):
+        self._base_client._auto_cleanup_enabled = value
+        
+    @property
+    def _first_stream_request(self):
+        return self._base_client._first_stream_request
+        
+    @_first_stream_request.setter
+    def _first_stream_request(self, value):
+        self._base_client._first_stream_request = value
 
     @property
     def available_model_ids(self):

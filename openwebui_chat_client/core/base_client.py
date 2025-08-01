@@ -194,3 +194,29 @@ class BaseClient:
         except Exception as e:
             logger.error(f"Unexpected error uploading file '{file_name}': {e}")
             return None
+
+    def _get_task_model(self) -> Optional[str]:
+        """Get the task model for AI tasks (tags, titles, follow-ups)."""
+        if hasattr(self, "task_model") and self.task_model:
+            return self.task_model
+
+        logger.info("Fetching task model configuration...")
+        url = f"{self.base_url}/api/v1/tasks/config"
+        try:
+            response = self.session.get(url, headers=self.json_headers)
+            response.raise_for_status()
+            config = response.json()
+            task_model = config.get("TASK_MODEL")
+            if task_model:
+                logger.info(f"   ✅ Found task model: {task_model}")
+                self.task_model = task_model
+                return task_model
+            else:
+                logger.error("   ❌ 'TASK_MODEL' not found in config response.")
+                return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch task config: {e}")
+            return None
+        except json.JSONDecodeError:
+            logger.error("Failed to decode JSON from task config response.")
+            return None
