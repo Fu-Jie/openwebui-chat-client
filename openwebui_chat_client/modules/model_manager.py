@@ -25,16 +25,18 @@ class ModelManager:
     - Group management for model permissions
     """
     
-    def __init__(self, base_client):
+    def __init__(self, base_client, skip_initial_refresh: bool = False):
         """
         Initialize the model manager.
         
         Args:
             base_client: The base client instance for making API requests
+            skip_initial_refresh: If True, skip the initial refresh of available models (useful for testing)
         """
         self.base_client = base_client
         self.available_model_ids: List[str] = []
-        self._refresh_available_models()
+        if not skip_initial_refresh:
+            self._refresh_available_models()
     
     def _refresh_available_models(self):
         """Refresh the list of available model IDs."""

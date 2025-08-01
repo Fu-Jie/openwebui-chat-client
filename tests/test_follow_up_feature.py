@@ -8,19 +8,12 @@ class TestFollowUpFeature(unittest.TestCase):
 
     def setUp(self):
         """Set up a client instance before each test."""
-        # Mock HTTP requests during client initialization
-        with patch('openwebui_chat_client.modules.model_manager.requests.Session.get') as mock_get:
-            # Mock the models list response during initialization
-            mock_response = MagicMock()
-            mock_response.json.return_value = {"data": [{"id": "test_model", "name": "Test Model"}, {"id": "gpt-4.1", "name": "GPT-4.1"}]}
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-            
-            self.client = OpenWebUIClient(
-                base_url="http://test.com",
-                token="test_token",
-                default_model_id="test_model",
-            )
+        self.client = OpenWebUIClient(
+            base_url="http://test.com",
+            token="test_token",
+            default_model_id="test_model",
+            skip_model_refresh=True,
+        )
         self.client._auto_cleanup_enabled = False
         # Mock the session object to control API responses for other methods
         self.mock_session = MagicMock()

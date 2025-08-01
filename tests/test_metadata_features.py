@@ -7,14 +7,7 @@ class TestMetadataFeatures(unittest.TestCase):
 
     def setUp(self):
         # Mock HTTP requests during client initialization
-        with patch('openwebui_chat_client.modules.model_manager.requests.Session.get') as mock_get:
-            # Mock the models list response during initialization
-            mock_response = MagicMock()
-            mock_response.json.return_value = {"data": [{"id": "llama3", "name": "Llama 3"}]}
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-            
-            self.client = OpenWebUIClient(base_url="http://localhost:8080", token="test_token", default_model_id="llama3")
+        self.client = OpenWebUIClient(base_url="http://localhost:8080", token="test_token", default_model_id="llama3", skip_model_refresh=True)
         
         # Mock successful chat creation and loading
         self.mock_chat_id = str(uuid.uuid4())

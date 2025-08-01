@@ -10,7 +10,8 @@ class TestNotesFunctionality(unittest.TestCase):
         self.client = OpenWebUIClient(
             base_url="https://test.example.com",
             token="test_token",
-            default_model_id="test_model"
+            default_model_id="test_model",
+            skip_model_refresh=True
         )
         # Mock the session to avoid actual HTTP calls
         self.client.session = Mock()

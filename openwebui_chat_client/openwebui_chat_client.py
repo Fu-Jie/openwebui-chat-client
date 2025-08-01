@@ -38,7 +38,7 @@ class OpenWebUIClient:
     while maintaining 100% backward compatibility with the original API.
     """
 
-    def __init__(self, base_url: str, token: str, default_model_id: str):
+    def __init__(self, base_url: str, token: str, default_model_id: str, skip_model_refresh: bool = False):
         """
         Initialize the OpenWebUI client with modular architecture.
         
@@ -46,12 +46,13 @@ class OpenWebUIClient:
             base_url: The base URL of the OpenWebUI instance
             token: Authentication token
             default_model_id: Default model identifier to use
+            skip_model_refresh: If True, skip initial model refresh (useful for testing)
         """
         # Initialize base client
         self._base_client = BaseClient(base_url, token, default_model_id)
         
         # Initialize specialized managers
-        self._model_manager = ModelManager(self._base_client)
+        self._model_manager = ModelManager(self._base_client, skip_initial_refresh=skip_model_refresh)
         self._notes_manager = NotesManager(self._base_client)
         self._knowledge_base_manager = KnowledgeBaseManager(self._base_client)
         self._file_manager = FileManager(self._base_client)
