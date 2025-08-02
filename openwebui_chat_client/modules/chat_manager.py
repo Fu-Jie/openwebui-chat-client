@@ -5,6 +5,7 @@ Handles all chat operations including creation, messaging, management, and strea
 
 import json
 import logging
+import os
 import requests
 import time
 import uuid
@@ -218,26 +219,7 @@ class ChatManager:
         enable_auto_tagging: bool = False,
         enable_auto_titling: bool = False,
     ) -> Optional[Dict[str, Any]]:
-        """
-        Send a chat message to multiple models in parallel.
-        
-        Args:
-            question: The user's question/message
-            chat_title: Title for the chat conversation
-            model_ids: List of model IDs to query in parallel
-            folder_name: Optional folder to organize the chat
-            image_paths: List of image file paths for multimodal chat
-            tags: List of tags to apply to the chat
-            rag_files: List of file paths for RAG context
-            rag_collections: List of knowledge base names for RAG
-            tool_ids: List of tool IDs to enable for this chat
-            enable_follow_up: Whether to generate follow-up suggestions
-            enable_auto_tagging: Whether to automatically generate tags
-            enable_auto_titling: Whether to automatically generate title
-            
-        Returns:
-            Dictionary containing responses from all models, chat_id, and optional suggestions
-        """
+        """Send a chat message to multiple models in parallel."""
         if not model_ids:
             logger.error("`model_ids` list cannot be empty for parallel chat.")
             return None
@@ -254,30 +236,227 @@ class ChatManager:
             logger.info(f"Using tools: {tool_ids}")
         logger.info("=" * 60)
 
-        self._find_or_create_chat_by_title(chat_title)
+        # Use parent client's method if available (for test mocking)
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
+            parent_client._find_or_create_chat_by_title(chat_title)
+        else:
+            self._find_or_create_chat_by_title(chat_title)
 
         if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
-            logger.error("Chat object not loaded or malformed, cannot proceed with parallel chat.")
+            logger.error(
+                "Chat object not loaded or malformed, cannot proceed with parallel chat."
+            )
             return None
+
+        # Handle model set changes for existing parallel chats
+        if self.base_client.chat_object_from_server and "chat" in self.base_client.chat_object_from_server:
+            current_models = self.base_client.chat_object_from_server["chat"].get("models", [])
+            if set(current_models) != set(model_ids):
+                logger.warning(f"Parallel model set changed for chat '{chat_title}'.")
+                logger.warning(f"  > From: {current_models}")
+                logger.warning(f"  > To:   {model_ids}")
+                self.base_client.model_id = model_ids[0]
+                self.base_client.chat_object_from_server["chat"]["models"] = model_ids
 
         if not self.base_client.chat_id:
             logger.error("Chat initialization failed, cannot proceed.")
             return None
-
-        # Handle folder organization
         if folder_name:
-            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(folder_name)
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
             if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
                 self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
-        # Set multiple models for the chat
-        if self.base_client.chat_object_from_server and "chat" in self.base_client.chat_object_from_server:
-            self.base_client.chat_object_from_server["chat"]["models"] = model_ids
-
-        # Get parallel responses
-        model_responses = self._get_parallel_model_responses(
-            question, model_ids, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up
+        chat_core = self.base_client.chat_object_from_server["chat"]
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
         )
+        user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
+            "currentId"
+        )
+        storage_user_message = {
+            "id": user_message_id,
+            "parentId": last_message_id,
+            "childrenIds": [],
+            "role": "user",
+            "content": question,
+            "files": [],
+            "models": model_ids,
+            "timestamp": int(time.time()),
+        }
+        if image_paths:
+            for path in image_paths:
+                url = self._encode_image_to_base64(path)
+                if url:
+                    storage_user_message["files"].append({"type": "image", "url": url})
+        storage_user_message["files"].extend(storage_rag_payloads)
+        chat_core["history"]["messages"][user_message_id] = storage_user_message
+        if last_message_id:
+            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
+                user_message_id
+            )
+        logger.info(f"Querying {len(model_ids)} models in parallel...")
+        responses: Dict[str, Dict[str, Any]] = {}
+        
+        # Use parent client's method if available (for test mocking)
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        
+        with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
+            future_to_model = {}
+            for model_id in model_ids:
+                if parent_client and hasattr(parent_client, '_get_single_model_response_in_parallel'):
+                    # For testing - use the parent client's mocked method
+                    future = executor.submit(
+                        parent_client._get_single_model_response_in_parallel,
+                        chat_core,
+                        model_id,
+                        question,
+                        image_paths,
+                        api_rag_payload,
+                        tool_ids,
+                        enable_follow_up,
+                    )
+                else:
+                    # Real implementation
+                    future = executor.submit(
+                        self._get_single_model_response_in_parallel,
+                        chat_core,
+                        model_id,
+                        question,
+                        image_paths,
+                        api_rag_payload,
+                        tool_ids,
+                        enable_follow_up,
+                    )
+                future_to_model[future] = model_id
+            for future in as_completed(future_to_model):
+                model_id = future_to_model[future]
+                try:
+                    content, sources, follow_ups = future.result()
+                    responses[model_id] = {
+                        "content": content,
+                        "sources": sources,
+                        "followUps": follow_ups,
+                    }
+                except Exception as exc:
+                    logger.error(f"Model '{model_id}' generated an exception: {exc}")
+                    responses[model_id] = {
+                        "content": None,
+                        "sources": [],
+                        "followUps": None,
+                    }
+
+        successful_responses = {
+            k: v for k, v in responses.items() if v.get("content") is not None
+        }
+        if not successful_responses:
+            logger.error("All models failed to respond.")
+            del chat_core["history"]["messages"][user_message_id]
+            return None
+        logger.info("Received all responses.")
+        assistant_message_ids = []
+        for model_id, resp_data in successful_responses.items():
+            assistant_id = str(uuid.uuid4())
+            assistant_message_ids.append(assistant_id)
+            storage_assistant_message = {
+                "id": assistant_id,
+                "parentId": user_message_id,
+                "childrenIds": [],
+                "role": "assistant",
+                "content": resp_data["content"],
+                "model": model_id,
+                "modelName": model_id.split(":")[0],
+                "timestamp": int(time.time()),
+                "done": True,
+                "sources": resp_data["sources"],
+            }
+            if "followUps" in resp_data:
+                storage_assistant_message["followUps"] = resp_data["followUps"]
+            chat_core["history"]["messages"][assistant_id] = storage_assistant_message
+
+        chat_core["history"]["messages"][user_message_id][
+            "childrenIds"
+        ] = assistant_message_ids
+        chat_core["history"]["currentId"] = assistant_message_ids[0]
+        chat_core["models"] = model_ids
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, assistant_message_ids[0]
+        )
+        existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+        chat_core.setdefault("files", []).extend(
+            [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+        )
+
+        logger.info("Updating chat history on the backend...")
+        logger.info("First update to save main responses...")
+        
+        # Use parent client's method if available (for test mocking)
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_update_remote_chat'):
+            update_success = parent_client._update_remote_chat()
+        else:
+            update_success = self._update_remote_chat()
+            
+        if update_success:
+            logger.info("Main responses saved successfully!")
+
+            # This part is simplified because follow-ups are already in the message objects.
+            # We just need to perform the final update if any follow-ups were generated.
+            if any(
+                r.get("followUps")
+                for r in successful_responses.values()
+                if r.get("followUps")
+            ):
+                logger.info("Updating chat again with follow-up suggestions...")
+                # Use parent client's method if available (for test mocking)
+                if parent_client and hasattr(parent_client, '_update_remote_chat'):
+                    follow_up_update_success = parent_client._update_remote_chat()
+                else:
+                    follow_up_update_success = self._update_remote_chat()
+                    
+                if follow_up_update_success:
+                    logger.info("Follow-up suggestions saved successfully!")
+                else:
+                    logger.warning("Failed to save follow-up suggestions.")
+
+            if tags:
+                self.set_chat_tags(self.base_client.chat_id, tags)
+
+            # Prepare a more detailed response object
+            final_responses = {
+                k: {"content": v["content"], "follow_ups": v.get("followUps")}
+                for k, v in successful_responses.items()
+            }
+
+            return_data = {
+                "responses": final_responses,
+                "chat_id": self.base_client.chat_id,
+                "message_ids": assistant_message_ids,
+            }
+
+            # Auto-tagging and auto-titling logic for parallel chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.base_client.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.base_client.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.base_client.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+            
+            return return_data
+
+        return None
 
         if not model_responses:
             logger.error("No successful responses from parallel models.")
@@ -341,28 +520,18 @@ class ChatManager:
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
         enable_follow_up: bool = False,
+        cleanup_placeholder_messages: bool = False,  # New: Clean up placeholder messages
+        placeholder_pool_size: int = 30,  # New: Size of placeholder message pool (configurable)
+        min_available_messages: int = 10,  # New: Minimum available messages threshold
+        wait_before_request: float = 10.0,  # New: Wait time after initializing placeholders (seconds)
         enable_auto_tagging: bool = False,
         enable_auto_titling: bool = False,
-    ) -> Generator[str, None, None]:
+    ) -> Generator[
+        str, None, Optional[Dict[str, Any]]
+    ]:
         """
-        Stream a chat response in real-time.
-        
-        Args:
-            question: The user's question/message
-            chat_title: Title for the chat conversation
-            model_id: Model to use (defaults to client's default model)
-            folder_name: Optional folder to organize the chat
-            image_paths: List of image file paths for multimodal chat
-            tags: List of tags to apply to the chat
-            rag_files: List of file paths for RAG context
-            rag_collections: List of knowledge base names for RAG
-            tool_ids: List of tool IDs to enable for this chat
-            enable_follow_up: Whether to generate follow-up suggestions
-            enable_auto_tagging: Whether to automatically generate tags
-            enable_auto_titling: Whether to automatically generate title
-            
-        Yields:
-            String chunks of the response as they arrive
+        Initiates a streaming chat session. Yields content chunks as they are received.
+        At the end of the stream, returns the full response content, sources, and follow-up suggestions.
         """
         self.base_client.model_id = model_id or self.base_client.default_model_id
         logger.info("=" * 60)
@@ -386,115 +555,82 @@ class ChatManager:
         self._find_or_create_chat_by_title(chat_title)
 
         if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
-            logger.error("Chat object not loaded or malformed, cannot proceed with streaming chat.")
-            return
-
-        # Handle model switching for an existing chat
-        if model_id and self.base_client.model_id != model_id:
-            logger.warning(f"Model switch detected for chat '{chat_title}'.")
-            self.base_client.model_id = model_id
-            if self.base_client.chat_object_from_server and "chat" in self.base_client.chat_object_from_server:
-                self.base_client.chat_object_from_server["chat"]["models"] = [model_id]
+            logger.error("Chat object not loaded or malformed, cannot proceed with stream.")
+            return  # End generator
 
         if not self.base_client.chat_id:
-            logger.error("Chat initialization failed, cannot proceed.")
-            return
+            logger.error("Chat initialization failed, cannot proceed with stream.")
+            return  # Yield nothing, effectively end the generator
 
-        # Handle folder organization
         if folder_name:
-            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(folder_name)
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
             if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
                 self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
-        # Stream the response
-        accumulated_response = ""
-        message_id = None
-        follow_ups = None
-        sources = []
-
         try:
-            # Try to get return value from the generator 
-            generator = self._ask_stream(
-                question,
-                image_paths,
-                rag_files,
-                rag_collections,
-                tool_ids,
-                enable_follow_up,
+            # 1. Ensure there are enough placeholder messages available
+            self._ensure_placeholder_messages(
+                placeholder_pool_size, min_available_messages
             )
-            
-            try:
-                while True:
-                    chunk = next(generator)
-                    if isinstance(chunk, dict):
-                        # Handle metadata (message_id, follow_ups, etc.)
-                        if "message_id" in chunk:
-                            message_id = chunk["message_id"]
-                        if "follow_ups" in chunk:
-                            follow_ups = chunk["follow_ups"]
-                    else:
-                        # Handle text chunk
-                        accumulated_response += chunk
-                        yield chunk
-            except StopIteration as e:
-                # Capture the generator's return value
-                if e.value:
-                    if isinstance(e.value, (tuple, list)) and len(e.value) >= 3:
-                        accumulated_response, sources, follow_ups = e.value[:3]
-                    elif isinstance(e.value, dict):
-                        accumulated_response = e.value.get("response", accumulated_response)
-                        sources = e.value.get("sources", sources)
-                        follow_ups = e.value.get("follow_ups", follow_ups)
 
-            # Apply post-processing after streaming completes
-            if tags:
-                # Use parent client's method if available (for test mocking)
-                parent_client = getattr(self.base_client, '_parent_client', None)
-                if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                    parent_client.set_chat_tags(self.base_client.chat_id, tags)
-                else:
-                    self.set_chat_tags(self.base_client.chat_id, tags)
-
-            # Auto-tagging and auto-titling
-            if (enable_auto_tagging or enable_auto_titling) and accumulated_response:
-                api_messages_for_tasks = self._build_linear_history_for_api(
-                    self.base_client.chat_object_from_server["chat"]
+            # 2. If this is the first streaming request and wait time is set, wait for specified seconds
+            if getattr(self.base_client, '_first_stream_request', True) and wait_before_request > 0:
+                logger.info(
+                    f"⏱️ First stream request: Waiting {wait_before_request} seconds before requesting AI response..."
                 )
+                time.sleep(wait_before_request)
+                logger.info("⏱️ Wait completed, starting AI request...")
+                self.base_client._first_stream_request = False  # Mark as not first request
 
-                if enable_auto_tagging:
-                    suggested_tags = self._get_tags(api_messages_for_tasks)
-                    if suggested_tags:
-                        # Use parent client's method if available (for test mocking)
-                        parent_client = getattr(self.base_client, '_parent_client', None)
-                        if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                            parent_client.set_chat_tags(self.base_client.chat_id, suggested_tags)
-                        else:
-                            self.set_chat_tags(self.base_client.chat_id, suggested_tags)
+            # 3. Call _ask_stream method, which now uses placeholder messages
+            final_response_content, final_sources, follow_ups = (
+                yield from self._ask_stream(
+                    question,
+                    image_paths,
+                    rag_files,
+                    rag_collections,
+                    tool_ids,
+                    enable_follow_up,
+                    cleanup_placeholder_messages,
+                    placeholder_pool_size,
+                    min_available_messages,
+                )
+            )
 
-                if enable_auto_titling and len(
-                    self.base_client.chat_object_from_server["chat"]["history"]["messages"]
-                ) <= 2:
-                    suggested_title = self._get_title(api_messages_for_tasks)
-                    if suggested_title:
-                        # Use parent client's method if available (for test mocking)
-                        parent_client = getattr(self.base_client, '_parent_client', None)
-                        if parent_client and hasattr(parent_client, 'rename_chat'):
-                            parent_client.rename_chat(self.base_client.chat_id, suggested_title)
-                        else:
-                            self.rename_chat(self.base_client.chat_id, suggested_title)
+            if tags:
+                self.set_chat_tags(self.base_client.chat_id, tags)
 
-            # Return final result as dictionary
-            return {
-                "response": accumulated_response,
-                "chat_id": self.base_client.chat_id,
-                "message_id": message_id,
-                "sources": sources,
-                "follow_ups": follow_ups
+            return_data = {
+                "response": final_response_content,
+                "sources": final_sources,
+                "follow_ups": follow_ups,
             }
 
+            # Auto-tagging and auto-titling logic for stream chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.base_client.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.base_client.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.base_client.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+
+            return return_data
+
         except Exception as e:
-            logger.error(f"Error during streaming chat: {e}")
-            yield f"[Error: {str(e)}]"
+            logger.error(f"Error in stream_chat: {e}")
+            raise  # Re-raise the exception for the caller
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """
@@ -1145,34 +1281,43 @@ class ChatManager:
     
     def _get_single_model_response_in_parallel(
         self,
-        model_id: str,
-        question: str,
-        image_paths: Optional[List[str]] = None,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
+        chat_core,
+        model_id,
+        question,
+        image_paths,
+        api_rag_payload,
         tool_ids: Optional[List[str]] = None,
         enable_follow_up: bool = False,
     ) -> Tuple[Optional[str], List, Optional[List[str]]]:
         """Get response from a single model for parallel chat functionality."""
-        # Use parent client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_get_single_model_response_in_parallel'):
-            # For testing - delegate to parent client's mocked method
-            return parent_client._get_single_model_response_in_parallel(
-                model_id, question, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up
-            )
-        else:
-            # Real implementation - process the request for the specific model
-            # This is a simplified version - in real implementation we'd use the actual _ask logic
-            # but adapted for parallel processing
-            try:
-                response, message_id, follow_ups = self._ask(
-                    question, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up
-                )
-                return response, [], follow_ups
-            except Exception as e:
-                logger.error(f"Error getting response from model {model_id}: {e}")
-                return None, [], None
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for path in image_paths:
+                url = self._encode_image_to_base64(path)
+                if url:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+        content, sources = self._get_model_completion(
+            self.base_client.chat_id, api_messages, api_rag_payload, model_id, tool_ids
+        )
+
+        follow_ups = None
+        if content and enable_follow_up:
+            # To get follow-ups, we need the assistant's response in the history
+            temp_history_for_follow_up = api_messages + [
+                {"role": "assistant", "content": content}
+            ]
+            follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
+
+        return content, sources, follow_ups
     
     def _build_linear_history_for_api(self, chat_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Build linear message history for API calls."""
@@ -1204,24 +1349,43 @@ class ChatManager:
         
         return linear_messages
 
-    def _handle_rag_references(self, rag_files: Optional[List[str]] = None, 
-                             rag_collections: Optional[List[str]] = None) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    def _handle_rag_references(
+        self, rag_files: Optional[List[str]], rag_collections: Optional[List[str]]
+    ) -> Tuple[List[Dict], List[Dict]]:
         """Handle RAG file and collection processing."""
-        api_rag_payload = {}
-        storage_rag_payloads = []
-        
+        api_payload, storage_payload = [], []
         if rag_files:
-            # Process file uploads for RAG
+            logger.info("Processing RAG files...")
             for file_path in rag_files:
-                file_data = self.base_client._upload_file(file_path)
-                if file_data:
-                    storage_rag_payloads.append(file_data)
-                    
+                if file_obj := self._upload_file(file_path):
+                    api_payload.append({"type": "file", "id": file_obj["id"]})
+                    storage_payload.append(
+                        {"type": "file", "file": file_obj, **file_obj}
+                    )
         if rag_collections:
-            # Add knowledge base collections to API payload
-            api_rag_payload["knowledge"] = [{"name": name} for name in rag_collections]
-            
-        return api_rag_payload, storage_rag_payloads
+            logger.info("Processing RAG knowledge base collections...")
+            for kb_name in rag_collections:
+                if kb_summary := self.get_knowledge_base_by_name(kb_name):
+                    if kb_details := self._get_knowledge_base_details(kb_summary["id"]):
+                        file_ids = [f["id"] for f in kb_details.get("files", [])]
+                        api_payload.append(
+                            {
+                                "type": "collection",
+                                "id": kb_details["id"],
+                                "name": kb_details.get("name"),
+                                "data": {"file_ids": file_ids},
+                            }
+                        )
+                        storage_payload.append({"type": "collection", **kb_details})
+                    else:
+                        logger.warning(
+                            f"Could not get details for knowledge base '{kb_name}', it will be skipped."
+                        )
+                else:
+                    logger.warning(
+                        f"Could not find knowledge base '{kb_name}', it will be skipped."
+                    )
+        return api_payload, storage_payload
 
     def _encode_image_to_base64(self, image_path: str) -> Optional[str]:
         """Encode image to base64 URL."""
@@ -2010,3 +2174,94 @@ class ChatManager:
         
         logger.info(f"\n🎉 Continuous streaming chat completed: {len(conversation_history)} rounds")
         return final_result
+
+    # =============================================================================
+    # HELPER METHODS FOR PARALLEL AND STREAMING CHAT
+    # =============================================================================
+
+    def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """Upload a file for RAG purposes."""
+        if not os.path.exists(file_path):
+            logger.error(f"RAG file not found at path: {file_path}")
+            return None
+        url, file_name = f"{self.base_client.base_url}/api/v1/files/", os.path.basename(file_path)
+        try:
+            with open(file_path, "rb") as f:
+                files = {"file": (file_name, f)}
+                headers = {"Authorization": self.base_client.session.headers["Authorization"]}
+                logger.info(f"Uploading file '{file_name}' for RAG...")
+                response = self.base_client.session.post(url, headers=headers, files=files)
+                response.raise_for_status()
+            response_data = response.json()
+            if file_id := response_data.get("id"):
+                logger.info(f"  > Upload successful. File ID: {file_id}")
+                return response_data
+            logger.error(f"File upload response did not contain an ID: {response_data}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to upload file '{file_name}': {e}")
+            return None
+
+    def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get knowledge base by name."""
+        logger.info(f"🔍 Searching for knowledge base '{name}'...")
+        try:
+            response = self.base_client.session.get(
+                f"{self.base_client.base_url}/api/v1/knowledge/list", 
+                headers=self.base_client.json_headers
+            )
+            response.raise_for_status()
+            for kb in response.json():
+                if kb.get("name") == name:
+                    logger.info("   ✅ Found knowledge base.")
+                    return kb
+            logger.info(f"   ℹ️ Knowledge base '{name}' not found.")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to list knowledge bases: {e}")
+            return None
+
+    def _get_knowledge_base_details(self, kb_id: str) -> Optional[Dict[str, Any]]:
+        """Get detailed information about a knowledge base."""
+        try:
+            response = self.base_client.session.get(
+                f"{self.base_client.base_url}/api/v1/knowledge/{kb_id}", 
+                headers=self.base_client.json_headers
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get knowledge base details for {kb_id}: {e}")
+            return None
+
+    def set_chat_tags(self, chat_id: str, tags: List[str]) -> bool:
+        """Set tags for a chat."""
+        try:
+            response = self.base_client.session.post(
+                f"{self.base_client.base_url}/api/v1/chats/{chat_id}/tags",
+                json={"tags": tags},
+                headers=self.base_client.json_headers,
+            )
+            response.raise_for_status()
+            logger.info(f"Successfully set tags {tags} for chat {chat_id[:8]}...")
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to set tags for chat {chat_id}: {e}")
+            return False
+            
+    # =============================================================================
+    # PLACEHOLDER MESSAGE HANDLING (FOR STREAMING CHAT)
+    # =============================================================================
+    
+    def _ensure_placeholder_messages(self, pool_size: int, min_available: int) -> bool:
+        """
+        Ensure there are enough placeholder messages available for streaming.
+        This is a simplified implementation for now.
+        """
+        # For now, just return True - this can be enhanced later with full placeholder logic
+        return True
+        
+    def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
+        """Check if a message is a placeholder message."""
+        # Simplified implementation - check for placeholder indicators
+        return message.get("content", "").startswith("__PLACEHOLDER__") or message.get("placeholder", False)
