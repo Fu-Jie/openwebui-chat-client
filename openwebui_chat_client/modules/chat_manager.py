@@ -1580,16 +1580,16 @@ class ChatManager:
         conversation_history = []
         current_question = initial_question
         
-        # Initialize chat only once at the beginning
+        # Initialize chat only once at the beginning (but properly this time)
         self.base_client.model_id = model_id or self.base_client.default_model_id
         
-        # Use the parent client's method if available (for test mocking)
+        # Use the parent client's method for proper test mocking
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
             parent_client._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
-            
+        
         if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
             logger.error("Chat object not loaded or malformed, cannot proceed with continuous chat.")
             return None
@@ -1606,11 +1606,7 @@ class ChatManager:
 
         # Apply tags (only on first round)
         if tags:
-            parent_client = getattr(self.base_client, '_parent_client', None)
-            if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                parent_client.set_chat_tags(self.base_client.chat_id, tags)
-            else:
-                self.set_chat_tags(self.base_client.chat_id, tags)
+            self.set_chat_tags(self.base_client.chat_id, tags)
         
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
@@ -1622,7 +1618,7 @@ class ChatManager:
             # Enable follow-up for all rounds except the last one
             enable_follow_up = round_num < num_questions
             
-            # Use the internal _ask method directly to avoid re-creating the chat
+            # Use the main client's _ask method (for proper test mocking)
             parent_client = getattr(self.base_client, '_parent_client', None)
             if parent_client and hasattr(parent_client, '_ask'):
                 response, message_id, follow_ups = parent_client._ask(
@@ -1645,6 +1641,7 @@ class ChatManager:
                 "question": current_question,
                 "response": response,
                 "message_id": message_id,
+                "chat_id": self.base_client.chat_id,
             }
             
             # Add follow-up suggestions if available
@@ -1682,31 +1679,25 @@ class ChatManager:
         }
         
         if conversation_history and (enable_auto_tagging or enable_auto_titling):
-            api_messages_for_tasks = self._build_linear_history_for_api(
-                self.base_client.chat_object_from_server["chat"]
-            )
+            # For auto-tagging/titling, we need the chat object
+            if self.base_client.chat_object_from_server and "chat" in self.base_client.chat_object_from_server:
+                api_messages_for_tasks = self._build_linear_history_for_api(
+                    self.base_client.chat_object_from_server["chat"]
+                )
 
-            if enable_auto_tagging:
-                suggested_tags = self._get_tags(api_messages_for_tasks)
-                if suggested_tags:
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                        parent_client.set_chat_tags(self.base_client.chat_id, suggested_tags)
-                    else:
+                if enable_auto_tagging:
+                    suggested_tags = self._get_tags(api_messages_for_tasks)
+                    if suggested_tags:
                         self.set_chat_tags(self.base_client.chat_id, suggested_tags)
-                    final_result["suggested_tags"] = suggested_tags
+                        final_result["suggested_tags"] = suggested_tags
 
-            if enable_auto_titling and len(
-                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
-            ) <= (num_questions * 2):  # Adjust threshold for continuous conversation
-                suggested_title = self._get_title(api_messages_for_tasks)
-                if suggested_title:
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'rename_chat'):
-                        parent_client.rename_chat(self.base_client.chat_id, suggested_title)
-                    else:
+                if enable_auto_titling and len(
+                    self.base_client.chat_object_from_server["chat"]["history"]["messages"]
+                ) <= (num_questions * 2):  # Adjust threshold for continuous conversation
+                    suggested_title = self._get_title(api_messages_for_tasks)
+                    if suggested_title:
                         self.rename_chat(self.base_client.chat_id, suggested_title)
-                    final_result["suggested_title"] = suggested_title
+                        final_result["suggested_title"] = suggested_title
         
         logger.info(f"\n🎉 Continuous chat completed: {len(conversation_history)} rounds")
         return final_result
@@ -1771,13 +1762,13 @@ class ChatManager:
         # Initialize chat only once at the beginning
         self.base_client.model_id = model_ids[0]  # Set primary model
         
-        # Use the parent client's method if available (for test mocking)
+        # Use the parent client's method for proper test mocking
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
             parent_client._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
-            
+        
         if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
             logger.error("Chat object not loaded or malformed, cannot proceed with continuous parallel chat.")
             return None
@@ -1798,11 +1789,7 @@ class ChatManager:
 
         # Apply tags (only on first round)
         if tags:
-            parent_client = getattr(self.base_client, '_parent_client', None)
-            if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                parent_client.set_chat_tags(self.base_client.chat_id, tags)
-            else:
-                self.set_chat_tags(self.base_client.chat_id, tags)
+            self.set_chat_tags(self.base_client.chat_id, tags)
         
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
@@ -1829,6 +1816,7 @@ class ChatManager:
                 "round": round_num,
                 "question": current_question,
                 "responses": model_responses,  # Multiple model responses
+                "chat_id": self.base_client.chat_id,
             }
             
             # Collect follow-up suggestions from all models
@@ -1887,11 +1875,7 @@ class ChatManager:
             if enable_auto_tagging:
                 suggested_tags = self._get_tags(api_messages_for_tasks)
                 if suggested_tags:
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                        parent_client.set_chat_tags(self.base_client.chat_id, suggested_tags)
-                    else:
-                        self.set_chat_tags(self.base_client.chat_id, suggested_tags)
+                    self.set_chat_tags(self.base_client.chat_id, suggested_tags)
                     final_result["suggested_tags"] = suggested_tags
 
             if enable_auto_titling and len(
@@ -1899,11 +1883,7 @@ class ChatManager:
             ) <= (num_questions * 2):  # Adjust threshold for continuous conversation
                 suggested_title = self._get_title(api_messages_for_tasks)
                 if suggested_title:
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'rename_chat'):
-                        parent_client.rename_chat(self.base_client.chat_id, suggested_title)
-                    else:
-                        self.rename_chat(self.base_client.chat_id, suggested_title)
+                    self.rename_chat(self.base_client.chat_id, suggested_title)
                     final_result["suggested_title"] = suggested_title
         
         logger.info(f"\n🎉 Continuous parallel chat completed: {len(conversation_history)} rounds")
@@ -1968,13 +1948,13 @@ class ChatManager:
         # Initialize chat only once at the beginning
         self.base_client.model_id = model_id or self.base_client.default_model_id
         
-        # Use the parent client's method if available (for test mocking)
+        # Use the parent client's method for proper test mocking
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
             parent_client._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
-            
+        
         if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
             logger.error("Chat object not loaded or malformed, cannot proceed with continuous streaming chat.")
             return
@@ -1991,11 +1971,7 @@ class ChatManager:
 
         # Apply tags (only on first round)
         if tags:
-            parent_client = getattr(self.base_client, '_parent_client', None)
-            if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                parent_client.set_chat_tags(self.base_client.chat_id, tags)
-            else:
-                self.set_chat_tags(self.base_client.chat_id, tags)
+            self.set_chat_tags(self.base_client.chat_id, tags)
         
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
@@ -2008,76 +1984,81 @@ class ChatManager:
                 "total_rounds": num_questions
             }
             
-            # For the first round, use all parameters including images
-            # For subsequent rounds, only use text-based parameters
             current_image_paths = image_paths if round_num == 1 else None
-            
-            # Enable follow-up for all rounds except the last one
             enable_follow_up = round_num < num_questions
             
-            # Use the internal _ask_stream method directly for streaming
+            # Use the main client's _ask_stream method (for proper test mocking)
             try:
                 parent_client = getattr(self.base_client, '_parent_client', None)
                 if parent_client and hasattr(parent_client, '_ask_stream'):
-                    content, sources, follow_ups = parent_client._ask_stream(
+                    full_content, sources, follow_ups = parent_client._ask_stream(
                         current_question, current_image_paths, rag_files, rag_collections, 
                         tool_ids, enable_follow_up
                     )
                 else:
-                    content, sources, follow_ups = self._ask_stream(
+                    full_content, sources, follow_ups = self._ask_stream(
                         current_question, current_image_paths, rag_files, rag_collections, 
                         tool_ids, enable_follow_up
                     )
                 
-                # Store this round's conversation
-                round_data = {
-                    "round": round_num,
-                    "question": current_question,
-                    "response": content,
-                }
-                
-                if follow_ups:
-                    round_data["follow_ups"] = follow_ups
-                    
-                conversation_history.append(round_data)
-                
-                # Yield round completion
-                yield {
-                    "type": "round_complete",
-                    "round": round_num,
-                    "response": content,
-                    "follow_ups": follow_ups or []
-                }
-                
-                logger.info(f"✅ Round {round_num} streaming completed")
-                
-                # Prepare next question if not the last round
-                if round_num < num_questions:
-                    if follow_ups:
-                        # Randomly select a follow-up question
-                        current_question = random.choice(follow_ups)
-                        logger.info(f"🎲 Selected follow-up: {current_question}")
-                    else:
-                        logger.warning(f"No follow-up suggestions available for round {round_num}")
-                        # Generate a generic follow-up question
-                        generic_follow_ups = [
-                            "Can you explain that in more detail?",
-                            "What are the implications of this?",
-                            "Can you provide an example?",
-                            "How does this relate to real-world applications?",
-                            "What are the potential challenges with this approach?"
-                        ]
-                        current_question = random.choice(generic_follow_ups)
-                        logger.info(f"🔄 Using generic follow-up: {current_question}")
-                        
             except Exception as e:
-                logger.error(f"Failed to stream response for round {round_num}: {e}")
+                logger.error(f"Streaming failed for round {round_num}: {e}")
                 yield {
-                    "type": "round_error",
+                    "type": "error",
                     "round": round_num,
                     "error": str(e)
                 }
                 break
+            
+            if not full_content:
+                logger.error(f"Failed to get response for round {round_num}, stopping conversation")
+                yield {
+                    "type": "error", 
+                    "round": round_num,
+                    "error": "No response received"
+                }
+                break
+            # Store this round's conversation
+            round_data = {
+                "round": round_num,
+                "question": current_question,
+                "response": full_content,
+                "chat_id": self.base_client.chat_id,
+            }
+            
+            if follow_ups:
+                round_data["follow_ups"] = follow_ups
+                
+            conversation_history.append(round_data)
+            
+            # Yield round completion
+            yield {
+                "type": "round_complete",
+                "round": round_num,
+                "response": full_content,
+                "follow_ups": follow_ups or []
+            }
+            
+            logger.info(f"✅ Round {round_num} streaming completed")
+                
+            # Prepare next question if not the last round
+            if round_num < num_questions:
+                if follow_ups:
+                    # Randomly select a follow-up question
+                    current_question = random.choice(follow_ups)
+                    logger.info(f"🎲 Selected follow-up: {current_question}")
+                else:
+                    logger.warning(f"No follow-up suggestions available for round {round_num}")
+                    # Generate a generic follow-up question
+                    generic_follow_ups = [
+                        "Can you explain that in more detail?",
+                        "What are the implications of this?",
+                        "Can you provide an example?",
+                        "How does this relate to real-world applications?",
+                        "What are the potential challenges with this approach?"
+                    ]
+                    current_question = random.choice(generic_follow_ups)
+                    logger.info(f"🔄 Using generic follow-up: {current_question}")
         
         # Prepare final result
         final_result = {
