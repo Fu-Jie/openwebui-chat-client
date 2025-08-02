@@ -1045,8 +1045,8 @@ class OpenWebUIClient:
                 f"Cleaned up {int(cleaned_count)} unused placeholder message pairs."
             )
 
-            # After cleanup, need to rebuild the messages list and currentId to ensure history chain correctness
-            # Find the new currentId (the ID of the last non-placeholder message)
+            # After cleanup, need to rebuild the messages list and current_id to ensure history chain correctness
+            # Find the new current_id (the ID of the last non-placeholder message)
             new_current_id = None
             for msg_id in reversed(list(messages.keys())):  # Search backwards
                 msg = messages[msg_id]
@@ -1054,7 +1054,7 @@ class OpenWebUIClient:
                     new_current_id = msg_id
                     break
 
-            chat_core["history"]["currentId"] = new_current_id
+            chat_core["history"]["current_id"] = new_current_id
             chat_core["messages"] = self._build_linear_history_for_storage(
                 chat_core, new_current_id
             )
@@ -1210,7 +1210,7 @@ class OpenWebUIClient:
         self, chat_data: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Build linear message history for API calls."""
-        history, current_id = [], chat_data.get("history", {}).get("currentId")
+        history, current_id = [], chat_data.get("history", {}).get("current_id")
         messages = chat_data.get("history", {}).get("messages", {})
         while current_id and current_id in messages:
             msg = messages[current_id]
@@ -1525,8 +1525,10 @@ class OpenWebUIClient:
                 assistant_message["content"] = content
                 assistant_message["done"] = True
                 
-                # Update chat object
-                self.chat_object_from_server["chat"]["history"]["messages"] = messages
+                # Update chat object - ensure history structure exists
+                chat_data.setdefault("history", {"messages": {}, "current_id": None})
+                chat_data["history"]["messages"] = messages
+                chat_data["history"]["current_id"] = assistant_message_id
                 
                 # Handle follow-up suggestions if enabled
                 follow_ups = None

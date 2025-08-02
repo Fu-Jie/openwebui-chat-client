@@ -334,7 +334,7 @@ class TestOpenWebUIClientErrorHandling(unittest.TestCase):
 
     def test_build_linear_history_for_api_empty_history(self):
         """Test building linear history with empty history."""
-        chat_core = {"history": {"currentId": None, "messages": {}}}
+        chat_core = {"history": {"current_id": None, "messages": {}}}
 
         result = self.client._build_linear_history_for_api(chat_core)
 
@@ -342,7 +342,7 @@ class TestOpenWebUIClientErrorHandling(unittest.TestCase):
 
     def test_build_linear_history_for_api_missing_message(self):
         """Test building linear history with missing message reference."""
-        chat_core = {"history": {"currentId": "missing-msg", "messages": {}}}
+        chat_core = {"history": {"current_id": "missing-msg", "messages": {}}}
 
         result = self.client._build_linear_history_for_api(chat_core)
 
