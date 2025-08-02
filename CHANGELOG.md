@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added in Unreleased
+## [0.1.14] - 2025-01-27
+
+### Added in 0.1.14
 - **Modular Architecture Refactor**: Complete restructuring of the codebase into modular components:
   - `openwebui_chat_client/core/base_client.py`: Core client functionality base class
   - `openwebui_chat_client/modules/chat_manager.py`: Dedicated chat management module
@@ -26,7 +28,7 @@ All notable changes to this project will be documented in this file.
 - **Archive Chat Functionality**: Added archive chat functionality with comprehensive tests and examples.
 - **Batch Model Permissions Update**: Implemented batch model permissions update functionality.
 
-### Changed in Unreleased
+### Changed in 0.1.14
 - **Code Organization**: Migrated from monolithic structure to modular architecture while maintaining backward compatibility.
 - **API Response Validation**: Fixed critical issues with API response validation and data format mismatches.
 - **State Synchronization**: Resolved state synchronization issues between client and server.
@@ -35,7 +37,7 @@ All notable changes to this project will be documented in this file.
 - **Model Switching Example**: Updated `model_switching.py`.
 - **List Chats Page Parameter**: Reverted `page` parameter to optional for `list_chats` method.
 
-### Fixed in Unreleased
+### Fixed in 0.1.14
 - **Critical Test Failures**: Resolved multiple test failures related to modular refactor, API endpoints, response validation, chat object synchronization, and method delegation for mocking.
 - **API Data Format Issues**: Fixed data format mismatches in API responses.
 - **State Management**: Corrected state synchronization problems.
