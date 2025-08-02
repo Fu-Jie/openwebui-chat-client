@@ -8,19 +8,17 @@ class TestFollowUpFeature(unittest.TestCase):
 
     def setUp(self):
         """Set up a client instance before each test."""
-        # Patch list_models during initialization to prevent network call
-        with patch.object(
-            OpenWebUIClient, "list_models", return_value=["test_model", "gpt-4.1"]
-        ) as mock_list_models:
-            self.client = OpenWebUIClient(
-                base_url="http://test.com",
-                token="test_token",
-                default_model_id="test_model",
-            )
+        self.client = OpenWebUIClient(
+            base_url="http://test.com",
+            token="test_token",
+            default_model_id="test_model",
+            skip_model_refresh=True,
+        )
         self.client._auto_cleanup_enabled = False
         # Mock the session object to control API responses for other methods
         self.mock_session = MagicMock()
         self.client.session = self.mock_session
+        self.client._base_client.session = self.mock_session  # Also mock the base client session
 
     def _mock_chat_creation_and_loading(
         self, chat_id="test_chat_id", title="Test Chat"
@@ -70,7 +68,7 @@ class TestFollowUpFeature(unittest.TestCase):
         )
 
     @patch(
-        "openwebui_chat_client.openwebui_chat_client.OpenWebUIClient._update_remote_chat"
+        "openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat"
     )
     def test_chat_with_follow_up(self, mock_update_remote_chat):
         """Test that `chat` with `enable_follow_up=True` calls the follow-up API."""

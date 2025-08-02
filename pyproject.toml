@@ -39,3 +39,4 @@ Homepage = "https://github.com/Fu-Jie/openwebui-chat-client"
 
 [tool.setuptools.packages.find]
 include = ["openwebui_chat_client*"]
+

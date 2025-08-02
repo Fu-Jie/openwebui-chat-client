@@ -9,12 +9,12 @@ class TestArchiveFunctionality(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        with patch.object(OpenWebUIClient, 'list_models', return_value=[]):
-            self.client = OpenWebUIClient(
-                base_url="http://localhost:3000",
-                token="test-token",
-                default_model_id="test-model"
-            )
+        self.client = OpenWebUIClient(
+            base_url="http://localhost:3000",
+            token="test-token",
+            default_model_id="test-model",
+            skip_model_refresh=True
+        )
 
     @patch('openwebui_chat_client.openwebui_chat_client.requests.Session.get')
     def test_list_chats_success(self, mock_get):

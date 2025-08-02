@@ -6,7 +6,9 @@ import uuid
 class TestMetadataFeatures(unittest.TestCase):
 
     def setUp(self):
-        self.client = OpenWebUIClient(base_url="http://localhost:8080", token="test_token", default_model_id="llama3")
+        # Mock HTTP requests during client initialization
+        self.client = OpenWebUIClient(base_url="http://localhost:8080", token="test_token", default_model_id="llama3", skip_model_refresh=True)
+        
         # Mock successful chat creation and loading
         self.mock_chat_id = str(uuid.uuid4())
         self.mock_chat_object = {

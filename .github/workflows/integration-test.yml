@@ -10,19 +10,19 @@ on:
     inputs:
       base_url:
         description: 'OpenWebUI Base URL'
-        required: true
+        required: false
         default: 'https://your-openwebui-instance.com'
       auth_token:
         description: 'OpenWebUI Auth Token'
-        required: true
+        required: false
       default_model:
         description: 'Default Model ID'
-        required: true
-        default: 'gpt-3.5-turbo'
+        required: false
+        default: 'gpt-4.1'
       parallel_models:
         description: 'Parallel Models (comma-separated)'
         required: false
-        default: 'gpt-3.5-turbo,gpt-4'
+        default: 'gpt-4.1,gpt-4o'
       run_all_tests:
         description: 'Run all integration tests (ignore selective testing)'
         required: false

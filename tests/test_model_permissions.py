@@ -13,13 +13,14 @@ class TestModelPermissions(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        # Patch list_models during initialization to avoid connection errors
-        with patch.object(OpenWebUIClient, 'list_models', return_value=[]):
-            self.client = OpenWebUIClient(
-                base_url=self.base_url,
-                token=self.token,
-                default_model_id=self.default_model,
-            )
+        
+        # Create client with skip_model_refresh to prevent HTTP requests during initialization
+        self.client = OpenWebUIClient(
+            base_url=self.base_url,
+            token=self.token,
+            default_model_id=self.default_model,
+            skip_model_refresh=True,
+        )
         self.client._auto_cleanup_enabled = False
 
     @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.get")
