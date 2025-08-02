@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added in Unreleased
+- **Modular Architecture Refactor**: Complete restructuring of the codebase into modular components:
+  - `openwebui_chat_client/core/base_client.py`: Core client functionality base class
+  - `openwebui_chat_client/modules/chat_manager.py`: Dedicated chat management module
+  - `openwebui_chat_client/modules/file_manager.py`: File operations management
+  - `openwebui_chat_client/modules/knowledge_base_manager.py`: Knowledge base operations
+  - `openwebui_chat_client/modules/model_manager.py`: Model management functionality
+  - `openwebui_chat_client/modules/notes_manager.py`: Notes API management
+- **Enhanced Integration Testing System**: Comprehensive integration testing infrastructure:
+  - `.github/INTEGRATION_TESTING.md`: Detailed integration testing documentation
+  - `.github/scripts/detect_required_tests.py`: Smart test detection based on file changes
+  - `.github/scripts/run_all_integration_tests.py`: Automated integration test runner
+  - `.github/test-mapping.yml`: Configuration for selective test execution
+  - `.github/workflows/integration-test.yml`: GitHub Actions workflow for integration tests
+- **Improved Development Infrastructure**: Enhanced development tools and documentation:
+  - `.clinerules/`: Project-specific development guidelines and rules
+  - `.github/copilot-instructions.md`: Comprehensive Copilot development guide
+  - Enhanced GitHub workflows for testing and publishing
+  - Improved project documentation structure
+- **Extended Example Suite**: New comprehensive examples and utilities:
+  - `examples/advanced_features/archive_chats.py`: Chat archiving functionality demo
+  - `examples/chat_features/model_switching.py`: Model switching examples
+  - `examples/config/`: Configuration and environment setup examples  
+  - `examples/utils/`: Shared utilities for example scripts
+  - Enhanced documentation in `examples/README.md`
+- **Comprehensive Test Suite**: Expanded test coverage with new test files:
+  - `tests/test_archive_functionality.py`: Archive feature testing
+  - `tests/test_changelog_extraction.py`: Changelog processing tests
+  - `tests/test_documentation_structure.py`: Documentation validation tests
+  - `tests/test_model_permissions.py`: Model permission testing
+
+### Changed in Unreleased
+- **Code Organization**: Migrated from monolithic structure to modular architecture while maintaining backward compatibility
+- **API Response Validation**: Fixed critical issues with API response validation and data format mismatches
+- **State Synchronization**: Resolved state synchronization issues between client and server
+- **Test Infrastructure**: Improved test reliability and integration test connectivity
+- **Documentation**: Comprehensive updates to all documentation files for better clarity and completeness
+
+### Fixed in Unreleased
+- **Critical Test Failures**: Resolved multiple test failures related to modular refactor
+- **API Data Format Issues**: Fixed data format mismatches in API responses
+- **State Management**: Corrected state synchronization problems
+- **Model Configuration**: Fixed task model configuration issues
+- **Integration Connectivity**: Resolved integration test connectivity problems
+
 ## [0.1.13] - 2025-07-28
 
 ### Added in 0.1.13
