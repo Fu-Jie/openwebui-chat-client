@@ -1731,5 +1731,24 @@ class OpenWebUIClient:
 
     def _get_task_model(self) -> Optional[str]:
         """Get the task model for metadata operations."""
-        # Use the current model or task model
-        return getattr(self, 'task_model', None) or self.model_id
+        # Return cached task model if available
+        if hasattr(self, 'task_model') and self.task_model:
+            return self.task_model
+            
+        # Fetch task model from config
+        url = f"{self.base_url}/api/v1/tasks/config"
+        try:
+            response = self.session.get(url, headers=self.json_headers)
+            response.raise_for_status()
+            config = response.json()
+            task_model = config.get("TASK_MODEL")
+            if task_model:
+                logger.info(f"   ✅ Found task model: {task_model}")
+                self.task_model = task_model
+                return task_model
+            else:
+                logger.error("   ❌ 'TASK_MODEL' not found in config response.")
+                return self.model_id  # Fallback to default model
+        except Exception as e:
+            logger.error(f"Failed to fetch task config: {e}")
+            return self.model_id  # Fallback to default model
