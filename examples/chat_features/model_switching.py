@@ -97,6 +97,7 @@ def demonstrate_model_switching(client: OpenWebUIClient, available_models: List[
                 
                 result2 = client.chat(
                     question=question2,
+                    chat_title=chat_title,
                     model_id=model2  # Explicitly use new model
                 )
                 
