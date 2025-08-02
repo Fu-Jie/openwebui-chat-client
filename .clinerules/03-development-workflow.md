@@ -2,8 +2,9 @@
 
 ## 1. 功能开发
 
--   **新功能**: 在`openwebui_chat_client/openwebui_chat_client.py`中添加新方法时，请遵循现有的编码规范（见`02-coding-style.md`）。
--   **示例**: 为每个重要的新功能或变更，在`examples/`目录下添加或更新相应的示例代码（`demos.py`）。
+-   **新功能**: 在`openwebui_chat_client/`中添加新方法时，请遵循现有的编码规范（见`02-coding-style.md`）。
+-   
+
 
 ## 2. 文档更新
 

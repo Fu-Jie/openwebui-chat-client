@@ -12,17 +12,6 @@ All notable changes to this project will be documented in this file.
   - `openwebui_chat_client/modules/knowledge_base_manager.py`: Knowledge base operations
   - `openwebui_chat_client/modules/model_manager.py`: Model management functionality
   - `openwebui_chat_client/modules/notes_manager.py`: Notes API management
-- **Enhanced Integration Testing System**: Comprehensive integration testing infrastructure:
-  - `.github/INTEGRATION_TESTING.md`: Detailed integration testing documentation
-  - `.github/scripts/detect_required_tests.py`: Smart test detection based on file changes
-  - `.github/scripts/run_all_integration_tests.py`: Automated integration test runner
-  - `.github/test-mapping.yml`: Configuration for selective test execution
-  - `.github/workflows/integration-test.yml`: GitHub Actions workflow for integration tests
-- **Improved Development Infrastructure**: Enhanced development tools and documentation:
-  - `.clinerules/`: Project-specific development guidelines and rules
-  - `.github/copilot-instructions.md`: Comprehensive Copilot development guide
-  - Enhanced GitHub workflows for testing and publishing
-  - Improved project documentation structure
 - **Extended Example Suite**: New comprehensive examples and utilities:
   - `examples/advanced_features/archive_chats.py`: Chat archiving functionality demo
   - `examples/chat_features/model_switching.py`: Model switching examples
@@ -34,20 +23,30 @@ All notable changes to this project will be documented in this file.
   - `tests/test_changelog_extraction.py`: Changelog processing tests
   - `tests/test_documentation_structure.py`: Documentation validation tests
   - `tests/test_model_permissions.py`: Model permission testing
+- **Archive Chat Functionality**: Added archive chat functionality with comprehensive tests and examples.
+- **Batch Model Permissions Update**: Implemented batch model permissions update functionality.
 
 ### Changed in Unreleased
-- **Code Organization**: Migrated from monolithic structure to modular architecture while maintaining backward compatibility
-- **API Response Validation**: Fixed critical issues with API response validation and data format mismatches
-- **State Synchronization**: Resolved state synchronization issues between client and server
-- **Test Infrastructure**: Improved test reliability and integration test connectivity
-- **Documentation**: Comprehensive updates to all documentation files for better clarity and completeness
+- **Code Organization**: Migrated from monolithic structure to modular architecture while maintaining backward compatibility.
+- **API Response Validation**: Fixed critical issues with API response validation and data format mismatches.
+- **State Synchronization**: Resolved state synchronization issues between client and server.
+- **Test Infrastructure**: Improved test reliability and integration test connectivity.
+- **Documentation**: Comprehensive updates to all documentation files for better clarity and completeness.
+- **Model Switching Example**: Updated `model_switching.py`.
+- **List Chats Page Parameter**: Reverted `page` parameter to optional for `list_chats` method.
 
 ### Fixed in Unreleased
-- **Critical Test Failures**: Resolved multiple test failures related to modular refactor
-- **API Data Format Issues**: Fixed data format mismatches in API responses
-- **State Management**: Corrected state synchronization problems
-- **Model Configuration**: Fixed task model configuration issues
-- **Integration Connectivity**: Resolved integration test connectivity problems
+- **Critical Test Failures**: Resolved multiple test failures related to modular refactor, API endpoints, response validation, chat object synchronization, and method delegation for mocking.
+- **API Data Format Issues**: Fixed data format mismatches in API responses.
+- **State Management**: Corrected state synchronization problems.
+- **Model Configuration**: Fixed task model configuration issues.
+- **Integration Connectivity**: Resolved integration test connectivity problems and critical test connectivity issues by preventing HTTP requests during client initialization.
+- **Knowledge Base Delete Operations**: Completed fix for knowledge base delete operations with proper `ThreadPoolExecutor` delegation.
+- **API Endpoint and Return Value Issues**: Fixed critical API endpoint and return value issues in notes and knowledge base operations.
+- **Follow-up Test Failure**: Implemented proper task model fetching from config API to fix follow-up test failure.
+- **Missing Critical Methods**: Implemented missing critical methods: `archive_chats_by_age`, `_get_chat_details`, `_cleanup_unused_placeholder_messages`.
+- **Method Signatures and Return Types**: Fixed method signatures and return types for backward compatibility.
+- **API Compatibility Issues**: Fixed API compatibility issues in refactored modular client.
 
 ## [0.1.13] - 2025-07-28
 
