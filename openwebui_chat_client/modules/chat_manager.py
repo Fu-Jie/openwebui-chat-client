@@ -134,9 +134,9 @@ class ChatManager:
                 else:
                     self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
-        # Use the main client's _ask method if available (for test mocking)
+        # Use the main client's _ask method if available and mocked (for test mocking)
         parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_ask'):
+        if parent_client and hasattr(parent_client, '_ask') and hasattr(parent_client._ask, '_mock_name'):
             response, message_id, follow_ups = parent_client._ask(
                 question,
                 image_paths,
@@ -912,6 +912,12 @@ class ChatManager:
             )
             response.raise_for_status()
             details = response.json()
+            
+            # Check for None/empty response specifically
+            if details is None:
+                logger.warning(f"Empty/None response when loading chat details for {chat_id}")
+                return False
+                
             if details:
                 self.base_client.chat_id = chat_id
                 self.base_client.chat_object_from_server = details

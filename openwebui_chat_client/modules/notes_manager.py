@@ -249,6 +249,18 @@ class NotesManager:
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()
+            
+            # Check response content for success indication
+            try:
+                response_data = response.json()
+                # If the response explicitly indicates failure, return False
+                if response_data is False:
+                    logger.warning(f"Server returned failure status for note deletion: {note_id}")
+                    return False
+            except (ValueError, TypeError):
+                # Response might not be JSON, which is fine for delete operations
+                pass
+            
             logger.info(f"Successfully deleted note: {note_id}")
             return True
         except requests.exceptions.RequestException as e:
@@ -258,4 +270,5 @@ class NotesManager:
             return False
         except Exception as e:
             logger.error(f"Unexpected error deleting note {note_id}: {e}")
+            return False
             return False

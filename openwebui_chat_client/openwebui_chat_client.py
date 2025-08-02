@@ -1015,6 +1015,9 @@ class OpenWebUIClient:
             chat_id = existing_chat["id"]
             logger.info(f"Found existing chat: {chat_id}")
             self.chat_id = chat_id
+            # Also set on base client for ChatManager compatibility
+            if hasattr(self, '_base_client'):
+                self._base_client.chat_id = chat_id
             
             # Load chat details
             if self._load_chat_details(chat_id):
@@ -1027,8 +1030,17 @@ class OpenWebUIClient:
         new_chat_id = self._create_new_chat(title)
         if new_chat_id:
             self.chat_id = new_chat_id
-            logger.info(f"Successfully created new chat: {new_chat_id}")
-            return new_chat_id
+            # Also set on base client for ChatManager compatibility  
+            if hasattr(self, '_base_client'):
+                self._base_client.chat_id = new_chat_id
+            
+            # Load the newly created chat details
+            if self._load_chat_details(new_chat_id):
+                logger.info(f"Successfully created and loaded new chat: {new_chat_id}")
+                return new_chat_id
+            else:
+                logger.warning(f"Created new chat {new_chat_id} but failed to load details")
+                return new_chat_id  # Still return the ID even if loading fails
         else:
             logger.error(f"Failed to create new chat with title: '{title}'")
             return None
@@ -1043,9 +1055,22 @@ class OpenWebUIClient:
             )
             response.raise_for_status()
             chat_data = response.json()
-            self.chat_object_from_server = chat_data
-            logger.info(f"Successfully loaded chat details for: {chat_id}")
-            return True
+            
+            # Check for None/empty response specifically
+            if chat_data is None:
+                logger.warning(f"Empty/None response when loading chat details for {chat_id}")
+                return False
+                
+            if chat_data:
+                self.chat_object_from_server = chat_data
+                # Also set on base client for ChatManager compatibility
+                if hasattr(self, '_base_client'):
+                    self._base_client.chat_object_from_server = chat_data
+                logger.info(f"Successfully loaded chat details for: {chat_id}")
+                return True
+            else:
+                logger.warning(f"Empty response when loading chat details for {chat_id}")
+                return False
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get chat details for {chat_id}: {e}")
             return False

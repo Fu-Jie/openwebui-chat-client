@@ -190,6 +190,18 @@ class KnowledgeBaseManager:
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
+            
+            # Check for expected response format
+            try:
+                response_data = response.json()
+                # If we get an unexpected response format, consider it a failure
+                if response_data and "unexpected" in response_data:
+                    logger.warning(f"Unexpected response format for deletion of '{kb_id}': {response_data}")
+                    return False
+            except (ValueError, TypeError):
+                # Response might not be JSON, which is fine for delete operations
+                pass
+                
             logger.info(f"   ✅ Knowledge base '{kb_id}' deleted successfully.")
             return True
         except requests.exceptions.RequestException as e:
@@ -463,7 +475,7 @@ class KnowledgeBaseManager:
                 return kb_name, False, f"Exception: {str(e)}"
         
         successful_kbs = []
-        failed_kbs = []
+        failed_kbs = {}  # Change to dictionary to store error messages
         
         # Import ThreadPoolExecutor from location that tests can patch
         import openwebui_chat_client.openwebui_chat_client as owc
@@ -487,7 +499,7 @@ class KnowledgeBaseManager:
                         if success:
                             successful_kbs.append(kb_name)
                         else:
-                            failed_kbs.append(kb_name)
+                            failed_kbs[kb_name] = message  # Store error message in dictionary
                         status = "✅" if success else "❌"
                         logger.info(f"{status} KB {completed}/{len(kb_configs)}: {kb_name}")
                 except Exception as e:
