@@ -947,6 +947,9 @@ class ChatManager:
         logger.info(f'Processing question: "{question}"')
         chat_core = self.base_client.chat_object_from_server["chat"]
         chat_core["models"] = [self.base_client.model_id]
+        
+        # Ensure chat_core has the required history structure
+        chat_core.setdefault("history", {"messages": {}, "currentId": None})
 
         api_rag_payload, storage_rag_payloads = self._handle_rag_references(
             rag_files, rag_collections
