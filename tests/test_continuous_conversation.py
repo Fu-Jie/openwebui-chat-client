@@ -24,141 +24,150 @@ class TestContinuousConversation(unittest.TestCase):
         )
         self.client._auto_cleanup_enabled = False
 
-    @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")
-    @patch.object(OpenWebUIClient, "_ask")
-    def test_continuous_chat_single_round(self, mock_ask, mock_find_create):
-        """Test continuous chat with only one round."""
-        # Setup mocks
-        self.client.chat_id = "test-chat-id"
-        self.client.chat_object_from_server = {
-            "chat": {"history": {"messages": {}}, "models": ["test-model"]}
-        }
-        mock_ask.return_value = ("Test response", "msg-id-123", None)
+    def test_continuous_chat_single_round(self):
+        """Test continuous chat with only one round.""" 
+        # Mock the chat manager's chat method
+        with patch.object(self.client._chat_manager, 'chat') as mock_chat:
+            mock_chat.return_value = {
+                "response": "Test response",
+                "chat_id": "test-chat-id",
+                "message_id": "msg-id-123",
+                "follow_ups": []
+            }
 
-        result = self.client.continuous_chat(
-            initial_question="Hello",
-            num_questions=1,
-            chat_title="Test Continuous Chat"
-        )
+            result = self.client.continuous_chat(
+                initial_question="Hello",
+                num_questions=1,
+                chat_title="Test Continuous Chat"
+            )
 
-        self.assertIsNotNone(result)
-        self.assertEqual(result["total_rounds"], 1)
-        self.assertEqual(len(result["conversation_history"]), 1)
-        self.assertEqual(result["conversation_history"][0]["question"], "Hello")
-        self.assertEqual(result["conversation_history"][0]["response"], "Test response")
-        self.assertEqual(result["chat_id"], "test-chat-id")
-        mock_find_create.assert_called_once_with("Test Continuous Chat")
-        mock_ask.assert_called_once()
+            self.assertIsNotNone(result)
+            self.assertEqual(result["total_rounds"], 1)
+            self.assertEqual(len(result["conversation_history"]), 1)
+            self.assertEqual(result["conversation_history"][0]["question"], "Hello")
+            self.assertEqual(result["conversation_history"][0]["response"], "Test response")
+            self.assertEqual(result["chat_id"], "test-chat-id")
+            mock_chat.assert_called_once()
 
-    @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")
-    @patch.object(OpenWebUIClient, "_ask")
-    def test_continuous_chat_multiple_rounds(self, mock_ask, mock_find_create):
+    def test_continuous_chat_multiple_rounds(self):
         """Test continuous chat with multiple rounds using follow-ups."""
-        # Setup mocks
-        self.client.chat_id = "test-chat-id"
-        self.client.chat_object_from_server = {
-            "chat": {"history": {"messages": {}}, "models": ["test-model"]}
-        }
-        
-        follow_up_questions = ["What about this?", "Can you elaborate?"]
-        mock_ask.side_effect = [
-            ("First response", "msg-id-1", follow_up_questions),
-            ("Second response", "msg-id-2", ["Another question?"]),
-            ("Third response", "msg-id-3", None)
-        ]
+        # Mock the chat manager's chat method
+        with patch.object(self.client._chat_manager, 'chat') as mock_chat:
+            # Setup mock to return different responses for each call
+            mock_chat.side_effect = [
+                {
+                    "response": "First response",
+                    "chat_id": "test-chat-id",
+                    "message_id": "msg-id-1",
+                    "follow_ups": ["What about this?", "Can you elaborate?"]
+                },
+                {
+                    "response": "Second response", 
+                    "chat_id": "test-chat-id",
+                    "message_id": "msg-id-2",
+                    "follow_ups": ["Another question?"]
+                },
+                {
+                    "response": "Third response",
+                    "chat_id": "test-chat-id", 
+                    "message_id": "msg-id-3",
+                    "follow_ups": []
+                }
+            ]
 
-        with patch('random.choice') as mock_choice:
-            # Mock random.choice to return predictable follow-ups
-            mock_choice.side_effect = ["What about this?", "Another question?"]
+            with patch('random.choice') as mock_choice:
+                # Mock random.choice to return predictable follow-ups
+                mock_choice.side_effect = ["What about this?", "Another question?"]
+                
+                result = self.client.continuous_chat(
+                    initial_question="Hello",
+                    num_questions=3,
+                    chat_title="Test Continuous Chat"
+                )
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["total_rounds"], 3)
+            self.assertEqual(len(result["conversation_history"]), 3)
             
-            result = self.client.continuous_chat(
-                initial_question="Hello",
-                num_questions=3,
-                chat_title="Test Continuous Chat"
-            )
+            # Check first round
+            self.assertEqual(result["conversation_history"][0]["question"], "Hello")
+            self.assertEqual(result["conversation_history"][0]["response"], "First response")
+            
+            # Check second round (using follow-up)
+            self.assertEqual(result["conversation_history"][1]["question"], "What about this?")
+            self.assertEqual(result["conversation_history"][1]["response"], "Second response")
+            
+            # Check third round (using follow-up)
+            self.assertEqual(result["conversation_history"][2]["question"], "Another question?")
+            self.assertEqual(result["conversation_history"][2]["response"], "Third response")
+            
+            self.assertEqual(mock_chat.call_count, 3)
 
-        self.assertIsNotNone(result)
-        self.assertEqual(result["total_rounds"], 3)
-        self.assertEqual(len(result["conversation_history"]), 3)
-        
-        # Check first round
-        self.assertEqual(result["conversation_history"][0]["question"], "Hello")
-        self.assertEqual(result["conversation_history"][0]["response"], "First response")
-        
-        # Check second round (using follow-up)
-        self.assertEqual(result["conversation_history"][1]["question"], "What about this?")
-        self.assertEqual(result["conversation_history"][1]["response"], "Second response")
-        
-        # Check third round (using follow-up)
-        self.assertEqual(result["conversation_history"][2]["question"], "Another question?")
-        self.assertEqual(result["conversation_history"][2]["response"], "Third response")
-        
-        self.assertEqual(mock_ask.call_count, 3)
-        mock_find_create.assert_called_once_with("Test Continuous Chat")
-
-    @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")
-    @patch.object(OpenWebUIClient, "_ask")
-    def test_continuous_chat_no_follow_ups(self, mock_ask, mock_find_create):
+    def test_continuous_chat_no_follow_ups(self):
         """Test continuous chat when no follow-ups are provided."""
-        # Setup mocks
-        self.client.chat_id = "test-chat-id"
-        self.client.chat_object_from_server = {
-            "chat": {"history": {"messages": {}}, "models": ["test-model"]}
-        }
-        
-        mock_ask.side_effect = [
-            ("First response", "msg-id-1", None),  # No follow-ups
-            ("Second response", "msg-id-2", None)
-        ]
+        # Mock the chat manager's chat method
+        with patch.object(self.client._chat_manager, 'chat') as mock_chat:
+            # Setup mock to return responses without follow-ups
+            mock_chat.side_effect = [
+                {
+                    "response": "First response",
+                    "chat_id": "test-chat-id",
+                    "message_id": "msg-id-1",
+                    "follow_ups": []  # No follow-ups
+                },
+                {
+                    "response": "Second response", 
+                    "chat_id": "test-chat-id",
+                    "message_id": "msg-id-2",
+                    "follow_ups": []
+                }
+            ]
 
-        with patch('random.choice') as mock_choice:
-            # Mock random.choice to return a generic follow-up
-            mock_choice.return_value = "Can you explain that in more detail?"
+            with patch('random.choice') as mock_choice:
+                # Mock random.choice to return a generic follow-up
+                mock_choice.return_value = "Can you explain that in more detail?"
+                
+                result = self.client.continuous_chat(
+                    initial_question="Hello",
+                    num_questions=2,
+                    chat_title="Test Continuous Chat"
+                )
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["total_rounds"], 2)
             
-            result = self.client.continuous_chat(
-                initial_question="Hello",
-                num_questions=2,
-                chat_title="Test Continuous Chat"
-            )
+            # Check that generic follow-up was used
+            self.assertEqual(result["conversation_history"][1]["question"], "Can you explain that in more detail?")
+            self.assertEqual(mock_chat.call_count, 2)
 
-        self.assertIsNotNone(result)
-        self.assertEqual(result["total_rounds"], 2)
-        
-        # Check that generic follow-up was used
-        self.assertEqual(result["conversation_history"][1]["question"], "Can you explain that in more detail?")
-        self.assertEqual(mock_ask.call_count, 2)
-        mock_find_create.assert_called_once_with("Test Continuous Chat")
-
-    @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")
-    @patch.object(OpenWebUIClient, "_ask")
-    def test_continuous_chat_failure(self, mock_ask, mock_find_create):
+    def test_continuous_chat_failure(self):
         """Test continuous chat when a round fails."""
-        # Setup mocks
-        self.client.chat_id = "test-chat-id"
-        self.client.chat_object_from_server = {
-            "chat": {"history": {"messages": {}}, "models": ["test-model"]}
-        }
-        
-        # First round succeeds, second round fails by returning None from _ask
-        mock_ask.side_effect = [
-            ("First response", "msg-id-1", ["Follow up question"]),
-            (None, None, None)  # Second round fails
-        ]
+        # Mock the chat manager's chat method
+        with patch.object(self.client._chat_manager, 'chat') as mock_chat:
+            # First round succeeds, second round fails by returning None
+            mock_chat.side_effect = [
+                {
+                    "response": "First response",
+                    "chat_id": "test-chat-id",
+                    "message_id": "msg-id-1", 
+                    "follow_ups": ["Follow up question"]
+                },
+                None  # Second round fails
+            ]
 
-        with patch('random.choice') as mock_choice:
-            mock_choice.return_value = "Follow up question"
-            
-            result = self.client.continuous_chat(
-                initial_question="Hello",
-                num_questions=3,
-                chat_title="Test Continuous Chat"
-            )
+            with patch('random.choice') as mock_choice:
+                mock_choice.return_value = "Follow up question"
+                
+                result = self.client.continuous_chat(
+                    initial_question="Hello",
+                    num_questions=3,
+                    chat_title="Test Continuous Chat"
+                )
 
-        self.assertIsNotNone(result)
-        self.assertEqual(result["total_rounds"], 1)  # Only first round succeeded
-        self.assertEqual(len(result["conversation_history"]), 1)
-        self.assertEqual(mock_ask.call_count, 2)  # Two attempts were made
-        mock_find_create.assert_called_once_with("Test Continuous Chat")
+            self.assertIsNotNone(result)
+            self.assertEqual(result["total_rounds"], 1)  # Only first round succeeded
+            self.assertEqual(len(result["conversation_history"]), 1)
+            self.assertEqual(mock_chat.call_count, 2)  # Two attempts were made
 
     def test_continuous_chat_invalid_num_questions(self):
         """Test continuous chat with invalid number of questions."""
@@ -170,43 +179,40 @@ class TestContinuousConversation(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")
-    def test_continuous_parallel_chat_success(self, mock_find_create):
+    def test_continuous_parallel_chat_success(self):
         """Test continuous parallel chat with multiple models."""
-        # Setup mocks
-        self.client.chat_id = "test-chat-id"
-        self.client.chat_object_from_server = {
-            "chat": {
-                "history": {"messages": {}},
-                "models": ["model1", "model2"]
-            }
-        }
-        
-        # Mock the ChatManager's _get_parallel_model_responses method
-        with patch.object(self.client._chat_manager, '_get_parallel_model_responses') as mock_parallel_responses:
-            mock_parallel_responses.side_effect = [
+        # Mock the chat manager's parallel_chat method
+        with patch.object(self.client._chat_manager, 'parallel_chat') as mock_parallel_chat:
+            # Mock parallel_chat to return different responses for each call
+            mock_parallel_chat.side_effect = [
                 {
-                    "model1": {
-                        "content": "Model 1 response",
-                        "sources": [],
-                        "follow_ups": ["Question 1", "Question 2"]
-                    },
-                    "model2": {
-                        "content": "Model 2 response", 
-                        "sources": [],
-                        "follow_ups": ["Question 3"]
+                    "chat_id": "test-chat-id",
+                    "responses": {
+                        "model1": {
+                            "content": "Model 1 response",
+                            "sources": [],
+                            "follow_ups": ["Question 1", "Question 2"]
+                        },
+                        "model2": {
+                            "content": "Model 2 response",
+                            "sources": [],
+                            "follow_ups": ["Question 3"]
+                        }
                     }
                 },
                 {
-                    "model1": {
-                        "content": "Model 1 second response",
-                        "sources": [],
-                        "follow_ups": []
-                    },
-                    "model2": {
-                        "content": "Model 2 second response",
-                        "sources": [],
-                        "follow_ups": []
+                    "chat_id": "test-chat-id",
+                    "responses": {
+                        "model1": {
+                            "content": "Model 1 second response",
+                            "sources": [],
+                            "follow_ups": []
+                        },
+                        "model2": {
+                            "content": "Model 2 second response",
+                            "sources": [],
+                            "follow_ups": []
+                        }
                     }
                 }
             ]
@@ -229,8 +235,7 @@ class TestContinuousConversation(unittest.TestCase):
             
             # Check that follow-ups were collected from all models
             self.assertEqual(result["conversation_history"][0]["follow_ups"], ["Question 1", "Question 2", "Question 3"])
-            self.assertEqual(mock_parallel_responses.call_count, 2)
-            mock_find_create.assert_called_once_with("Test Continuous Parallel Chat")
+            self.assertEqual(mock_parallel_chat.call_count, 2)
 
     def test_continuous_parallel_chat_empty_model_ids(self):
         """Test continuous parallel chat with empty model IDs."""
