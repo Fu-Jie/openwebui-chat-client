@@ -104,18 +104,18 @@ class NotesManager:
             logger.error("Note title cannot be empty.")
             return None
         
-        note_data = {
-            "title": title,
-            "data": data or {},
-            "meta": meta or {},
-        }
+        note_data = {"title": title}
         
+        if data is not None:
+            note_data["data"] = data
+        if meta is not None:
+            note_data["meta"] = meta
         if access_control is not None:
             note_data["access_control"] = access_control
         
         try:
             response = self.base_client.session.post(
-                f"{self.base_client.base_url}/api/v1/notes/",
+                f"{self.base_client.base_url}/api/v1/notes/create",
                 json=note_data,
                 headers=self.base_client.json_headers
             )
@@ -245,7 +245,7 @@ class NotesManager:
         logger.info(f"Deleting note: {note_id}")
         try:
             response = self.base_client.session.delete(
-                f"{self.base_client.base_url}/api/v1/notes/{note_id}",
+                f"{self.base_client.base_url}/api/v1/notes/{note_id}/delete",
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()
