@@ -113,7 +113,21 @@ def main():
     
     # Handle GitHub Actions environment
     if os.getenv('GITHUB_ACTIONS') == 'true':
-        if os.getenv('GITHUB_EVENT_NAME') == 'pull_request':
+        event_name = os.getenv('GITHUB_EVENT_NAME')
+        
+        if event_name == 'workflow_run':
+            # For workflow_run events, we need to use the commit SHA from the original workflow
+            workflow_run_sha = os.getenv('WORKFLOW_RUN_HEAD_SHA')
+            if workflow_run_sha:
+                print(f"Using workflow_run context: SHA {workflow_run_sha}", file=sys.stderr)
+                head_ref = workflow_run_sha
+                # Compare with the parent commit of the workflow run
+                base_ref = f"{workflow_run_sha}~1"
+            else:
+                print("Warning: No WORKFLOW_RUN_HEAD_SHA found, falling back to HEAD~1", file=sys.stderr)
+                base_ref = 'HEAD~1'
+                head_ref = 'HEAD'
+        elif event_name == 'pull_request':
             base_ref = f"origin/{os.getenv('GITHUB_BASE_REF', 'main')}"
             head_ref = os.getenv('GITHUB_SHA', 'HEAD')
         else:

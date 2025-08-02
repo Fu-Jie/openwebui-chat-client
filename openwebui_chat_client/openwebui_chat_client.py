@@ -236,6 +236,72 @@ class OpenWebUIClient:
             enable_follow_up, enable_auto_tagging, enable_auto_titling
         )
 
+    def continuous_chat(
+        self,
+        initial_question: str,
+        num_questions: int,
+        chat_title: str,
+        model_id: Optional[str] = None,
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """Perform continuous conversation with automatic follow-up questions."""
+        return self._chat_manager.continuous_chat(
+            initial_question, num_questions, chat_title, model_id, folder_name,
+            image_paths, tags, rag_files, rag_collections, tool_ids,
+            enable_auto_tagging, enable_auto_titling
+        )
+
+    def continuous_parallel_chat(
+        self,
+        initial_question: str,
+        num_questions: int,
+        chat_title: str,
+        model_ids: List[str],
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """Perform continuous conversation with multiple models in parallel."""
+        return self._chat_manager.continuous_parallel_chat(
+            initial_question, num_questions, chat_title, model_ids, folder_name,
+            image_paths, tags, rag_files, rag_collections, tool_ids,
+            enable_auto_tagging, enable_auto_titling
+        )
+
+    def continuous_stream_chat(
+        self,
+        initial_question: str,
+        num_questions: int,
+        chat_title: str,
+        model_id: Optional[str] = None,
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
+    ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
+        """Perform continuous conversation with streaming responses."""
+        return self._chat_manager.continuous_stream_chat(
+            initial_question, num_questions, chat_title, model_id, folder_name,
+            image_paths, tags, rag_files, rag_collections, tool_ids,
+            enable_auto_tagging, enable_auto_titling
+        )
+
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """Set tags for a chat conversation."""
         return self._chat_manager.set_chat_tags(chat_id, tags)
@@ -979,8 +1045,8 @@ class OpenWebUIClient:
                 f"Cleaned up {int(cleaned_count)} unused placeholder message pairs."
             )
 
-            # After cleanup, need to rebuild the messages list and currentId to ensure history chain correctness
-            # Find the new currentId (the ID of the last non-placeholder message)
+            # After cleanup, need to rebuild the messages list and current_id to ensure history chain correctness
+            # Find the new current_id (the ID of the last non-placeholder message)
             new_current_id = None
             for msg_id in reversed(list(messages.keys())):  # Search backwards
                 msg = messages[msg_id]
@@ -1459,8 +1525,10 @@ class OpenWebUIClient:
                 assistant_message["content"] = content
                 assistant_message["done"] = True
                 
-                # Update chat object
-                self.chat_object_from_server["chat"]["history"]["messages"] = messages
+                # Update chat object - ensure history structure exists
+                chat_data.setdefault("history", {"messages": {}, "currentId": None})
+                chat_data["history"]["messages"] = messages
+                chat_data["history"]["currentId"] = assistant_message_id
                 
                 # Handle follow-up suggestions if enabled
                 follow_ups = None

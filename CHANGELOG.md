@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Continuous Conversation Feature**: New high-level conversation automation functionality
+  - `continuous_chat()`: Automated multi-turn conversations with single models using follow-up suggestions
+  - `continuous_parallel_chat()`: Automated multi-turn conversations across multiple models in parallel
+  - `continuous_stream_chat()`: Automated multi-turn conversations with real-time streaming responses
+  - Automatic follow-up question generation and random selection for natural conversation flow
+  - Generic fallback questions when follow-ups are unavailable to ensure conversation continuity
+  - Support for all existing chat parameters: model selection, folders, tags, RAG files/collections, tools, etc.
+  - Comprehensive conversation history tracking and metadata collection
+  - Full test coverage with focused unit tests in `tests/test_continuous_conversation.py`
+  - Demonstration example in `examples/advanced_features/continuous_conversation.py`
+
 ## [0.1.14] - 2025-01-27
 
 ### Added in 0.1.14

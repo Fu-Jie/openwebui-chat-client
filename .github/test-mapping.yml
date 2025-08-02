@@ -37,6 +37,11 @@ test_categories:
     name: "Basic Connectivity Test"
     command: "python -c \"from openwebui_chat_client import OpenWebUIClient; import os; import sys; client = OpenWebUIClient(os.getenv('OUI_BASE_URL'), os.getenv('OUI_AUTH_TOKEN'), os.getenv('OUI_DEFAULT_MODEL')); models = client.list_models(); print(f'✅ Connected. Found {len(models) if models else 0} models.') if models is not None else sys.exit(1)\""
     description: "Tests basic client connectivity and authentication"
+    
+  continuous_conversation:
+    name: "Continuous Conversation Integration Test"
+    command: "python examples/advanced_features/continuous_conversation.py"
+    description: "Tests continuous conversation features including multi-turn dialogues, follow-up suggestions, and advanced conversation management"
 
 # File patterns mapped to test categories
 # When files matching these patterns change, the corresponding tests will run
@@ -48,6 +53,10 @@ file_mappings:
   # Chat-related functionality
   - pattern: "openwebui_chat_client/**/*chat*"
     categories: ["basic_chat", "model_switching", "comprehensive_demos"]
+    
+  # Continuous conversation functionality
+  - pattern: "**/*continuous*"
+    categories: ["continuous_conversation", "comprehensive_demos"]
     
   # Notes API functionality
   - pattern: "**/*note*"
@@ -79,6 +88,9 @@ file_mappings:
     
   - pattern: "examples/chat_features/**"
     categories: ["basic_chat", "model_switching"]
+    
+  - pattern: "examples/advanced_features/**"
+    categories: ["continuous_conversation", "comprehensive_demos"]
     
   # Test files - run basic connectivity to ensure changes don't break core functionality
   - pattern: "tests/**"
