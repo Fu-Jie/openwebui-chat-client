@@ -922,7 +922,7 @@ class ChatManager:
                 self.base_client.chat_id = chat_id
                 self.base_client.chat_object_from_server = details
                 chat_core = self.base_client.chat_object_from_server.setdefault("chat", {})
-                chat_core.setdefault("history", {"messages": {}, "currentId": None})
+                chat_core.setdefault("history", {"messages": {}, "current_id": None})
                 # Ensure 'models' is a list
                 models_list = chat_core.get("models", [])
                 if isinstance(models_list, list) and models_list:
@@ -1178,7 +1178,7 @@ class ChatManager:
         """Build linear message history for API calls."""
         history = chat_data.get("history", {})
         messages = history.get("messages", {})
-        current_id = history.get("currentId")
+        current_id = history.get("current_id")
         
         linear_messages = []
         if not current_id:
