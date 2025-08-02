@@ -208,11 +208,209 @@ class OpenWebUIClient:
         enable_auto_titling: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Send a chat message to multiple models in parallel."""
-        return self._chat_manager.parallel_chat(
-            question, chat_title, model_ids, folder_name, image_paths,
-            tags, rag_files, rag_collections, tool_ids,
-            enable_follow_up, enable_auto_tagging, enable_auto_titling
+        if not model_ids:
+            logger.error("`model_ids` list cannot be empty for parallel chat.")
+            return None
+        self.model_id = model_ids[0]
+        logger.info("=" * 60)
+        logger.info(
+            f"Processing PARALLEL-MODEL request: title='{chat_title}', models={model_ids}"
         )
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
+        logger.info("=" * 60)
+
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error(
+                "Chat object not loaded or malformed, cannot proceed with parallel chat."
+            )
+            return None
+
+        # Handle model set changes for existing parallel chats
+        if self.chat_object_from_server and "chat" in self.chat_object_from_server:
+            current_models = self.chat_object_from_server["chat"].get("models", [])
+            if set(current_models) != set(model_ids):
+                logger.warning(f"Parallel model set changed for chat '{chat_title}'.")
+                logger.warning(f"  > From: {current_models}")
+                logger.warning(f"  > To:   {model_ids}")
+                self.model_id = model_ids[0]
+                self.chat_object_from_server["chat"]["models"] = model_ids
+
+        if not self.chat_id:
+            logger.error("Chat initialization failed, cannot proceed.")
+            return None
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.chat_id, folder_id)
+
+        chat_core = self.chat_object_from_server["chat"]
+        # Ensure chat_core has the required history structure
+        chat_core.setdefault("history", {"messages": {}, "currentId": None})
+        
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
+        )
+        user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
+            "currentId"
+        )
+        storage_user_message = {
+            "id": user_message_id,
+            "parentId": last_message_id,
+            "childrenIds": [],
+            "role": "user",
+            "content": question,
+            "files": [],
+            "models": model_ids,
+            "timestamp": int(time.time()),
+        }
+        if image_paths:
+            for path in image_paths:
+                url = self._encode_image_to_base64(path)
+                if url:
+                    storage_user_message["files"].append({"type": "image", "url": url})
+        storage_user_message["files"].extend(storage_rag_payloads)
+        chat_core["history"]["messages"][user_message_id] = storage_user_message
+        if last_message_id:
+            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
+                user_message_id
+            )
+        logger.info(f"Querying {len(model_ids)} models in parallel...")
+        responses: Dict[str, Dict[str, Any]] = {}
+        with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
+            future_to_model = {
+                executor.submit(
+                    self._get_single_model_response_in_parallel,
+                    chat_core,
+                    model_id,
+                    question,
+                    image_paths,
+                    api_rag_payload,
+                    tool_ids,
+                    enable_follow_up,
+                ): model_id
+                for model_id in model_ids
+            }
+            for future in as_completed(future_to_model):
+                model_id = future_to_model[future]
+                try:
+                    content, sources, follow_ups = future.result()
+                    responses[model_id] = {
+                        "content": content,
+                        "sources": sources,
+                        "followUps": follow_ups,
+                    }
+                except Exception as exc:
+                    logger.error(f"Model '{model_id}' generated an exception: {exc}")
+                    responses[model_id] = {
+                        "content": None,
+                        "sources": [],
+                        "followUps": None,
+                    }
+
+        successful_responses = {
+            k: v for k, v in responses.items() if v.get("content") is not None
+        }
+        if not successful_responses:
+            logger.error("All models failed to respond.")
+            del chat_core["history"]["messages"][user_message_id]
+            return None
+        logger.info("Received all responses.")
+        assistant_message_ids = []
+        for model_id, resp_data in successful_responses.items():
+            assistant_id = str(uuid.uuid4())
+            assistant_message_ids.append(assistant_id)
+            storage_assistant_message = {
+                "id": assistant_id,
+                "parentId": user_message_id,
+                "childrenIds": [],
+                "role": "assistant",
+                "content": resp_data["content"],
+                "model": model_id,
+                "modelName": model_id.split(":")[0],
+                "timestamp": int(time.time()),
+                "done": True,
+                "sources": resp_data["sources"],
+            }
+            if "followUps" in resp_data:
+                storage_assistant_message["followUps"] = resp_data["followUps"]
+            chat_core["history"]["messages"][assistant_id] = storage_assistant_message
+
+        chat_core["history"]["messages"][user_message_id][
+            "childrenIds"
+        ] = assistant_message_ids
+        chat_core["history"]["currentId"] = assistant_message_ids[0]
+        chat_core["models"] = model_ids
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, assistant_message_ids[0]
+        )
+        existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+        chat_core.setdefault("files", []).extend(
+            [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+        )
+
+        logger.info("Updating chat history on the backend...")
+        logger.info("First update to save main responses...")
+        if self._update_remote_chat():
+            logger.info("Main responses saved successfully!")
+
+            # This part is simplified because follow-ups are already in the message objects.
+            # We just need to perform the final update if any follow-ups were generated.
+            if any(
+                r.get("followUps")
+                for r in successful_responses.values()
+                if r.get("followUps")
+            ):
+                logger.info("Updating chat again with follow-up suggestions...")
+                if self._update_remote_chat():
+                    logger.info("Follow-up suggestions saved successfully!")
+                else:
+                    logger.warning("Failed to save follow-up suggestions.")
+
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+
+            # Prepare a more detailed response object
+            final_responses = {
+                k: {"content": v["content"], "follow_ups": v.get("followUps")}
+                for k, v in successful_responses.items()
+            }
+
+            return_data = {
+                "responses": final_responses,
+                "chat_id": self.chat_id,
+                "message_ids": assistant_message_ids,
+            }
+
+            # Auto-tagging and auto-titling logic for parallel chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+            
+            return return_data
+
+        return None
 
     def stream_chat(
         self,
@@ -226,15 +424,117 @@ class OpenWebUIClient:
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
         enable_follow_up: bool = False,
+        cleanup_placeholder_messages: bool = False,  # New: Clean up placeholder messages
+        placeholder_pool_size: int = 30,  # New: Size of placeholder message pool (configurable)
+        min_available_messages: int = 10,  # New: Minimum available messages threshold
+        wait_before_request: float = 10.0,  # New: Wait time after initializing placeholders (seconds)
         enable_auto_tagging: bool = False,
         enable_auto_titling: bool = False,
-    ) -> Generator[str, None, None]:
-        """Stream a chat response in real-time."""
-        return self._chat_manager.stream_chat(
-            question, chat_title, model_id, folder_name, image_paths,
-            tags, rag_files, rag_collections, tool_ids,
-            enable_follow_up, enable_auto_tagging, enable_auto_titling
+    ) -> Generator[
+        str, None, Optional[Dict[str, Any]]
+    ]:
+        """
+        Initiates a streaming chat session. Yields content chunks as they are received.
+        At the end of the stream, returns the full response content, sources, and follow-up suggestions.
+        """
+        self.model_id = model_id or self.default_model_id
+        logger.info("=" * 60)
+        logger.info(
+            f"Processing STREAMING request: title='{chat_title}', model='{self.model_id}'"
         )
+        if folder_name:
+            logger.info(f"Folder: '{folder_name}'")
+        if tags:
+            logger.info(f"Tags: {tags}")
+        if image_paths:
+            logger.info(f"With images: {image_paths}")
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
+        logger.info("=" * 60)
+
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error("Chat object not loaded or malformed, cannot proceed with stream.")
+            return  # End generator
+
+        if not self.chat_id:
+            logger.error("Chat initialization failed, cannot proceed with stream.")
+            return  # Yield nothing, effectively end the generator
+
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.chat_id, folder_id)
+
+        try:
+            # 1. Ensure there are enough placeholder messages available
+            self._ensure_placeholder_messages(
+                placeholder_pool_size, min_available_messages
+            )
+
+            # 2. If this is the first streaming request and wait time is set, wait for specified seconds
+            if self._first_stream_request and wait_before_request > 0:
+                logger.info(
+                    f"⏱️ First stream request: Waiting {wait_before_request} seconds before requesting AI response..."
+                )
+                time.sleep(wait_before_request)
+                logger.info("⏱️ Wait completed, starting AI request...")
+                self._first_stream_request = False  # Mark as not first request
+
+            # 3. Call _ask_stream method, which now uses placeholder messages
+            final_response_content, final_sources, follow_ups = (
+                yield from self._ask_stream(
+                    question,
+                    image_paths,
+                    rag_files,
+                    rag_collections,
+                    tool_ids,
+                    enable_follow_up,
+                    cleanup_placeholder_messages,
+                    placeholder_pool_size,
+                    min_available_messages,
+                )
+            )
+
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+
+            return_data = {
+                "response": final_response_content,
+                "sources": final_sources,
+                "follow_ups": follow_ups,
+            }
+
+            # Auto-tagging and auto-titling logic for stream chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+
+            return return_data
+
+        except Exception as e:
+            logger.error(f"Error in stream_chat: {e}")
+            raise  # Re-raise the exception for the caller
 
     def continuous_chat(
         self,
@@ -1796,6 +2096,440 @@ class OpenWebUIClient:
                 f"Streaming Completions API Network Error for {active_model_id}: {e}"
             )
             raise
+
+    def _get_single_model_response_in_parallel(
+        self,
+        chat_core,
+        model_id,
+        question,
+        image_paths,
+        api_rag_payload,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+    ) -> Tuple[Optional[str], List, Optional[List[str]]]:
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for path in image_paths:
+                url = self._encode_image_to_base64(path)
+                if url:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": url}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+        content, sources = self._get_model_completion(
+            self.chat_id, api_messages, api_rag_payload, model_id, tool_ids
+        )
+
+        follow_ups = None
+        if content and enable_follow_up:
+            # To get follow-ups, we need the assistant's response in the history
+            temp_history_for_follow_up = api_messages + [
+                {"role": "assistant", "content": content}
+            ]
+            follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
+
+        return content, sources, follow_ups
+
+    def _ask_stream(
+        self,
+        question: str,
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+        cleanup_placeholder_messages: bool = False,
+        placeholder_pool_size: int = 30,
+        min_available_messages: int = 10,
+    ) -> Generator[str, None, Tuple[str, List, Optional[List[str]]]]:
+        if not self.chat_id:
+            raise ValueError("Chat ID not set. Initialize chat first.")
+
+        logger.info(f'Processing STREAMING question: "{question}"')
+        chat_core = self.chat_object_from_server["chat"]
+        chat_core["models"] = [self.model_id]
+
+        # 1. If cleanup of placeholder messages is needed, perform cleanup
+        if cleanup_placeholder_messages:
+            self._cleanup_unused_placeholder_messages()
+
+        # 2. Ensure there are enough placeholder messages available
+        self._ensure_placeholder_messages(placeholder_pool_size, min_available_messages)
+
+        # 3. Get the next available placeholder message ID pair
+        message_pair = self._get_next_available_message_pair()
+        if not message_pair:
+            logger.error(
+                "No available placeholder message pairs after ensuring, cannot proceed with stream."
+            )
+            raise RuntimeError("No available placeholder message pairs.")
+
+        user_message_id, assistant_message_id = message_pair
+
+        # 4. Preparation for API call
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
+        )
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for image_path in image_paths:
+                base64_image = self._encode_image_to_base64(image_path)
+                if base64_image:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": base64_image}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+
+        # --- Update local storage placeholder message content ---
+        # Find the corresponding user and assistant message objects
+        storage_user_message = chat_core["history"]["messages"][user_message_id]
+        storage_assistant_message = chat_core["history"]["messages"][
+            assistant_message_id
+        ]
+
+        # Update user message content and files
+        storage_user_message["content"] = question
+        storage_user_message["files"] = []  # Clear previous files and re-add
+        if image_paths:
+            for image_path in image_paths:
+                base64_url = self._encode_image_to_base64(image_path)
+                if base64_url:
+                    storage_user_message["files"].append(
+                        {"type": "image", "url": base64_url}
+                    )
+        storage_user_message["files"].extend(storage_rag_payloads)
+        storage_user_message["models"] = [self.model_id]  # Ensure correct model ID
+
+        # Ensure assistant message initial state is correct
+        storage_assistant_message["content"] = ""
+        storage_assistant_message["model"] = self.model_id
+        storage_assistant_message["modelName"] = self.model_id.split(":")[0]
+        storage_assistant_message["timestamp"] = int(time.time())
+        storage_assistant_message["done"] = False
+        storage_assistant_message["sources"] = []
+
+        # 5. Update user message content via delta event to trigger UI update
+        logger.info(f"📤 Updating user message content for {user_message_id[:8]}...")
+        self._stream_delta_update(self.chat_id, user_message_id, question)
+
+        # 6. Start streaming completion
+        logger.info(f"🔄 Starting streaming completion for {assistant_message_id[:8]}...")
+        try:
+            content_chunks = []
+            sources = []
+            
+            for chunk_content in self._get_model_completion_stream(
+                self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
+            ):
+                content_chunks.append(chunk_content)
+                yield chunk_content
+
+                # Update assistant message content incrementally
+                storage_assistant_message["content"] = "".join(content_chunks)
+                self._stream_delta_update(
+                    self.chat_id, assistant_message_id, storage_assistant_message["content"]
+                )
+
+            # Final content assembly
+            final_content = "".join(content_chunks)
+            storage_assistant_message["content"] = final_content
+            storage_assistant_message["done"] = True
+
+            # Get follow-ups if requested
+            follow_ups = None
+            if enable_follow_up and final_content:
+                temp_history_for_follow_up = api_messages + [
+                    {"role": "assistant", "content": final_content}
+                ]
+                follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
+                if follow_ups:
+                    storage_assistant_message["followUps"] = follow_ups
+
+            # Update chat core history
+            chat_core["history"]["currentId"] = assistant_message_id
+            chat_core["messages"] = self._build_linear_history_for_storage(
+                chat_core, assistant_message_id
+            )
+
+            # Add RAG files to chat
+            existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+            chat_core.setdefault("files", []).extend(
+                [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+            )
+
+            # Final update to remote
+            if self._update_remote_chat():
+                logger.info("✅ Streaming chat completed and saved successfully.")
+            else:
+                logger.warning("⚠️ Failed to save final streaming chat state.")
+
+            return final_content, sources, follow_ups
+
+        except Exception as e:
+            logger.error(f"❌ Error during streaming: {e}")
+            # Clean up on error
+            storage_assistant_message["content"] = f"Error: {str(e)}"
+            storage_assistant_message["done"] = True
+            raise e
+
+    def _ensure_placeholder_messages(self, pool_size: int, min_available: int) -> bool:
+        """
+        Ensures there are enough placeholder message pairs available for streaming.
+        Creates placeholder pairs if needed.
+        """
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.warning("No chat object available for placeholder message creation.")
+            return False
+
+        chat_core = self.chat_object_from_server["chat"]
+        chat_core.setdefault("history", {"messages": {}, "currentId": None})
+        
+        # Count available placeholder pairs
+        available_pairs = self._count_available_placeholder_pairs()
+        logger.info(f"🔍 Found {available_pairs} available placeholder message pairs.")
+
+        if available_pairs >= min_available:
+            logger.info(f"✅ Sufficient placeholder pairs available ({available_pairs} >= {min_available}).")
+            return True
+
+        # Create more placeholder pairs
+        pairs_to_create = pool_size - available_pairs
+        logger.info(f"🔧 Creating {pairs_to_create} new placeholder message pairs...")
+        
+        for i in range(pairs_to_create):
+            user_id = str(uuid.uuid4())
+            assistant_id = str(uuid.uuid4())
+            
+            # Create placeholder user message
+            user_message = {
+                "id": user_id,
+                "parentId": None,
+                "childrenIds": [assistant_id],
+                "role": "user",
+                "content": "PLACEHOLDER_USER_MESSAGE",
+                "files": [],
+                "models": [self.model_id],
+                "timestamp": int(time.time()),
+                "_is_placeholder": True,
+                "_is_available": True,
+            }
+            
+            # Create placeholder assistant message
+            assistant_message = {
+                "id": assistant_id,
+                "parentId": user_id,
+                "childrenIds": [],
+                "role": "assistant",
+                "content": "",
+                "model": self.model_id,
+                "modelName": self.model_id.split(":")[0],
+                "timestamp": int(time.time()),
+                "done": False,
+                "sources": [],
+                "_is_placeholder": True,
+                "_is_available": True,
+            }
+            
+            # Add to history
+            chat_core["history"]["messages"][user_id] = user_message
+            chat_core["history"]["messages"][assistant_id] = assistant_message
+
+        logger.info(f"✅ Created {pairs_to_create} placeholder message pairs.")
+        return True
+
+    def _count_available_placeholder_pairs(self) -> int:
+        """Count the number of available placeholder message pairs."""
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            return 0
+            
+        messages = self.chat_object_from_server["chat"].get("history", {}).get("messages", {})
+        available_pairs = 0
+        
+        for message in messages.values():
+            if (message.get("_is_placeholder") and 
+                message.get("_is_available") and 
+                message.get("role") == "user"):
+                # Check if corresponding assistant message is also available
+                children = message.get("childrenIds", [])
+                if children:
+                    assistant_message = messages.get(children[0])
+                    if (assistant_message and 
+                        assistant_message.get("_is_placeholder") and 
+                        assistant_message.get("_is_available")):
+                        available_pairs += 1
+        
+        return available_pairs
+
+    def _get_next_available_message_pair(self) -> Optional[Tuple[str, str]]:
+        """Get the next available placeholder message pair."""
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            return None
+            
+        messages = self.chat_object_from_server["chat"].get("history", {}).get("messages", {})
+        
+        for message in messages.values():
+            if (message.get("_is_placeholder") and 
+                message.get("_is_available") and 
+                message.get("role") == "user"):
+                children = message.get("childrenIds", [])
+                if children:
+                    assistant_id = children[0]
+                    assistant_message = messages.get(assistant_id)
+                    if (assistant_message and 
+                        assistant_message.get("_is_placeholder") and 
+                        assistant_message.get("_is_available")):
+                        # Mark as used
+                        message["_is_available"] = False
+                        assistant_message["_is_available"] = False
+                        return message["id"], assistant_id
+        
+        return None
+
+    def _cleanup_unused_placeholder_messages(self) -> int:
+        """Remove unused placeholder message pairs."""
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            return 0
+            
+        chat_core = self.chat_object_from_server["chat"]
+        messages = chat_core.get("history", {}).get("messages", {})
+        cleaned_count = 0
+        
+        # Find placeholder pairs that are still available (unused)
+        pairs_to_remove = []
+        for message in messages.values():
+            if (message.get("_is_placeholder") and 
+                message.get("_is_available") and 
+                message.get("role") == "user"):
+                children = message.get("childrenIds", [])
+                if children:
+                    assistant_id = children[0]
+                    assistant_message = messages.get(assistant_id)
+                    if (assistant_message and 
+                        assistant_message.get("_is_placeholder") and 
+                        assistant_message.get("_is_available")):
+                        pairs_to_remove.append((message["id"], assistant_id))
+        
+        # Remove the pairs
+        for user_id, assistant_id in pairs_to_remove:
+            if user_id in messages:
+                del messages[user_id]
+                cleaned_count += 1
+            if assistant_id in messages:
+                del messages[assistant_id]
+        
+        if cleaned_count > 0:
+            logger.info(f"🧹 Cleaned up {cleaned_count} unused placeholder message pairs.")
+        
+        return cleaned_count
+
+    def _stream_delta_update(self, chat_id: str, message_id: str, content: str) -> bool:
+        """Send a streaming delta update for a message."""
+        try:
+            url = f"{self.base_url}/api/v1/chats/{chat_id}/messages/{message_id}/delta"
+            payload = {"content": content}
+            response = self.session.post(url, json=payload, headers=self.json_headers)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to send delta update: {e}")
+            return False
+
+    def _get_model_completion_stream(
+        self,
+        chat_id: str,
+        messages: List[Dict[str, Any]],
+        files: List[Dict[str, Any]],
+        model_id: str,
+        tool_ids: Optional[List[str]] = None,
+    ) -> Generator[str, None, None]:
+        """Get streaming completion from the model."""
+        payload = {
+            "model": model_id,
+            "messages": messages,
+            "files": files,
+            "stream": True,
+        }
+        if tool_ids:
+            payload["tools"] = [{"type": "function", "function": {"name": tool_id}} for tool_id in tool_ids]
+
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/chat/completions",
+                json=payload,
+                headers=self.json_headers,
+                stream=True,
+            )
+            response.raise_for_status()
+
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data = line[6:]  # Remove 'data: ' prefix
+                        if data.strip() == '[DONE]':
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            if 'choices' in chunk and chunk['choices']:
+                                delta = chunk['choices'][0].get('delta', {})
+                                if 'content' in delta:
+                                    yield delta['content']
+                        except json.JSONDecodeError:
+                            continue
+
+        except Exception as e:
+            logger.error(f"Streaming completion failed: {e}")
+            raise e
+
+    def _handle_rag_references(
+        self, rag_files: Optional[List[str]], rag_collections: Optional[List[str]]
+    ) -> Tuple[List[Dict], List[Dict]]:
+        """Handle RAG file and collection references."""
+        api_payload, storage_payload = [], []
+        if rag_files:
+            logger.info("Processing RAG files...")
+            for file_path in rag_files:
+                if file_obj := self._upload_file(file_path):
+                    api_payload.append({"type": "file", "id": file_obj["id"]})
+                    storage_payload.append(
+                        {"type": "file", "file": file_obj, **file_obj}
+                    )
+        if rag_collections:
+            logger.info("Processing RAG knowledge base collections...")
+            for kb_name in rag_collections:
+                if kb_summary := self.get_knowledge_base_by_name(kb_name):
+                    if kb_details := self._get_knowledge_base_details(kb_summary["id"]):
+                        file_ids = [f["id"] for f in kb_details.get("files", [])]
+                        api_payload.append(
+                            {
+                                "type": "collection",
+                                "id": kb_details["id"],
+                                "name": kb_details.get("name"),
+                                "data": {"file_ids": file_ids},
+                            }
+                        )
+                        storage_payload.append({"type": "collection", **kb_details})
+                    else:
+                        logger.warning(
+                            f"Could not get details for knowledge base '{kb_name}', it will be skipped."
+                        )
+                else:
+                    logger.warning(
+                        f"Could not find knowledge base '{kb_name}', it will be skipped."
+                    )
+        return api_payload, storage_payload
 
     def _get_task_model(self) -> Optional[str]:
         """Get the task model for metadata operations."""
