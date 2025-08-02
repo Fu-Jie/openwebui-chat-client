@@ -20,7 +20,7 @@ class TestMetadataFeatures(unittest.TestCase):
                 "models": ["llama3"],
                 "history": {
                     "messages": {},
-                    "current_id": None,
+                    "currentId": None,
                 },
                 "messages": [],
             }

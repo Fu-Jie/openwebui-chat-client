@@ -116,7 +116,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         self.client.chat_id = "test-chat-id"
         self.client.chat_object_from_server = {
             "chat": {
-                "history": {"messages": {}, "current_id": None},
+                "history": {"messages": {}, "currentId": None},
                 "models": ["model1", "model2"],
             }
         }

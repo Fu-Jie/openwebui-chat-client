@@ -1054,7 +1054,7 @@ class OpenWebUIClient:
                     new_current_id = msg_id
                     break
 
-            chat_core["history"]["current_id"] = new_current_id
+            chat_core["history"]["currentId"] = new_current_id
             chat_core["messages"] = self._build_linear_history_for_storage(
                 chat_core, new_current_id
             )
@@ -1210,7 +1210,7 @@ class OpenWebUIClient:
         self, chat_data: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Build linear message history for API calls."""
-        history, current_id = [], chat_data.get("history", {}).get("current_id")
+        history, current_id = [], chat_data.get("history", {}).get("currentId")
         messages = chat_data.get("history", {}).get("messages", {})
         while current_id and current_id in messages:
             msg = messages[current_id]
@@ -1526,9 +1526,9 @@ class OpenWebUIClient:
                 assistant_message["done"] = True
                 
                 # Update chat object - ensure history structure exists
-                chat_data.setdefault("history", {"messages": {}, "current_id": None})
+                chat_data.setdefault("history", {"messages": {}, "currentId": None})
                 chat_data["history"]["messages"] = messages
-                chat_data["history"]["current_id"] = assistant_message_id
+                chat_data["history"]["currentId"] = assistant_message_id
                 
                 # Handle follow-up suggestions if enabled
                 follow_ups = None

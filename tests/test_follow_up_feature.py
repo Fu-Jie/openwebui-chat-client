@@ -49,7 +49,7 @@ class TestFollowUpFeature(unittest.TestCase):
                         "id": chat_id,
                         "title": title,
                         "models": ["test_model"],
-                        "history": {"messages": {}, "current_id": None},
+                        "history": {"messages": {}, "currentId": None},
                         "messages": [],
                     },
                 }
@@ -137,7 +137,7 @@ class TestFollowUpFeature(unittest.TestCase):
         self.assertIn("messages", follow_up_payload)
 
         # Check the final message has follow-ups
-        current_id = self.client.chat_object_from_server["chat"]["history"]["current_id"]
+        current_id = self.client.chat_object_from_server["chat"]["history"]["currentId"]
         self.assertIsNotNone(current_id, "current_id should not be None after chat operation")
         last_message = self.client.chat_object_from_server["chat"]["history"]["messages"][current_id]
         self.assertIn("followUps", last_message)

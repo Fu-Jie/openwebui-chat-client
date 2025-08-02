@@ -922,7 +922,7 @@ class ChatManager:
                 self.base_client.chat_id = chat_id
                 self.base_client.chat_object_from_server = details
                 chat_core = self.base_client.chat_object_from_server.setdefault("chat", {})
-                chat_core.setdefault("history", {"messages": {}, "current_id": None})
+                chat_core.setdefault("history", {"messages": {}, "currentId": None})
                 # Ensure 'models' is a list
                 models_list = chat_core.get("models", [])
                 if isinstance(models_list, list) and models_list:
@@ -949,7 +949,7 @@ class ChatManager:
         chat_core["models"] = [self.base_client.model_id]
         
         # Ensure chat_core has the required history structure
-        chat_core.setdefault("history", {"messages": {}, "current_id": None})
+        chat_core.setdefault("history", {"messages": {}, "currentId": None})
 
         api_rag_payload, storage_rag_payloads = self._handle_rag_references(
             rag_files, rag_collections
@@ -982,7 +982,7 @@ class ChatManager:
         logger.info("Successfully received model response.")
 
         user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
-            "current_id"
+            "currentId"
         )
         storage_user_message = {
             "id": user_message_id,
@@ -1028,7 +1028,7 @@ class ChatManager:
             assistant_message_id
         )
 
-        chat_core["history"]["current_id"] = assistant_message_id
+        chat_core["history"]["currentId"] = assistant_message_id
         chat_core["messages"] = self._build_linear_history_for_storage(
             chat_core, assistant_message_id
         )
@@ -1178,7 +1178,7 @@ class ChatManager:
         """Build linear message history for API calls."""
         history = chat_data.get("history", {})
         messages = history.get("messages", {})
-        current_id = history.get("current_id")
+        current_id = history.get("currentId")
         
         linear_messages = []
         if not current_id:

@@ -312,7 +312,7 @@ class TestOpenWebUIClient(unittest.TestCase):
         # Create a mock chat core with message history
         chat_core = {
             "history": {
-                "current_id": "msg3",
+                "currentId": "msg3",
                 "messages": {
                     "msg1": {
                         "id": "msg1",
@@ -353,7 +353,7 @@ class TestOpenWebUIClient(unittest.TestCase):
         """Test building linear history with image files."""
         chat_core = {
             "history": {
-                "current_id": "msg1",
+                "currentId": "msg1",
                 "messages": {
                     "msg1": {
                         "id": "msg1",
