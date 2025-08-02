@@ -1520,3 +1520,523 @@ class ChatManager:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to rename chat {chat_id}: {e}")
             return False
+
+    # =============================================================================
+    # CONTINUOUS CONVERSATION METHODS
+    # =============================================================================
+
+    def continuous_chat(
+        self,
+        initial_question: str,
+        num_questions: int,
+        chat_title: str,
+        model_id: Optional[str] = None,
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Perform continuous conversation with automatic follow-up questions.
+        
+        This method starts with an initial question and uses follow-up suggestions
+        to automatically continue the conversation for the specified number of rounds.
+        
+        Args:
+            initial_question: The starting question for the conversation
+            num_questions: Total number of questions to ask (including initial)
+            chat_title: Title for the chat conversation
+            model_id: Model to use (defaults to client's default model)
+            folder_name: Optional folder to organize the chat
+            image_paths: List of image file paths for multimodal chat (used only for initial question)
+            tags: List of tags to apply to the chat
+            rag_files: List of file paths for RAG context
+            rag_collections: List of knowledge base names for RAG
+            tool_ids: List of tool IDs to enable for this chat
+            enable_auto_tagging: Whether to automatically generate tags
+            enable_auto_titling: Whether to automatically generate title
+            
+        Returns:
+            Dictionary containing all conversation rounds, chat_id, and metadata
+        """
+        import random
+        
+        if num_questions < 1:
+            logger.error("num_questions must be at least 1")
+            return None
+            
+        logger.info("=" * 80)
+        logger.info(f"Starting CONTINUOUS CHAT: {num_questions} questions")
+        logger.info(f"Title: '{chat_title}', Model: '{model_id or self.base_client.default_model_id}'")
+        logger.info("=" * 80)
+        
+        conversation_history = []
+        current_question = initial_question
+        
+        # Initialize chat only once at the beginning
+        self.base_client.model_id = model_id or self.base_client.default_model_id
+        
+        # Use the parent client's method if available (for test mocking)
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
+            parent_client._find_or_create_chat_by_title(chat_title)
+        else:
+            self._find_or_create_chat_by_title(chat_title)
+            
+        if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
+            logger.error("Chat object not loaded or malformed, cannot proceed with continuous chat.")
+            return None
+
+        if not self.base_client.chat_id:
+            logger.error("Chat initialization failed, cannot proceed.")
+            return None
+
+        # Handle folder organization (only on first round)
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(folder_name)
+            if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.base_client.chat_id, folder_id)
+
+        # Apply tags (only on first round)
+        if tags:
+            parent_client = getattr(self.base_client, '_parent_client', None)
+            if parent_client and hasattr(parent_client, 'set_chat_tags'):
+                parent_client.set_chat_tags(self.base_client.chat_id, tags)
+            else:
+                self.set_chat_tags(self.base_client.chat_id, tags)
+        
+        for round_num in range(1, num_questions + 1):
+            logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
+            
+            # For the first round, use all parameters including images
+            # For subsequent rounds, only use text-based parameters
+            current_image_paths = image_paths if round_num == 1 else None
+            
+            # Enable follow-up for all rounds except the last one
+            enable_follow_up = round_num < num_questions
+            
+            # Use the internal _ask method directly to avoid re-creating the chat
+            parent_client = getattr(self.base_client, '_parent_client', None)
+            if parent_client and hasattr(parent_client, '_ask'):
+                response, message_id, follow_ups = parent_client._ask(
+                    current_question, current_image_paths, rag_files, rag_collections, 
+                    tool_ids, enable_follow_up
+                )
+            else:
+                response, message_id, follow_ups = self._ask(
+                    current_question, current_image_paths, rag_files, rag_collections, 
+                    tool_ids, enable_follow_up
+                )
+            
+            if not response:
+                logger.error(f"Failed to get response for round {round_num}, stopping conversation")
+                break
+                
+            # Store this round's conversation
+            round_data = {
+                "round": round_num,
+                "question": current_question,
+                "response": response,
+                "message_id": message_id,
+            }
+            
+            # Add follow-up suggestions if available
+            if follow_ups:
+                round_data["follow_ups"] = follow_ups
+                
+            conversation_history.append(round_data)
+            logger.info(f"✅ Round {round_num} completed")
+            
+            # Prepare next question if not the last round
+            if round_num < num_questions:
+                if follow_ups:
+                    # Randomly select a follow-up question
+                    current_question = random.choice(follow_ups)
+                    logger.info(f"🎲 Selected follow-up: {current_question}")
+                else:
+                    logger.warning(f"No follow-up suggestions available for round {round_num}")
+                    # Generate a generic follow-up question
+                    generic_follow_ups = [
+                        "Can you explain that in more detail?",
+                        "What are the implications of this?",
+                        "Can you provide an example?",
+                        "How does this relate to real-world applications?",
+                        "What are the potential challenges with this approach?"
+                    ]
+                    current_question = random.choice(generic_follow_ups)
+                    logger.info(f"🔄 Using generic follow-up: {current_question}")
+        
+        # Handle auto-tagging and auto-titling (only after all rounds complete)
+        final_result = {
+            "conversation_history": conversation_history,
+            "total_rounds": len(conversation_history),
+            "chat_id": self.base_client.chat_id,
+            "chat_title": chat_title,
+        }
+        
+        if conversation_history and (enable_auto_tagging or enable_auto_titling):
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.base_client.chat_object_from_server["chat"]
+            )
+
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    parent_client = getattr(self.base_client, '_parent_client', None)
+                    if parent_client and hasattr(parent_client, 'set_chat_tags'):
+                        parent_client.set_chat_tags(self.base_client.chat_id, suggested_tags)
+                    else:
+                        self.set_chat_tags(self.base_client.chat_id, suggested_tags)
+                    final_result["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= (num_questions * 2):  # Adjust threshold for continuous conversation
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    parent_client = getattr(self.base_client, '_parent_client', None)
+                    if parent_client and hasattr(parent_client, 'rename_chat'):
+                        parent_client.rename_chat(self.base_client.chat_id, suggested_title)
+                    else:
+                        self.rename_chat(self.base_client.chat_id, suggested_title)
+                    final_result["suggested_title"] = suggested_title
+        
+        logger.info(f"\n🎉 Continuous chat completed: {len(conversation_history)} rounds")
+        return final_result
+
+    def continuous_parallel_chat(
+        self,
+        initial_question: str,
+        num_questions: int,
+        chat_title: str,
+        model_ids: List[str],
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Perform continuous conversation with multiple models in parallel.
+        
+        This method starts with an initial question and uses follow-up suggestions
+        to automatically continue the conversation across multiple models for the 
+        specified number of rounds.
+        
+        Args:
+            initial_question: The starting question for the conversation
+            num_questions: Total number of questions to ask (including initial)
+            chat_title: Title for the chat conversation
+            model_ids: List of model IDs to query in parallel
+            folder_name: Optional folder to organize the chat
+            image_paths: List of image file paths for multimodal chat (used only for initial question)
+            tags: List of tags to apply to the chat
+            rag_files: List of file paths for RAG context
+            rag_collections: List of knowledge base names for RAG
+            tool_ids: List of tool IDs to enable for this chat
+            enable_auto_tagging: Whether to automatically generate tags
+            enable_auto_titling: Whether to automatically generate title
+            
+        Returns:
+            Dictionary containing all conversation rounds, chat_id, and metadata
+        """
+        import random
+        
+        if num_questions < 1:
+            logger.error("num_questions must be at least 1")
+            return None
+            
+        if not model_ids:
+            logger.error("model_ids list cannot be empty for continuous parallel chat")
+            return None
+            
+        logger.info("=" * 80)
+        logger.info(f"Starting CONTINUOUS PARALLEL CHAT: {num_questions} questions")
+        logger.info(f"Title: '{chat_title}', Models: {model_ids}")
+        logger.info("=" * 80)
+        
+        conversation_history = []
+        current_question = initial_question
+        
+        for round_num in range(1, num_questions + 1):
+            logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
+            
+            # For the first round, use all parameters including images
+            # For subsequent rounds, only use text-based parameters
+            current_image_paths = image_paths if round_num == 1 else None
+            
+            # Enable follow-up for all rounds except the last one
+            enable_follow_up = round_num < num_questions
+            
+            result = self.parallel_chat(
+                question=current_question,
+                chat_title=chat_title,
+                model_ids=model_ids,
+                folder_name=folder_name,
+                image_paths=current_image_paths,
+                tags=tags if round_num == 1 else None,  # Only apply tags on first round
+                rag_files=rag_files,
+                rag_collections=rag_collections,
+                tool_ids=tool_ids,
+                enable_follow_up=enable_follow_up,
+                enable_auto_tagging=enable_auto_tagging if round_num == 1 else False,  # Only on first round
+                enable_auto_titling=enable_auto_titling if round_num == 1 else False,  # Only on first round
+            )
+            
+            if not result:
+                logger.error(f"Failed to get responses for round {round_num}, stopping conversation")
+                break
+                
+            # Store this round's conversation
+            round_data = {
+                "round": round_num,
+                "question": current_question,
+                "responses": result["responses"],  # Multiple model responses
+            }
+            
+            # Collect follow-up suggestions from all models
+            all_follow_ups = []
+            for model_id, model_result in result["responses"].items():
+                if "follow_ups" in model_result:
+                    all_follow_ups.extend(model_result["follow_ups"])
+            
+            if all_follow_ups:
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_follow_ups = []
+                for follow_up in all_follow_ups:
+                    if follow_up not in seen:
+                        seen.add(follow_up)
+                        unique_follow_ups.append(follow_up)
+                round_data["follow_ups"] = unique_follow_ups
+                
+            conversation_history.append(round_data)
+            logger.info(f"✅ Round {round_num} completed with {len(result['responses'])} model responses")
+            
+            # Prepare next question if not the last round
+            if round_num < num_questions:
+                follow_ups = round_data.get("follow_ups", [])
+                if follow_ups:
+                    # Randomly select a follow-up question
+                    current_question = random.choice(follow_ups)
+                    logger.info(f"🎲 Selected follow-up: {current_question}")
+                else:
+                    logger.warning(f"No follow-up suggestions available for round {round_num}")
+                    # Generate a generic follow-up question
+                    generic_follow_ups = [
+                        "Can you explain that in more detail?",
+                        "What are the implications of this?",
+                        "Can you provide an example?",
+                        "How does this relate to real-world applications?",
+                        "What are the potential challenges with this approach?"
+                    ]
+                    current_question = random.choice(generic_follow_ups)
+                    logger.info(f"🔄 Using generic follow-up: {current_question}")
+        
+        # Prepare final result
+        final_result = {
+            "conversation_history": conversation_history,
+            "total_rounds": len(conversation_history),
+            "chat_id": self.base_client.chat_id,
+            "chat_title": chat_title,
+            "model_ids": model_ids,
+        }
+        
+        # Include metadata from the first round if available
+        if conversation_history and len(conversation_history) > 0:
+            first_round_result = result  # This is the result from the last successful round
+            if "suggested_tags" in first_round_result:
+                final_result["suggested_tags"] = first_round_result["suggested_tags"]
+            if "suggested_title" in first_round_result:
+                final_result["suggested_title"] = first_round_result["suggested_title"]
+        
+        logger.info(f"\n🎉 Continuous parallel chat completed: {len(conversation_history)} rounds")
+        return final_result
+
+    def continuous_stream_chat(
+        self,
+        initial_question: str,
+        num_questions: int,
+        chat_title: str,
+        model_id: Optional[str] = None,
+        folder_name: Optional[str] = None,
+        image_paths: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_auto_tagging: bool = False,
+        enable_auto_titling: bool = False,
+    ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
+        """
+        Perform continuous conversation with streaming responses.
+        
+        This method starts with an initial question and uses follow-up suggestions
+        to automatically continue the conversation for the specified number of rounds.
+        Each response is streamed in real-time.
+        
+        Args:
+            initial_question: The starting question for the conversation
+            num_questions: Total number of questions to ask (including initial)
+            chat_title: Title for the chat conversation
+            model_id: Model to use (defaults to client's default model)
+            folder_name: Optional folder to organize the chat
+            image_paths: List of image file paths for multimodal chat (used only for initial question)
+            tags: List of tags to apply to the chat
+            rag_files: List of file paths for RAG context
+            rag_collections: List of knowledge base names for RAG
+            tool_ids: List of tool IDs to enable for this chat
+            enable_auto_tagging: Whether to automatically generate tags
+            enable_auto_titling: Whether to automatically generate title
+            
+        Yields:
+            Dictionaries containing streaming chunks and metadata for each round
+            
+        Returns:
+            Final conversation summary when streaming completes
+        """
+        import random
+        
+        if num_questions < 1:
+            logger.error("num_questions must be at least 1")
+            return
+            
+        logger.info("=" * 80)
+        logger.info(f"Starting CONTINUOUS STREAMING CHAT: {num_questions} questions")
+        logger.info(f"Title: '{chat_title}', Model: '{model_id or self.base_client.default_model_id}'")
+        logger.info("=" * 80)
+        
+        conversation_history = []
+        current_question = initial_question
+        
+        for round_num in range(1, num_questions + 1):
+            logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
+            
+            # Yield round start information
+            yield {
+                "type": "round_start",
+                "round": round_num,
+                "question": current_question,
+                "total_rounds": num_questions
+            }
+            
+            # For the first round, use all parameters including images
+            # For subsequent rounds, only use text-based parameters
+            current_image_paths = image_paths if round_num == 1 else None
+            
+            # Enable follow-up for all rounds except the last one
+            enable_follow_up = round_num < num_questions
+            
+            # Collect streaming response
+            collected_content = ""
+            try:
+                stream_generator = self.stream_chat(
+                    question=current_question,
+                    chat_title=chat_title,
+                    model_id=model_id,
+                    folder_name=folder_name,
+                    image_paths=current_image_paths,
+                    tags=tags if round_num == 1 else None,  # Only apply tags on first round
+                    rag_files=rag_files,
+                    rag_collections=rag_collections,
+                    tool_ids=tool_ids,
+                    enable_follow_up=enable_follow_up,
+                    enable_auto_tagging=enable_auto_tagging if round_num == 1 else False,  # Only on first round
+                    enable_auto_titling=enable_auto_titling if round_num == 1 else False,  # Only on first round
+                )
+                
+                # Stream the response chunks
+                for chunk in stream_generator:
+                    collected_content += chunk
+                    yield {
+                        "type": "content_chunk",
+                        "round": round_num,
+                        "chunk": chunk,
+                        "accumulated_content": collected_content
+                    }
+                
+                # Try to get follow-up information from the stream generator
+                follow_ups = []
+                try:
+                    # Some stream implementations might provide additional data
+                    final_content, sources, stream_follow_ups = stream_generator.value
+                    if stream_follow_ups:
+                        follow_ups = stream_follow_ups
+                except (AttributeError, ValueError):
+                    # If stream doesn't provide follow-ups directly, we might need to
+                    # get them through a separate call, but for now we'll skip this
+                    pass
+                
+                # Store this round's conversation
+                round_data = {
+                    "round": round_num,
+                    "question": current_question,
+                    "response": collected_content,
+                }
+                
+                if follow_ups:
+                    round_data["follow_ups"] = follow_ups
+                    
+                conversation_history.append(round_data)
+                
+                # Yield round completion
+                yield {
+                    "type": "round_complete",
+                    "round": round_num,
+                    "response": collected_content,
+                    "follow_ups": follow_ups
+                }
+                
+                logger.info(f"✅ Round {round_num} streaming completed")
+                
+                # Prepare next question if not the last round
+                if round_num < num_questions:
+                    if follow_ups:
+                        # Randomly select a follow-up question
+                        current_question = random.choice(follow_ups)
+                        logger.info(f"🎲 Selected follow-up: {current_question}")
+                    else:
+                        logger.warning(f"No follow-up suggestions available for round {round_num}")
+                        # Generate a generic follow-up question
+                        generic_follow_ups = [
+                            "Can you explain that in more detail?",
+                            "What are the implications of this?",
+                            "Can you provide an example?",
+                            "How does this relate to real-world applications?",
+                            "What are the potential challenges with this approach?"
+                        ]
+                        current_question = random.choice(generic_follow_ups)
+                        logger.info(f"🔄 Using generic follow-up: {current_question}")
+                        
+            except Exception as e:
+                logger.error(f"Failed to stream response for round {round_num}: {e}")
+                yield {
+                    "type": "round_error",
+                    "round": round_num,
+                    "error": str(e)
+                }
+                break
+        
+        # Prepare final result
+        final_result = {
+            "conversation_history": conversation_history,
+            "total_rounds": len(conversation_history),
+            "chat_id": self.base_client.chat_id,
+            "chat_title": chat_title,
+        }
+        
+        # Yield completion summary
+        yield {
+            "type": "conversation_complete",
+            "summary": final_result
+        }
+        
+        logger.info(f"\n🎉 Continuous streaming chat completed: {len(conversation_history)} rounds")
+        return final_result
