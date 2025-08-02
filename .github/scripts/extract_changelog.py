@@ -26,8 +26,12 @@ def extract_version_changelog(changelog_path, version):
         print(f"Error: CHANGELOG.md not found at {changelog_path}")
         return None
     
-    # Pattern to match version headers like "## [0.1.12] - 2025-07-27"
-    version_pattern = rf'^## \[{re.escape(version)}\] - (.+)$'
+    # Handle "Unreleased" entries with special pattern
+    if version.lower() == "unreleased" or version == "未发布":
+        version_pattern = r'^## \[(Unreleased|未发布)\]'
+    else:
+        # Pattern to match version headers like "## [0.1.12] - 2025-07-27"
+        version_pattern = rf'^## \[{re.escape(version)}\] - (.+)$'
     
     lines = content.split('\n')
     start_idx = None
@@ -47,7 +51,7 @@ def extract_version_changelog(changelog_path, version):
     for i in range(start_idx + 1, len(lines)):
         line = lines[i]
         # Check if this is another version header
-        if re.match(r'^## \[.+\] - .+$', line):
+        if re.match(r'^## \[.+\]', line):
             end_idx = i
             break
         # Check for horizontal rule separator

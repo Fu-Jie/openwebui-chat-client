@@ -15,6 +15,7 @@ jobs:
     outputs:
       tag: ${{ steps.get_version.outputs.tag }}
       created: ${{ steps.tag_creation.outputs.created }}
+      should_release: ${{ steps.get_version.outputs.should_release }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,12 +30,38 @@ jobs:
             echo "Could not extract version from CHANGELOG.md"
             exit 1
           fi
+          
+          # Check if this is an "Unreleased" entry
+          if [ "$VERSION" = "Unreleased" ] || [ "$VERSION" = "未发布" ]; then
+            echo "🚫 Found Unreleased section in CHANGELOG.md"
+            echo "This indicates development changes, not a release."
+            echo "To trigger a release, convert [Unreleased] to [X.Y.Z] with proper version number."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Validate version format (X.Y.Z)
+          if ! echo "$VERSION" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$'; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Version must follow semantic versioning (e.g., 1.2.3 or 1.2.3-beta.1)"
+            exit 1
+          fi
+          
+          echo "✅ Valid release version found: $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "should_release=true" >> $GITHUB_OUTPUT
 
       - name: Check tag and create if it does not exist
         id: tag_creation
         run: |
+          # Skip if this is not a release version
+          if [ "${{ steps.get_version.outputs.should_release }}" != "true" ]; then
+            echo "⏭️  Skipping tag creation - not a release version"
+            echo "created=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
           TAG=${{ steps.get_version.outputs.tag }}
           echo "Checking for tag $TAG..."
           if git rev-parse "$TAG" >/dev/null 2>&1; then
@@ -73,6 +100,27 @@ jobs:
     - name: Run tests
       run: |
         python -m unittest discover -s tests -p "test_*.py" -v
+
+  skip-release-notification:
+    runs-on: ubuntu-latest
+    needs: create_tag
+    if: needs.create_tag.outputs.should_release == 'false'
+    steps:
+    - name: Notify Skip Release
+      run: |
+        echo "🔄 CHANGELOG update detected but not triggering release"
+        echo ""
+        echo "The CHANGELOG.md was updated with [Unreleased] changes."
+        echo "This follows the established changelog management workflow:"
+        echo ""
+        echo "📋 Current State: Development changes documented in [Unreleased] section"
+        echo "🚀 To Release: Convert [Unreleased] to [X.Y.Z] with proper version number"
+        echo ""
+        echo "The publish workflow will trigger automatically when:"
+        echo "1. [Unreleased] is changed to a proper semantic version (e.g., [0.1.14])"
+        echo "2. The version follows the format: X.Y.Z or X.Y.Z-suffix"
+        echo ""
+        echo "✅ No action needed - this is expected behavior for development changes."
 
   build-and-publish:
     runs-on: ubuntu-latest
