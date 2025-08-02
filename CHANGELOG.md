@@ -2,31 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.999] - 2025-01-01
-
-### Added in 0.1.999
-- **Modular Architecture Refactor**: Complete refactoring of the monolithic client into a modular architecture
-  - `core/base_client.py`: Core HTTP functionality, authentication, and session management
-  - `modules/model_manager.py`: Model CRUD operations, permissions, and group management  
-  - `modules/notes_manager.py`: Notes API operations and metadata management
-  - `modules/knowledge_base_manager.py`: Knowledge base CRUD, file management, and batch operations
-  - `modules/file_manager.py`: File uploads, image encoding, and validation
-  - `modules/chat_manager.py`: Chat operations, streaming, and conversation management
-- **Backward Compatibility**: 100% backward compatibility maintained with all existing API methods
-- **Missing Method Implementation**: Added critical missing methods from original implementation
-  - `_get_single_model_response_in_parallel`: Parallel chat functionality
-  - `_get_title`: Title generation for conversations  
-  - `_get_model_completion`: Core model completion functionality
-  - `_get_follow_up_completions`: Follow-up suggestion generation
-- **Fixed Return Values**: Corrected method return formats to match test expectations
-  - `delete_knowledge_bases_by_keyword`: Now returns (successful, failed, names) tuple
-  - Batch operations now return expected dictionary formats
-
-### Changed in 0.1.999
-- **Code Organization**: Separated concerns into specialized managers while maintaining single entry point
-- **Method Signatures**: Fixed `_build_linear_history_for_storage` to accept correct parameters
-- **API Endpoints**: Aligned endpoints with test expectations for seamless compatibility
-
 ## [0.1.13] - 2025-07-28
 
 ### Added in 0.1.13
