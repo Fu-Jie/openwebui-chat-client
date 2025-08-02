@@ -2,6 +2,56 @@
 
 本项目的所有显著更改都将记录在此文件中。
 
+## [未发布]
+
+### 未发布版本中新增
+
+- **模块化架构重构**: 将代码库完全重构为模块化组件：
+  - `openwebui_chat_client/core/base_client.py`: 核心客户端功能基类
+  - `openwebui_chat_client/modules/chat_manager.py`: 专用聊天管理模块
+  - `openwebui_chat_client/modules/file_manager.py`: 文件操作管理
+  - `openwebui_chat_client/modules/knowledge_base_manager.py`: 知识库操作
+  - `openwebui_chat_client/modules/model_manager.py`: 模型管理功能
+  - `openwebui_chat_client/modules/notes_manager.py`: 笔记 API 管理
+- **增强的集成测试系统**: 全面的集成测试基础设施：
+  - `.github/INTEGRATION_TESTING.md`: 详细的集成测试文档
+  - `.github/scripts/detect_required_tests.py`: 基于文件变更的智能测试检测
+  - `.github/scripts/run_all_integration_tests.py`: 自动化集成测试运行器
+  - `.github/test-mapping.yml`: 选择性测试执行配置
+  - `.github/workflows/integration-test.yml`: 集成测试的 GitHub Actions 工作流
+- **改进的开发基础设施**: 增强的开发工具和文档：
+  - `.clinerules/`: 项目特定的开发指南和规则
+  - `.github/copilot-instructions.md`: 全面的 Copilot 开发指南
+  - 增强的 GitHub 测试和发布工作流
+  - 改进的项目文档结构
+- **扩展的示例套件**: 新的全面示例和工具：
+  - `examples/advanced_features/archive_chats.py`: 聊天归档功能演示
+  - `examples/chat_features/model_switching.py`: 模型切换示例
+  - `examples/config/`: 配置和环境设置示例
+  - `examples/utils/`: 示例脚本的共享工具
+  - 增强的 `examples/README.md` 文档
+- **全面的测试套件**: 使用新测试文件扩展测试覆盖：
+  - `tests/test_archive_functionality.py`: 归档功能测试
+  - `tests/test_changelog_extraction.py`: 更新日志处理测试
+  - `tests/test_documentation_structure.py`: 文档验证测试
+  - `tests/test_model_permissions.py`: 模型权限测试
+
+### 未发布版本中的变更
+
+- **代码组织**: 从单体结构迁移到模块化架构，同时保持向后兼容性
+- **API 响应验证**: 修复了 API 响应验证和数据格式不匹配的关键问题
+- **状态同步**: 解决了客户端和服务器之间的状态同步问题
+- **测试基础设施**: 改进了测试可靠性和集成测试连接性
+- **文档**: 全面更新所有文档文件，提高清晰度和完整性
+
+### 未发布版本中的修复
+
+- **关键测试失败**: 解决了与模块化重构相关的多个测试失败
+- **API 数据格式问题**: 修复了 API 响应中的数据格式不匹配
+- **状态管理**: 纠正了状态同步问题
+- **模型配置**: 修复了任务模型配置问题
+- **集成连接性**: 解决了集成测试连接性问题
+
 ## [0.1.13] - 2025-07-28
 
 ### 0.1.13 中新增
