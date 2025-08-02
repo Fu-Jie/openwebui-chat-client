@@ -11,7 +11,6 @@ on:
       base_url:
         description: 'OpenWebUI Base URL'
         required: false
-        default: 'https://your-openwebui-instance.com'
       auth_token:
         description: 'OpenWebUI Auth Token'
         required: false
