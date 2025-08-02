@@ -2,6 +2,20 @@
 
 本项目的所有显著更改都将记录在此文件中。
 
+## [未发布]
+
+### 新增
+- **连续对话功能**: 新的高级对话自动化功能
+  - `continuous_chat()`: 使用追问建议进行单模型自动多轮对话
+  - `continuous_parallel_chat()`: 并行多模型自动多轮对话
+  - `continuous_stream_chat()`: 实时流式响应的自动多轮对话
+  - 自动追问生成和随机选择，实现自然对话流程
+  - 当无追问可用时提供通用回退问题，确保对话连续性
+  - 支持所有现有聊天参数：模型选择、文件夹、标签、RAG文件/集合、工具等
+  - 全面的对话历史跟踪和元数据收集
+  - 在 `tests/test_continuous_conversation.py` 中提供专门的单元测试，覆盖率完整
+  - 在 `examples/advanced_features/continuous_conversation.py` 中提供演示示例
+
 ## [0.1.14] - 2025-01-27
 
 ### 0.1.14 中新增

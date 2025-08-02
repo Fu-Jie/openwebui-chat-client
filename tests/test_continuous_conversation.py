@@ -171,8 +171,7 @@ class TestContinuousConversation(unittest.TestCase):
         self.assertIsNone(result)
 
     @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")
-    @patch.object(OpenWebUIClient, "_get_parallel_model_responses")
-    def test_continuous_parallel_chat_success(self, mock_parallel_responses, mock_find_create):
+    def test_continuous_parallel_chat_success(self, mock_find_create):
         """Test continuous parallel chat with multiple models."""
         # Setup mocks
         self.client.chat_id = "test-chat-id"
@@ -183,54 +182,55 @@ class TestContinuousConversation(unittest.TestCase):
             }
         }
         
-        # Setup mock responses
-        mock_parallel_responses.side_effect = [
-            {
-                "model1": {
-                    "content": "Model 1 response",
-                    "sources": [],
-                    "follow_ups": ["Question 1", "Question 2"]
+        # Mock the ChatManager's _get_parallel_model_responses method
+        with patch.object(self.client._chat_manager, '_get_parallel_model_responses') as mock_parallel_responses:
+            mock_parallel_responses.side_effect = [
+                {
+                    "model1": {
+                        "content": "Model 1 response",
+                        "sources": [],
+                        "follow_ups": ["Question 1", "Question 2"]
+                    },
+                    "model2": {
+                        "content": "Model 2 response", 
+                        "sources": [],
+                        "follow_ups": ["Question 3"]
+                    }
                 },
-                "model2": {
-                    "content": "Model 2 response", 
-                    "sources": [],
-                    "follow_ups": ["Question 3"]
+                {
+                    "model1": {
+                        "content": "Model 1 second response",
+                        "sources": [],
+                        "follow_ups": []
+                    },
+                    "model2": {
+                        "content": "Model 2 second response",
+                        "sources": [],
+                        "follow_ups": []
+                    }
                 }
-            },
-            {
-                "model1": {
-                    "content": "Model 1 second response",
-                    "sources": [],
-                    "follow_ups": []
-                },
-                "model2": {
-                    "content": "Model 2 second response",
-                    "sources": [],
-                    "follow_ups": []
-                }
-            }
-        ]
+            ]
 
-        with patch('random.choice') as mock_choice:
-            mock_choice.return_value = "Question 1"
+            with patch('random.choice') as mock_choice:
+                mock_choice.return_value = "Question 1"
+                
+                result = self.client.continuous_parallel_chat(
+                    initial_question="Hello",
+                    num_questions=2,
+                    chat_title="Test Continuous Parallel Chat",
+                    model_ids=["model1", "model2"]
+                )
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["total_rounds"], 2)
+            self.assertEqual(len(result["conversation_history"]), 2)
+            self.assertIn("model_ids", result)
+            self.assertEqual(result["model_ids"], ["model1", "model2"])
             
-            result = self.client.continuous_parallel_chat(
-                initial_question="Hello",
-                num_questions=2,
-                chat_title="Test Continuous Parallel Chat",
-                model_ids=["model1", "model2"]
-            )
-
-        self.assertIsNotNone(result)
-        self.assertEqual(result["total_rounds"], 2)
-        self.assertEqual(len(result["conversation_history"]), 2)
-        self.assertIn("model_ids", result)
-        self.assertEqual(result["model_ids"], ["model1", "model2"])
-        
-        # Check that follow-ups were collected from all models
-        self.assertEqual(result["conversation_history"][0]["follow_ups"], ["Question 1", "Question 2", "Question 3"])
-        self.assertEqual(mock_parallel_responses.call_count, 2)
-        mock_find_create.assert_called_once_with("Test Continuous Parallel Chat")
+            # Check that follow-ups were collected from all models
+            self.assertEqual(result["conversation_history"][0]["follow_ups"], ["Question 1", "Question 2", "Question 3"])
+            self.assertEqual(mock_parallel_responses.call_count, 2)
+            mock_find_create.assert_called_once_with("Test Continuous Parallel Chat")
 
     def test_continuous_parallel_chat_empty_model_ids(self):
         """Test continuous parallel chat with empty model IDs."""
