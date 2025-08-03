@@ -1851,55 +1851,7 @@ class OpenWebUIClient:
             logger.error(f"_ask failed: {e}")
             return None, None, None
 
-    def _ask_stream(
-        self,
-        question: str,
-        image_paths: Optional[List[str]] = None,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
-        tool_ids: Optional[List[str]] = None,
-        enable_follow_up: bool = False,
-        cleanup_placeholder_messages: bool = False,
-        placeholder_pool_size: int = 30,
-        min_available_messages: int = 10,
-    ) -> Generator[str, None, Tuple[str, List, Optional[List[str]]]]:
-        """Internal method for making streaming chat requests."""
-        if not self.chat_id:
-            raise ValueError("Chat ID not set. Initialize chat first.")
 
-        # For now, delegate to the chat manager's stream_chat method
-        # This is a simplified implementation for backward compatibility
-        try:
-            generator = self._chat_manager.stream_chat(
-                question=question,
-                chat_title=None,  # Use existing chat
-                model_id=self.model_id,
-                image_paths=image_paths,
-                rag_files=rag_files,
-                rag_collections=rag_collections,
-                tool_ids=tool_ids,
-                enable_follow_up=enable_follow_up
-            )
-            
-            # Yield the streaming content and return final result
-            final_response = ""
-            for chunk in generator:
-                if isinstance(chunk, str):
-                    final_response += chunk
-                    yield chunk
-                elif isinstance(chunk, dict):
-                    # Final result
-                    response = chunk.get("response", final_response)
-                    sources = chunk.get("sources", [])
-                    follow_up = chunk.get("suggested_follow_ups")
-                    return response, sources, follow_up
-            
-            # If we reach here, return the accumulated response
-            return final_response, [], None
-            
-        except Exception as e:
-            logger.error(f"_ask_stream failed: {e}")
-            return "", [], None
 
     def _get_follow_up_completions(
         self, messages: List[Dict[str, Any]]
@@ -2022,80 +1974,7 @@ class OpenWebUIClient:
             logger.error(f"Completions API Network Error for {active_model_id}: {e}")
             return None, []
 
-    def _get_model_completion_stream(
-        self,
-        chat_id: str,
-        messages: List[Dict[str, Any]],
-        api_rag_payload: Optional[List[Dict]] = None,
-        model_id: Optional[str] = None,
-        tool_ids: Optional[List[str]] = None,
-    ) -> Generator[str, None, List]:
-        """Get streaming completion from a model."""
-        active_model_id = model_id or self.model_id
-        payload = {
-            "model": active_model_id,
-            "messages": messages,
-            "stream": True,  # Enable streaming
-        }
-        if api_rag_payload:
-            payload["files"] = api_rag_payload
-        if tool_ids:
-            payload["tool_ids"] = tool_ids
 
-        logger.debug(
-            f"Sending STREAMING completion request: {json.dumps(payload, indent=2)}"
-        )
-
-        try:
-            # Use stream=True to keep the connection open
-            with self.session.post(
-                f"{self.base_url}/api/chat/completions",
-                json=payload,
-                headers=self.json_headers,
-                stream=True,  # Enable streaming on requests session
-            ) as response:
-                response.raise_for_status()
-
-                sources = []
-
-                for line in response.iter_lines():
-                    if line:
-                        decoded_line = line.decode("utf-8")
-                        if decoded_line.startswith("data:"):
-                            json_data = decoded_line[len("data:") :].strip()
-                            if json_data == "[DONE]":
-                                break
-
-                            try:
-                                data = json.loads(json_data)
-                                if "choices" in data and len(data["choices"]) > 0:
-                                    delta = data["choices"][0].get("delta", {})
-                                    content_chunk = delta.get("content", "")
-
-                                    # Handle sources if they come in streaming chunks (though usually at end)
-                                    if "sources" in data:
-                                        sources.extend(data["sources"])
-
-                                    if content_chunk:
-                                        yield content_chunk  # Yield each chunk of content
-
-                                # Handle final sources if they are sent as part of a non-delta message at the end
-                                if (
-                                    "sources" in data and not sources
-                                ):  # Only if sources haven't been collected yet
-                                    sources.extend(data["sources"])
-
-                            except json.JSONDecodeError:
-                                logger.warning(
-                                    f"Failed to decode JSON from stream: {json_data}"
-                                )
-                                continue
-                return sources  # Return sources at the end of the generator
-        except requests.exceptions.RequestException as e:
-            logger.error(
-                f"Streaming Completions API Network Error for {active_model_id}: {e}"
-            )
-            raise
 
     def _get_single_model_response_in_parallel(
         self,
@@ -2434,64 +2313,122 @@ class OpenWebUIClient:
         
         return cleaned_count
 
-    def _stream_delta_update(self, chat_id: str, message_id: str, content: str) -> bool:
-        """Send a streaming delta update for a message."""
-        try:
-            url = f"{self.base_url}/api/v1/chats/{chat_id}/messages/{message_id}/delta"
-            payload = {"content": content}
-            response = self.session.post(url, json=payload, headers=self.json_headers)
-            response.raise_for_status()
-            return True
-        except Exception as e:
-            logger.warning(f"Failed to send delta update: {e}")
-            return False
+    def _stream_delta_update(
+        self, chat_id: str, message_id: str, delta_content: str
+    ) -> None:
+        """
+        Push incremental content in real-time to the specified message of the specified chat to achieve a typewriter effect.
+        Use asynchronous execution to avoid blocking the main process.
+
+        Args:
+            chat_id: Chat ID
+            message_id: Message ID
+            delta_content: Incremental content
+        """
+        if not delta_content.strip():  # Skip empty content
+            return
+
+        def _send_delta_update():
+            """Internal function for asynchronous real-time updates"""
+            url = f"{self.base_url}/api/v1/chats/{chat_id}/messages/{message_id}/event"
+            payload = {"type": "chat:message:delta", "data": {"content": delta_content}}
+
+            try:
+                # Use a longer timeout to ensure the request can complete
+                response = self.session.post(
+                    url, json=payload, headers=self.json_headers, timeout=3.0  # 3 second timeout
+                )
+                response.raise_for_status()
+                logger.debug(
+                    f"✅ Delta update sent successfully for message {message_id[:8]}..."
+                )
+            except Exception as e:
+                # Silently handle errors without affecting the main process
+                logger.debug(
+                    f"⚠️ Delta update failed for message {message_id[:8]}...: {e}"
+                )
+
+        # Use ThreadPoolExecutor for asynchronous execution to avoid blocking the main process
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(_send_delta_update)
 
     def _get_model_completion_stream(
         self,
         chat_id: str,
         messages: List[Dict[str, Any]],
-        files: List[Dict[str, Any]],
-        model_id: str,
+        api_rag_payload: Optional[List[Dict]] = None,
+        model_id: Optional[str] = None,
         tool_ids: Optional[List[str]] = None,
-    ) -> Generator[str, None, None]:
-        """Get streaming completion from the model."""
+    ) -> Generator[str, None, List]:
+        """Get streaming completion from a model.
+        
+        Yields content chunks, returns a list (sources) at the end.
+        """
+        active_model_id = model_id or self.model_id
         payload = {
-            "model": model_id,
+            "model": active_model_id,
             "messages": messages,
-            "files": files,
-            "stream": True,
+            "stream": True,  # Enable streaming
         }
+        if api_rag_payload:
+            payload["files"] = api_rag_payload
         if tool_ids:
-            payload["tools"] = [{"type": "function", "function": {"name": tool_id}} for tool_id in tool_ids]
+            payload["tool_ids"] = tool_ids
+
+        logger.debug(
+            f"Sending STREAMING completion request: {json.dumps(payload, indent=2)}"
+        )
 
         try:
-            response = self.session.post(
+            # Use stream=True to keep the connection open
+            with self.session.post(
                 f"{self.base_url}/api/chat/completions",
                 json=payload,
                 headers=self.json_headers,
-                stream=True,
+                stream=True,  # Enable streaming on requests session
+            ) as response:
+                response.raise_for_status()
+
+                sources = []
+
+                for line in response.iter_lines():
+                    if line:
+                        decoded_line = line.decode("utf-8")
+                        if decoded_line.startswith("data:"):
+                            json_data = decoded_line[len("data:") :].strip()
+                            if json_data == "[DONE]":
+                                break
+
+                            try:
+                                data = json.loads(json_data)
+                                if "choices" in data and len(data["choices"]) > 0:
+                                    delta = data["choices"][0].get("delta", {})
+                                    content_chunk = delta.get("content", "")
+
+                                    # Handle sources if they come in streaming chunks (though usually at end)
+                                    if "sources" in data:
+                                        sources.extend(data["sources"])
+
+                                    if content_chunk:
+                                        yield content_chunk  # Yield each chunk of content
+
+                                # Handle final sources if they are sent as part of a non-delta message at the end
+                                if (
+                                    "sources" in data and not sources
+                                ):  # Only if sources haven't been collected yet
+                                    sources.extend(data["sources"])
+
+                            except json.JSONDecodeError:
+                                logger.warning(
+                                    f"Failed to decode JSON from stream: {json_data}"
+                                )
+                                continue
+                return sources  # Return sources at the end of the generator
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"Streaming Completions API Network Error for {active_model_id}: {e}"
             )
-            response.raise_for_status()
-
-            for line in response.iter_lines():
-                if line:
-                    line = line.decode('utf-8')
-                    if line.startswith('data: '):
-                        data = line[6:]  # Remove 'data: ' prefix
-                        if data.strip() == '[DONE]':
-                            break
-                        try:
-                            chunk = json.loads(data)
-                            if 'choices' in chunk and chunk['choices']:
-                                delta = chunk['choices'][0].get('delta', {})
-                                if 'content' in delta:
-                                    yield delta['content']
-                        except json.JSONDecodeError:
-                            continue
-
-        except Exception as e:
-            logger.error(f"Streaming completion failed: {e}")
-            raise e
+            raise
 
     def _handle_rag_references(
         self, rag_files: Optional[List[str]], rag_collections: Optional[List[str]]
