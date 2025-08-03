@@ -314,58 +314,11 @@ class OpenWebUIClient:
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """Set tags for a chat conversation."""
-        if not tags:
-            return
-        logger.info(f"Applying tags {tags} to chat {chat_id[:8]}...")
-        url_get = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
-        try:
-            response = self.session.get(url_get, headers=self.json_headers)
-            response.raise_for_status()
-            existing_tags = {tag["name"] for tag in response.json()}
-        except requests.exceptions.RequestException:
-            logger.warning("Could not fetch existing tags. May create duplicates.")
-            existing_tags = set()
-        url_post = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
-        for tag_name in tags:
-            if tag_name not in existing_tags:
-                try:
-                    self.session.post(
-                        url_post, json={"name": tag_name}, headers=self.json_headers
-                    ).raise_for_status()
-                    logger.info(f"  + Added tag: '{tag_name}'")
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"  - Failed to add tag '{tag_name}': {e}")
-            else:
-                logger.info(f"  = Tag '{tag_name}' already exists, skipping.")
+        return self._chat_manager.set_chat_tags(chat_id, tags)
 
     def rename_chat(self, chat_id: str, new_title: str) -> bool:
         """Rename an existing chat."""
-        if not chat_id:
-            logger.error("rename_chat: chat_id cannot be empty.")
-            return False
-
-        url = f"{self.base_url}/api/v1/chats/{chat_id}"
-        payload = {"chat": {"title": new_title}}
-
-        try:
-            logger.info(f"Renaming chat {chat_id[:8]}... to '{new_title}'")
-            response = self.session.post(url, headers=self.json_headers, json=payload)
-            response.raise_for_status()
-            logger.info("Chat renamed successfully.")
-
-            # If the renamed chat is the currently active one, update its internal state.
-            if self.chat_id == chat_id and self.chat_object_from_server:
-                self.chat_object_from_server["title"] = new_title
-                if "chat" in self.chat_object_from_server:
-                    self.chat_object_from_server["chat"]["title"] = new_title
-
-            return True
-        except requests.exceptions.RequestException as e:
-            if hasattr(e, "response") and e.response is not None:
-                logger.error(f"Failed to rename chat: {e.response.text}")
-            else:
-                logger.error(f"Failed to rename chat: {e}")
-            return False
+        return self._chat_manager.rename_chat(chat_id, new_title)
 
     def update_chat_metadata(
         self,
