@@ -403,54 +403,17 @@ class OpenWebUIClient:
 
     def create_folder(self, name: str) -> Optional[str]:
         """Create a new folder for organizing chats."""
-        logger.info(f"Creating folder '{name}'...")
-        try:
-            self.session.post(
-                f"{self.base_url}/api/v1/folders/",
-                json={"name": name},
-                headers=self.json_headers,
-            ).raise_for_status()
-            logger.info(f"Successfully sent request to create folder '{name}'.")
-            return self.get_folder_id_by_name(name, suppress_log=True)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to create folder '{name}': {e}")
-            return None
+        return self._chat_manager.create_folder(name)
 
     def get_folder_id_by_name(
         self, name: str, suppress_log: bool = False
     ) -> Optional[str]:
         """Get folder ID by folder name."""
-        if not suppress_log:
-            logger.info(f"Searching for folder '{name}'...")
-        try:
-            response = self.session.get(
-                f"{self.base_url}/api/v1/folders/", headers=self.json_headers
-            )
-            response.raise_for_status()
-            for folder in response.json():
-                if folder.get("name") == name:
-                    if not suppress_log:
-                        logger.info("Found folder.")
-                    return folder.get("id")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to get folder list: {e}")
-        if not suppress_log:
-            logger.info(f"Folder '{name}' not found.")
-        return None
+        return self._chat_manager.get_folder_id_by_name(name)
 
     def move_chat_to_folder(self, chat_id: str, folder_id: str):
         """Move a chat to a specific folder."""
-        logger.info(f"Moving chat {chat_id[:8]}... to folder {folder_id[:8]}...")
-        try:
-            self.session.post(
-                f"{self.base_url}/api/v1/chats/{chat_id}/folder",
-                json={"folder_id": folder_id},
-                headers=self.json_headers,
-            ).raise_for_status()
-            self.chat_object_from_server["folder_id"] = folder_id
-            logger.info("Chat moved successfully!")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to move chat: {e}")
+        return self._chat_manager.move_chat_to_folder(chat_id, folder_id)
 
     # =============================================================================
     # MODEL MANAGEMENT - Delegate to ModelManager
