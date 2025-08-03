@@ -13,19 +13,21 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: 'OpenWebUI Base URL'
+        description: 'OpenWebUI Base URL (optional override)'
         required: false
+        default: ''
       auth_token:
-        description: 'OpenWebUI Auth Token'
+        description: 'OpenWebUI Auth Token (optional override)'
         required: false
+        default: ''
       default_model:
-        description: 'Default Model ID'
+        description: 'Default Model ID (optional override)'
         required: false
-        default: 'gpt-4.1'
+        default: ''
       parallel_models:
-        description: 'Parallel Models (comma-separated)'
+        description: 'Parallel Models (optional override)'
         required: false
-        default: 'gpt-4.1,gpt-4o'
+        default: ''
       run_all_tests:
         description: 'Run all integration tests (ignore selective testing)'
         required: false
@@ -114,10 +116,10 @@ jobs:
 
     - name: Check Environment Variables
       env:
-        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
-        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
-        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
+        OUI_BASE_URL: ${{ (github.event.inputs.base_url != '' && github.event.inputs.base_url) || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ (github.event.inputs.auth_token != '' && github.event.inputs.auth_token) || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
       run: |
         echo "Checking integration test environment for category: ${{ matrix.test-category }}"
         echo "Base URL: ${OUI_BASE_URL:-'not set'}"
@@ -125,14 +127,16 @@ jobs:
         echo "Default Model: ${OUI_DEFAULT_MODEL:-'not set'}"
         echo "Parallel Models: ${OUI_PARALLEL_MODELS:-'not set'}"
         
-        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ] || [ -z "$OUI_DEFAULT_MODEL" ]; then
-          echo "❌ Missing required environment variables for integration testing."
+        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ]; then
+          echo "❌ Missing required repository secrets for integration testing."
           echo ""
-          echo "To run integration tests, set these as repository secrets or use workflow_dispatch:"
-          echo "  - OUI_BASE_URL: Your OpenWebUI instance URL"
-          echo "  - OUI_AUTH_TOKEN: Your API authentication token"
-          echo "  - OUI_DEFAULT_MODEL: A valid model ID in your instance"
-          echo "  - OUI_PARALLEL_MODELS: Comma-separated list of models for parallel testing (optional)"
+          echo "To enable automatic integration tests, set these repository secrets:"
+          echo "  - OUI_BASE_URL: Your OpenWebUI instance URL (required)"
+          echo "  - OUI_AUTH_TOKEN: Your API authentication token (required)"
+          echo "  - OUI_DEFAULT_MODEL: A valid model ID (optional, defaults to 'gpt-4.1')"
+          echo "  - OUI_PARALLEL_MODELS: Comma-separated models (optional, defaults to 'gpt-4.1,gpt-4o')"
+          echo ""
+          echo "Or use workflow_dispatch to override with custom values."
           echo ""
           echo "Skipping integration tests."
           exit 0
@@ -142,12 +146,12 @@ jobs:
 
     - name: Run Selected Integration Test
       env:
-        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
-        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
-        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
-        OUI_MULTIMODAL_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
-        OUI_RAG_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_BASE_URL: ${{ (github.event.inputs.base_url != '' && github.event.inputs.base_url) || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ (github.event.inputs.auth_token != '' && github.event.inputs.auth_token) || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
+        OUI_MULTIMODAL_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_RAG_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
       run: |
         echo "🧪 Running integration test for category: ${{ matrix.test-category }}"
         python .github/scripts/run_all_integration_tests.py --category ${{ matrix.test-category }} --verbose
