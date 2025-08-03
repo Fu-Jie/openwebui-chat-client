@@ -186,11 +186,91 @@ class OpenWebUIClient:
         enable_auto_titling: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Send a chat message with a single model."""
-        return self._chat_manager.chat(
-            question, chat_title, model_id, folder_name, image_paths,
-            tags, rag_files, rag_collections, tool_ids,
-            enable_follow_up, enable_auto_tagging, enable_auto_titling
+        self.model_id = model_id or self.default_model_id
+        logger.info("=" * 60)
+        logger.info(
+            f"Processing SINGLE-MODEL request: title='{chat_title}', model='{self.model_id}'"
         )
+        if folder_name:
+            logger.info(f"Folder: '{folder_name}'")
+        if tags:
+            logger.info(f"Tags: {tags}")
+        if image_paths:
+            logger.info(f"With images: {image_paths}")
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
+        logger.info("=" * 60)
+
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error("Chat object not loaded or malformed, cannot proceed with chat.")
+            return None
+
+        # Handle model switching for an existing chat
+        if model_id and self.model_id != model_id:
+            logger.warning(f"Model switch detected for chat '{chat_title}'.")
+            logger.warning(f"  > Changing from: '{self.model_id}'")
+            logger.warning(f"  > Changing to:   '{model_id}'")
+            self.model_id = model_id
+            if self.chat_object_from_server and "chat" in self.chat_object_from_server:
+                self.chat_object_from_server["chat"]["models"] = [model_id]
+
+        if not self.chat_id:
+            logger.error("Chat initialization failed, cannot proceed.")
+            return None
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.chat_id, folder_id)
+
+        response, message_id, follow_ups = self._ask(
+            question,
+            image_paths,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_follow_up,
+        )
+        if response:
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+
+            # Auto-tagging and auto-titling logic
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            
+            return_data = {
+                "response": response,
+                "chat_id": self.chat_id,
+                "message_id": message_id,
+            }
+
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+
+            if follow_ups:
+                return_data["follow_ups"] = follow_ups
+            return return_data
+        return None
 
     def parallel_chat(
         self,
@@ -604,11 +684,58 @@ class OpenWebUIClient:
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """Set tags for a chat conversation."""
-        return self._chat_manager.set_chat_tags(chat_id, tags)
+        if not tags:
+            return
+        logger.info(f"Applying tags {tags} to chat {chat_id[:8]}...")
+        url_get = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
+        try:
+            response = self.session.get(url_get, headers=self.json_headers)
+            response.raise_for_status()
+            existing_tags = {tag["name"] for tag in response.json()}
+        except requests.exceptions.RequestException:
+            logger.warning("Could not fetch existing tags. May create duplicates.")
+            existing_tags = set()
+        url_post = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
+        for tag_name in tags:
+            if tag_name not in existing_tags:
+                try:
+                    self.session.post(
+                        url_post, json={"name": tag_name}, headers=self.json_headers
+                    ).raise_for_status()
+                    logger.info(f"  + Added tag: '{tag_name}'")
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"  - Failed to add tag '{tag_name}': {e}")
+            else:
+                logger.info(f"  = Tag '{tag_name}' already exists, skipping.")
 
     def rename_chat(self, chat_id: str, new_title: str) -> bool:
         """Rename an existing chat."""
-        return self._chat_manager.rename_chat(chat_id, new_title)
+        if not chat_id:
+            logger.error("rename_chat: chat_id cannot be empty.")
+            return False
+
+        url = f"{self.base_url}/api/v1/chats/{chat_id}"
+        payload = {"chat": {"title": new_title}}
+
+        try:
+            logger.info(f"Renaming chat {chat_id[:8]}... to '{new_title}'")
+            response = self.session.post(url, headers=self.json_headers, json=payload)
+            response.raise_for_status()
+            logger.info("Chat renamed successfully.")
+
+            # If the renamed chat is the currently active one, update its internal state.
+            if self.chat_id == chat_id and self.chat_object_from_server:
+                self.chat_object_from_server["title"] = new_title
+                if "chat" in self.chat_object_from_server:
+                    self.chat_object_from_server["chat"]["title"] = new_title
+
+            return True
+        except requests.exceptions.RequestException as e:
+            if hasattr(e, "response") and e.response is not None:
+                logger.error(f"Failed to rename chat: {e.response.text}")
+            else:
+                logger.error(f"Failed to rename chat: {e}")
+            return False
 
     def update_chat_metadata(
         self,
@@ -693,28 +820,54 @@ class OpenWebUIClient:
 
     def create_folder(self, name: str) -> Optional[str]:
         """Create a new folder for organizing chats."""
-        # Create the folder using the chat manager
+        logger.info(f"Creating folder '{name}'...")
         try:
-            response = self.session.post(
+            self.session.post(
                 f"{self.base_url}/api/v1/folders/",
                 json={"name": name},
                 headers=self.json_headers,
-            )
-            response.raise_for_status()
+            ).raise_for_status()
             logger.info(f"Successfully sent request to create folder '{name}'.")
-            # Now get the folder ID to return it, matching original behavior
-            return self.get_folder_id_by_name(name)
+            return self.get_folder_id_by_name(name, suppress_log=True)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create folder '{name}': {e}")
             return None
 
-    def get_folder_id_by_name(self, folder_name: str) -> Optional[str]:
+    def get_folder_id_by_name(
+        self, name: str, suppress_log: bool = False
+    ) -> Optional[str]:
         """Get folder ID by folder name."""
-        return self._chat_manager.get_folder_id_by_name(folder_name)
+        if not suppress_log:
+            logger.info(f"Searching for folder '{name}'...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/folders/", headers=self.json_headers
+            )
+            response.raise_for_status()
+            for folder in response.json():
+                if folder.get("name") == name:
+                    if not suppress_log:
+                        logger.info("Found folder.")
+                    return folder.get("id")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get folder list: {e}")
+        if not suppress_log:
+            logger.info(f"Folder '{name}' not found.")
+        return None
 
     def move_chat_to_folder(self, chat_id: str, folder_id: str):
         """Move a chat to a specific folder."""
-        return self._chat_manager.move_chat_to_folder(chat_id, folder_id)
+        logger.info(f"Moving chat {chat_id[:8]}... to folder {folder_id[:8]}...")
+        try:
+            self.session.post(
+                f"{self.base_url}/api/v1/chats/{chat_id}/folder",
+                json={"folder_id": folder_id},
+                headers=self.json_headers,
+            ).raise_for_status()
+            self.chat_object_from_server["folder_id"] = folder_id
+            logger.info("Chat moved successfully!")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to move chat: {e}")
 
     # =============================================================================
     # MODEL MANAGEMENT - Delegate to ModelManager
@@ -1594,45 +1747,7 @@ class OpenWebUIClient:
         """Upload a file and return the file metadata."""
         return self._file_manager.upload_file(file_path)
 
-    def _get_single_model_response_in_parallel(
-        self,
-        chat_core,
-        model_id,
-        question,
-        image_paths,
-        api_rag_payload,
-        tool_ids: Optional[List[str]] = None,
-        enable_follow_up: bool = False,
-    ) -> Tuple[Optional[str], List, Optional[List[str]]]:
-        """Get response from a single model for parallel chat functionality."""
-        api_messages = self._build_linear_history_for_api(chat_core)
-        current_user_content_parts = [{"type": "text", "text": question}]
-        if image_paths:
-            for path in image_paths:
-                url = self._encode_image_to_base64(path)
-                if url:
-                    current_user_content_parts.append(
-                        {"type": "image_url", "image_url": {"url": url}}
-                    )
-        final_api_content = (
-            question
-            if len(current_user_content_parts) == 1
-            else current_user_content_parts
-        )
-        api_messages.append({"role": "user", "content": final_api_content})
-        content, sources = self._get_model_completion(
-            self.chat_id, api_messages, api_rag_payload, model_id, tool_ids
-        )
 
-        follow_ups = None
-        if content and enable_follow_up:
-            # To get follow-ups, we need the assistant's response in the history
-            temp_history_for_follow_up = api_messages + [
-                {"role": "assistant", "content": content}
-            ]
-            follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
-
-        return content, sources, follow_ups
 
     def _get_title(self, messages: List[Dict[str, Any]]) -> Optional[str]:
         """
@@ -1731,125 +1846,133 @@ class OpenWebUIClient:
     ) -> Tuple[Optional[str], Optional[str], Optional[List[str]]]:
         """Internal method for making chat requests."""
         if not self.chat_id:
-            logger.error("Chat ID not set. Cannot proceed with _ask.")
             return None, None, None
+        logger.info(f'Processing question: "{question}"')
+        chat_core = self.chat_object_from_server["chat"]
+        chat_core["models"] = [self.model_id]
         
-        if not self.chat_object_from_server:
-            logger.error("Chat object not loaded. Cannot proceed with _ask.")
-            return None, None, None
-        
-        logger.info(f"Sending message to chat {self.chat_id}: {question[:50]}...")
-        
-        try:
-            # Build message payload
-            user_message_id = str(uuid.uuid4())
-            assistant_message_id = str(uuid.uuid4())
-            
-            # Get the current message history
-            chat_data = self.chat_object_from_server.get("chat", {})
-            history = chat_data.get("history", {"messages": {}})
-            messages = history.get("messages", {})
-            
-            # Create user message
-            user_message = {
-                "id": user_message_id,
-                "role": "user", 
-                "content": question,
-                "timestamp": int(time.time()),
-                "done": True
-            }
-            
-            # Handle images if provided
-            if image_paths:
-                uploaded_images = []
-                for image_path in image_paths:
-                    uploaded_file = self._upload_file(image_path)
-                    if uploaded_file:
-                        uploaded_images.append(uploaded_file)
-                if uploaded_images:
-                    user_message["files"] = uploaded_images
-            
-            # Handle RAG files
-            if rag_files:
-                uploaded_rag_files = []
-                for rag_file in rag_files:
-                    uploaded_file = self._upload_file(rag_file)
-                    if uploaded_file:
-                        uploaded_rag_files.append(uploaded_file)
-                if uploaded_rag_files:
-                    user_message["files"] = user_message.get("files", []) + uploaded_rag_files
-            
-            # Create assistant placeholder message
-            assistant_message = {
-                "id": assistant_message_id,
-                "role": "assistant",
-                "content": "",
-                "timestamp": int(time.time()),
-                "done": False
-            }
-            
-            # Add messages to history
-            messages[user_message_id] = user_message
-            messages[assistant_message_id] = assistant_message
-            
-            # Build chat payload
-            chat_payload = {
-                "id": self.chat_id,
-                "model": self.model_id,
-                "messages": self._build_linear_history_for_api(chat_data),
-                "stream": False
-            }
-            
-            # Add knowledge base collections if specified
-            if rag_collections:
-                chat_payload["knowledge_base"] = {"collections": rag_collections}
-            
-            # Add tools if specified
-            if tool_ids:
-                chat_payload["tools"] = {"ids": tool_ids}
-            
-            # Make the chat request
-            response = self.session.post(
-                f"{self.base_url}/api/chat/completions",
-                json=chat_payload,
-                headers=self.json_headers
+        # Ensure chat_core has the required history structure
+        chat_core.setdefault("history", {"messages": {}, "currentId": None})
+
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
+        )
+
+        api_messages = self._build_linear_history_for_api(chat_core)
+        current_user_content_parts = [{"type": "text", "text": question}]
+        if image_paths:
+            for image_path in image_paths:
+                base64_image = self._encode_image_to_base64(image_path)
+                if base64_image:
+                    current_user_content_parts.append(
+                        {"type": "image_url", "image_url": {"url": base64_image}}
+                    )
+        final_api_content = (
+            question
+            if len(current_user_content_parts) == 1
+            else current_user_content_parts
+        )
+        api_messages.append({"role": "user", "content": final_api_content})
+
+        logger.info("Calling NON-STREAMING completions API to get model response...")
+        assistant_content, sources = (
+            self._get_model_completion(  # Call non-streaming method
+                self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
             )
-            response.raise_for_status()
-            response_data = response.json()
-            
-            # Extract response content
-            if "choices" in response_data and len(response_data["choices"]) > 0:
-                content = response_data["choices"][0]["message"]["content"]
-                
-                # Update the assistant message with the response
-                assistant_message["content"] = content
-                assistant_message["done"] = True
-                
-                # Update chat object - ensure history structure exists
-                chat_data.setdefault("history", {"messages": {}, "currentId": None})
-                chat_data["history"]["messages"] = messages
-                chat_data["history"]["currentId"] = assistant_message_id
-                
-                # Handle follow-up suggestions if enabled
-                follow_ups = None
-                if enable_follow_up:
-                    follow_ups = self._get_follow_up_completions([
-                        {"role": "user", "content": question},
-                        {"role": "assistant", "content": content}
-                    ])
-                
-                logger.info(f"Successfully received response for chat {self.chat_id}")
-                return content, assistant_message_id, follow_ups
-            else:
-                logger.error(f"Invalid response format: {response_data}")
-                return None, None, None
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Chat request failed: {e}")
+        )
+        if assistant_content is None:
             return None, None, None
-        except Exception as e:
-            logger.error(f"_ask failed: {e}")
-            return None, None, None
+        logger.info("Successfully received model response.")
+
+        user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
+            "currentId"
+        )
+        storage_user_message = {
+            "id": user_message_id,
+            "parentId": last_message_id,
+            "childrenIds": [],
+            "role": "user",
+            "content": question,
+            "files": [],
+            "models": [self.model_id],
+            "timestamp": int(time.time()),
+        }
+        if image_paths:
+            for image_path in image_paths:
+                base64_url = self._encode_image_to_base64(image_path)
+                if base64_url:
+                    storage_user_message["files"].append(
+                        {"type": "image", "url": base64_url}
+                    )
+        storage_user_message["files"].extend(storage_rag_payloads)
+        chat_core["history"]["messages"][user_message_id] = storage_user_message
+        if last_message_id:
+            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
+                user_message_id
+            )
+
+        assistant_message_id = str(uuid.uuid4())
+        storage_assistant_message = {
+            "id": assistant_message_id,
+            "parentId": user_message_id,
+            "childrenIds": [],
+            "role": "assistant",
+            "content": assistant_content,
+            "model": self.model_id,
+            "modelName": self.model_id.split(":")[0],
+            "timestamp": int(time.time()),
+            "done": True,
+            "sources": sources,
+        }
+        chat_core["history"]["messages"][
+            assistant_message_id
+        ] = storage_assistant_message
+        chat_core["history"]["messages"][user_message_id]["childrenIds"].append(
+            assistant_message_id
+        )
+
+        chat_core["history"]["currentId"] = assistant_message_id
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, assistant_message_id
+        )
+        chat_core["models"] = [self.model_id]
+        existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+        chat_core.setdefault("files", []).extend(
+            [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+        )
+
+        logger.info("Updating chat history on the backend...")
+        if self._update_remote_chat():
+            logger.info("Chat history updated successfully!")
+
+            follow_ups = None
+            if enable_follow_up:
+                logger.info("Follow-up is enabled, fetching suggestions...")
+                # The API for follow-up needs the full context including the latest assistant response
+                api_messages_for_follow_up = self._build_linear_history_for_api(
+                    chat_core
+                )
+                follow_ups = self._get_follow_up_completions(api_messages_for_follow_up)
+                if follow_ups:
+                    logger.info(f"Received {len(follow_ups)} follow-up suggestions.")
+                    # Update the specific assistant message with the follow-ups
+                    chat_core["history"]["messages"][assistant_message_id][
+                        "followUps"
+                    ] = follow_ups
+                    # A second update to save the follow-ups
+                    if self._update_remote_chat():
+                        logger.info(
+                            "Successfully updated chat with follow-up suggestions."
+                        )
+                    else:
+                        logger.warning(
+                            "Failed to update chat with follow-up suggestions."
+                        )
+                else:
+                    logger.info("No follow-up suggestions were generated.")
+
+            return assistant_content, assistant_message_id, follow_ups
+        return None, None, None
 
 
 
