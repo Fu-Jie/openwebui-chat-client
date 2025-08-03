@@ -1212,12 +1212,16 @@ class ChatManager:
     
     def _ask_stream(self, question: str, image_paths: Optional[List[str]] = None,
                    rag_files: Optional[List[str]] = None, rag_collections: Optional[List[str]] = None,
-                   tool_ids: Optional[List[str]] = None, enable_follow_up: bool = False) -> Generator[Union[str, Dict], None, None]:
+                   tool_ids: Optional[List[str]] = None, enable_follow_up: bool = False,
+                   cleanup_placeholder_messages: bool = False,
+                   placeholder_pool_size: int = 30,
+                   min_available_messages: int = 10) -> Generator[Union[str, Dict], None, None]:
         """Send a message and stream the response."""
         # Use parent client's method if available (for test mocking)
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_ask_stream'):
-            return parent_client._ask_stream(question, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up)
+            return parent_client._ask_stream(question, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up,
+                                           cleanup_placeholder_messages, placeholder_pool_size, min_available_messages)
         
         # Fallback implementation - return empty generator if no streaming available
         return iter([])

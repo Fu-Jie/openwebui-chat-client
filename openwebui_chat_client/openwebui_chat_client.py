@@ -239,104 +239,12 @@ class OpenWebUIClient:
         Initiates a streaming chat session. Yields content chunks as they are received.
         At the end of the stream, returns the full response content, sources, and follow-up suggestions.
         """
-        self.model_id = model_id or self.default_model_id
-        logger.info("=" * 60)
-        logger.info(
-            f"Processing STREAMING request: title='{chat_title}', model='{self.model_id}'"
+        return self._chat_manager.stream_chat(
+            question, chat_title, model_id, folder_name, image_paths, tags,
+            rag_files, rag_collections, tool_ids, enable_follow_up,
+            cleanup_placeholder_messages, placeholder_pool_size, min_available_messages,
+            wait_before_request, enable_auto_tagging, enable_auto_titling
         )
-        if folder_name:
-            logger.info(f"Folder: '{folder_name}'")
-        if tags:
-            logger.info(f"Tags: {tags}")
-        if image_paths:
-            logger.info(f"With images: {image_paths}")
-        if rag_files:
-            logger.info(f"With RAG files: {rag_files}")
-        if rag_collections:
-            logger.info(f"With KB collections: {rag_collections}")
-        if tool_ids:
-            logger.info(f"Using tools: {tool_ids}")
-        logger.info("=" * 60)
-
-        self._find_or_create_chat_by_title(chat_title)
-
-        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
-            logger.error("Chat object not loaded or malformed, cannot proceed with stream.")
-            return  # End generator
-
-        if not self.chat_id:
-            logger.error("Chat initialization failed, cannot proceed with stream.")
-            return  # Yield nothing, effectively end the generator
-
-        if folder_name:
-            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
-                folder_name
-            )
-            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
-                self.move_chat_to_folder(self.chat_id, folder_id)
-
-        try:
-            # 1. Ensure there are enough placeholder messages available
-            self._ensure_placeholder_messages(
-                placeholder_pool_size, min_available_messages
-            )
-
-            # 2. If this is the first streaming request and wait time is set, wait for specified seconds
-            if self._first_stream_request and wait_before_request > 0:
-                logger.info(
-                    f"⏱️ First stream request: Waiting {wait_before_request} seconds before requesting AI response..."
-                )
-                time.sleep(wait_before_request)
-                logger.info("⏱️ Wait completed, starting AI request...")
-                self._first_stream_request = False  # Mark as not first request
-
-            # 3. Call _ask_stream method, which now uses placeholder messages
-            final_response_content, final_sources, follow_ups = (
-                yield from self._ask_stream(
-                    question,
-                    image_paths,
-                    rag_files,
-                    rag_collections,
-                    tool_ids,
-                    enable_follow_up,
-                    cleanup_placeholder_messages,
-                    placeholder_pool_size,
-                    min_available_messages,
-                )
-            )
-
-            if tags:
-                self.set_chat_tags(self.chat_id, tags)
-
-            return_data = {
-                "response": final_response_content,
-                "sources": final_sources,
-                "follow_ups": follow_ups,
-            }
-
-            # Auto-tagging and auto-titling logic for stream chat
-            api_messages_for_tasks = self._build_linear_history_for_api(
-                self.chat_object_from_server["chat"]
-            )
-            if enable_auto_tagging:
-                suggested_tags = self._get_tags(api_messages_for_tasks)
-                if suggested_tags:
-                    self.set_chat_tags(self.chat_id, suggested_tags)
-                    return_data["suggested_tags"] = suggested_tags
-
-            if enable_auto_titling and len(
-                self.chat_object_from_server["chat"]["history"]["messages"]
-            ) <= 2:
-                suggested_title = self._get_title(api_messages_for_tasks)
-                if suggested_title:
-                    self.rename_chat(self.chat_id, suggested_title)
-                    return_data["suggested_title"] = suggested_title
-
-            return return_data
-
-        except Exception as e:
-            logger.error(f"Error in stream_chat: {e}")
-            raise  # Re-raise the exception for the caller
 
     def continuous_chat(
         self,
