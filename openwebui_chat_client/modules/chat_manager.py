@@ -1470,7 +1470,7 @@ class ChatManager:
         try:
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/chats/{self.base_client.chat_id}",
-                json=self.base_client.chat_object_from_server,
+                json={"chat": self.base_client.chat_object_from_server["chat"]},
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()
