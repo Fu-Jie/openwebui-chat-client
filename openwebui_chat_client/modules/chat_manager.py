@@ -1371,7 +1371,14 @@ class ChatManager:
         if rag_files:
             logger.info("Processing RAG files...")
             for file_path in rag_files:
-                if file_obj := self._upload_file(file_path):
+                # Use parent client's method if available (for test mocking)
+                parent_client = getattr(self.base_client, '_parent_client', None)
+                if parent_client and hasattr(parent_client, '_upload_file'):
+                    file_obj = parent_client._upload_file(file_path)
+                else:
+                    file_obj = self.base_client._upload_file(file_path)
+                
+                if file_obj:
                     api_payload.append({"type": "file", "id": file_obj["id"]})
                     storage_payload.append(
                         {"type": "file", "file": file_obj, **file_obj}
@@ -1379,8 +1386,22 @@ class ChatManager:
         if rag_collections:
             logger.info("Processing RAG knowledge base collections...")
             for kb_name in rag_collections:
-                if kb_summary := self.get_knowledge_base_by_name(kb_name):
-                    if kb_details := self._get_knowledge_base_details(kb_summary["id"]):
+                # Use parent client's method if available (for test mocking)
+                parent_client = getattr(self.base_client, '_parent_client', None)
+                if parent_client and hasattr(parent_client, 'get_knowledge_base_by_name'):
+                    kb_summary = parent_client.get_knowledge_base_by_name(kb_name)
+                else:
+                    # Access through base client's parent reference to main client
+                    kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name) if self.base_client._parent_client else None
+                
+                if kb_summary:
+                    if parent_client and hasattr(parent_client, '_get_knowledge_base_details'):
+                        kb_details = parent_client._get_knowledge_base_details(kb_summary["id"])
+                    else:
+                        # Access through base client's parent reference to main client
+                        kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"]) if self.base_client._parent_client else None
+                    
+                    if kb_details:
                         file_ids = [f["id"] for f in kb_details.get("files", [])]
                         api_payload.append(
                             {

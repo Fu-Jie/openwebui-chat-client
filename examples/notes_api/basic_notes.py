@@ -276,7 +276,7 @@ def main() -> None:
         logger.info("✅ Client initialized successfully")
     except Exception as e:
         logger.error(f"❌ Failed to initialize client: {e}")
-        return
+        sys.exit(1)
     
     # Run notes examples
     try:
@@ -310,6 +310,7 @@ def main() -> None:
         
     except Exception as e:
         logger.error(f"❌ Basic notes examples failed: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

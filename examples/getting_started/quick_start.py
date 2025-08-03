@@ -307,7 +307,7 @@ def main() -> None:
         logger.error(f"❌ Failed to initialize client: {e}")
         logger.error("\n💡 Check your connection and token, or run:")
         logger.error("  python examples/config/environment_setup.py")
-        return
+        sys.exit(1)
     
     # Run quick start demos
     try:
@@ -333,6 +333,7 @@ def main() -> None:
     except Exception as e:
         logger.error(f"❌ Quick start guide failed: {e}")
         logger.error("💡 Try running individual examples for more specific debugging")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

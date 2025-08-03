@@ -316,7 +316,7 @@ def main() -> None:
         logger.info(f"🎯 Using RAG model: {RAG_MODEL}")
     except Exception as e:
         logger.error(f"❌ Failed to initialize client: {e}")
-        return
+        sys.exit(1)
     
     # Run RAG examples
     try:
@@ -333,6 +333,7 @@ def main() -> None:
         
     except Exception as e:
         logger.error(f"❌ File RAG examples failed: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
