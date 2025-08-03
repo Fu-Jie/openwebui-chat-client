@@ -104,6 +104,7 @@ def continuous_single_model_example(client: OpenWebUIClient) -> None:
             
     except Exception as e:
         logger.error(f"❌ Continuous single-model conversation failed: {e}")
+        raise  # Re-raise to be handled by main function
 
 
 def continuous_parallel_model_example(client: OpenWebUIClient) -> None:
@@ -155,6 +156,7 @@ def continuous_parallel_model_example(client: OpenWebUIClient) -> None:
             
     except Exception as e:
         logger.error(f"❌ Continuous parallel conversation failed: {e}")
+        raise  # Re-raise to be handled by main function
 
 
 def continuous_streaming_example(client: OpenWebUIClient) -> None:
@@ -216,6 +218,7 @@ def continuous_streaming_example(client: OpenWebUIClient) -> None:
             
     except Exception as e:
         logger.error(f"❌ Continuous streaming conversation failed: {e}")
+        raise  # Re-raise to be handled by main function
 
 
 def error_handling_example(client: OpenWebUIClient) -> None:
@@ -256,7 +259,7 @@ def main() -> None:
         logger.error("❌ OUI_AUTH_TOKEN environment variable not set")
         logger.error("Please set your OpenWebUI API token:")
         logger.error("  export OUI_AUTH_TOKEN='your_token_here'")
-        return
+        sys.exit(1)
     
     # Client initialization
     try:
@@ -267,7 +270,7 @@ def main() -> None:
         logger.info(f"🔄 Parallel models: {PARALLEL_MODELS}")
     except Exception as e:
         logger.error(f"❌ Failed to initialize client: {e}")
-        return
+        sys.exit(1)
     
     # Run examples
     try:
