@@ -236,7 +236,7 @@ class ChatManager:
             logger.info(f"Using tools: {tool_ids}")
         logger.info("=" * 60)
 
-        # Use parent client's method if available (for test mocking)
+        # Use main client's method if available (for test mocking)
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
             parent_client._find_or_create_chat_by_title(chat_title)
@@ -303,14 +303,14 @@ class ChatManager:
         logger.info(f"Querying {len(model_ids)} models in parallel...")
         responses: Dict[str, Dict[str, Any]] = {}
         
-        # Use parent client's method if available (for test mocking)
+        # Use main client's method if available (for test mocking)
         parent_client = getattr(self.base_client, '_parent_client', None)
         
         with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
             future_to_model = {}
             for model_id in model_ids:
                 if parent_client and hasattr(parent_client, '_get_single_model_response_in_parallel'):
-                    # For testing - use the parent client's mocked method
+                    # For testing - use the main client's mocked method
                     future = executor.submit(
                         parent_client._get_single_model_response_in_parallel,
                         chat_core,
@@ -603,7 +603,12 @@ class ChatManager:
             )
 
             if tags:
-                self.set_chat_tags(self.base_client.chat_id, tags)
+                # Use parent client's method if available (for test mocking)
+                parent_client = getattr(self.base_client, '_parent_client', None)
+                if parent_client and hasattr(parent_client, 'set_chat_tags'):
+                    parent_client.set_chat_tags(self.base_client.chat_id, tags)
+                else:
+                    self.set_chat_tags(self.base_client.chat_id, tags)
 
             return_data = {
                 "response": final_response_content,
@@ -797,7 +802,7 @@ class ChatManager:
                 update_success = parent_client._update_remote_chat()
             else:
                 # Call the main client's method if this is being used by switch_chat_model
-                if hasattr(self.base_client, '_parent_client') and self.base_client._parent_client:
+                if hasattr(self.base_client, '_update_remote_chat'):
                     update_success = self.base_client._parent_client._update_remote_chat()
                 else:
                     update_success = self._update_remote_chat()
@@ -913,10 +918,12 @@ class ChatManager:
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()
-            folder_data = response.json()
-            folder_id = folder_data.get("id")
-            logger.info(f"Successfully created folder '{name}' with ID: {folder_id}")
-            return folder_id
+            logger.info(f"Successfully sent request to create folder '{name}'.")
+            # Use parent client if available (for test mocking)
+            if hasattr(self.base_client, '_parent_client') and self.base_client._parent_client:
+                return self.base_client._parent_client.get_folder_id_by_name(name)
+            else:
+                return self.get_folder_id_by_name(name)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create folder '{name}': {e}")
             return None
@@ -1637,28 +1644,6 @@ class ChatManager:
             logger.error(f"Failed to get folder ID for '{folder_name}': {e}")
             return None
 
-    def create_folder(self, name: str) -> Optional[str]:
-        """Create a new folder."""
-        logger.info(f"Creating folder '{name}'...")
-        try:
-            response = self.base_client.session.post(
-                f"{self.base_client.base_url}/api/v1/folders/",
-                json={"name": name},
-                headers=self.base_client.json_headers,
-            )
-            response.raise_for_status()
-            folder_data = response.json()
-            folder_id = folder_data.get("id")
-            if folder_id:
-                logger.info(f"Successfully created folder '{name}' with ID: {folder_id}")
-                return folder_id
-            else:
-                logger.error("Folder creation response did not contain an ID.")
-                return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to create folder '{name}': {e}")
-            return None
-
     def move_chat_to_folder(self, chat_id: str, folder_id: str):
         """Move chat to a folder."""
         try:
@@ -2183,92 +2168,39 @@ class ChatManager:
         return final_result
 
     # =============================================================================
-    # HELPER METHODS FOR PARALLEL AND STREAMING CHAT
-    # =============================================================================
-
-    def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
-        """Upload a file for RAG purposes."""
-        if not os.path.exists(file_path):
-            logger.error(f"RAG file not found at path: {file_path}")
-            return None
-        url, file_name = f"{self.base_client.base_url}/api/v1/files/", os.path.basename(file_path)
-        try:
-            with open(file_path, "rb") as f:
-                files = {"file": (file_name, f)}
-                headers = {"Authorization": self.base_client.session.headers["Authorization"]}
-                logger.info(f"Uploading file '{file_name}' for RAG...")
-                response = self.base_client.session.post(url, headers=headers, files=files)
-                response.raise_for_status()
-            response_data = response.json()
-            if file_id := response_data.get("id"):
-                logger.info(f"  > Upload successful. File ID: {file_id}")
-                return response_data
-            logger.error(f"File upload response did not contain an ID: {response_data}")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to upload file '{file_name}': {e}")
-            return None
-
-    def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
-        """Get knowledge base by name."""
-        logger.info(f"🔍 Searching for knowledge base '{name}'...")
-        try:
-            response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/v1/knowledge/list", 
-                headers=self.base_client.json_headers
-            )
-            response.raise_for_status()
-            for kb in response.json():
-                if kb.get("name") == name:
-                    logger.info("   ✅ Found knowledge base.")
-                    return kb
-            logger.info(f"   ℹ️ Knowledge base '{name}' not found.")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to list knowledge bases: {e}")
-            return None
-
-    def _get_knowledge_base_details(self, kb_id: str) -> Optional[Dict[str, Any]]:
-        """Get detailed information about a knowledge base."""
-        try:
-            response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/v1/knowledge/{kb_id}", 
-                headers=self.base_client.json_headers
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to get knowledge base details for {kb_id}: {e}")
-            return None
-
-    def set_chat_tags(self, chat_id: str, tags: List[str]) -> bool:
-        """Set tags for a chat."""
-        try:
-            response = self.base_client.session.post(
-                f"{self.base_client.base_url}/api/v1/chats/{chat_id}/tags",
-                json={"tags": tags},
-                headers=self.base_client.json_headers,
-            )
-            response.raise_for_status()
-            logger.info(f"Successfully set tags {tags} for chat {chat_id[:8]}...")
-            return True
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to set tags for chat {chat_id}: {e}")
-            return False
-            
-    # =============================================================================
-    # PLACEHOLDER MESSAGE HANDLING (FOR STREAMING CHAT)
+    # PLACEHOLDER MESSAGE METHODS - Delegate to main client
     # =============================================================================
     
     def _ensure_placeholder_messages(self, pool_size: int, min_available: int) -> bool:
-        """
-        Ensure there are enough placeholder messages available for streaming.
-        This is a simplified implementation for now.
-        """
-        # For now, just return True - this can be enhanced later with full placeholder logic
-        return True
-        
-    def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
-        """Check if a message is a placeholder message."""
-        # Simplified implementation - check for placeholder indicators
-        return message.get("content", "").startswith("__PLACEHOLDER__") or message.get("placeholder", False)
+        """Delegate placeholder message management to main client."""
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_ensure_placeholder_messages'):
+            return parent_client._ensure_placeholder_messages(pool_size, min_available)
+        return True  # Simple fallback
+
+    def _count_available_placeholder_pairs(self) -> int:
+        """Delegate placeholder counting to main client.""" 
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_count_available_placeholder_pairs'):
+            return parent_client._count_available_placeholder_pairs()
+        return 0  # Simple fallback
+
+    def _get_next_available_message_pair(self) -> Optional[Tuple[str, str]]:
+        """Delegate placeholder pair getting to main client."""
+        parent_client = getattr(self.base_client, '_parent_client', None) 
+        if parent_client and hasattr(parent_client, '_get_next_available_message_pair'):
+            return parent_client._get_next_available_message_pair()
+        return None  # Simple fallback
+
+    def _cleanup_unused_placeholder_messages(self) -> int:
+        """Delegate placeholder cleanup to main client."""
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_cleanup_unused_placeholder_messages'):
+            return parent_client._cleanup_unused_placeholder_messages()
+        return 0  # Simple fallback
+
+    def _stream_delta_update(self, chat_id: str, message_id: str, delta_content: str) -> None:
+        """Delegate delta updates to main client."""
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_stream_delta_update'):
+            parent_client._stream_delta_update(chat_id, message_id, delta_content)
