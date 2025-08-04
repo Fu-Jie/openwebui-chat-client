@@ -2,7 +2,7 @@
 
 [English](https://github.com/Fu-Jie/openwebui-chat-client/blob/main/README.md) | [简体中文](https://github.com/Fu-Jie/openwebui-chat-client/blob/main/README.zh-CN.md)
 
-[![PyPI version](https://img.shields.io/pypi/v/openwebui-chat-client/0.1.13?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
+[![PyPI version](https://img.shields.io/pypi/v/openwebui-chat-client/0.1.15?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-34D058?style=flat-square)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/badge/openwebui-chat-client)](https://pepy.tech/projects/openwebui-chat-client)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0.html)

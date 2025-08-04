@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.15] - 2025-01-28
+
 ### Added
 - **Continuous Conversation Feature**: New high-level conversation automation functionality
   - `continuous_chat()`: Automated multi-turn conversations with single models using follow-up suggestions
