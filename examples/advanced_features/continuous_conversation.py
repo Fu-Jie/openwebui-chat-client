@@ -80,34 +80,44 @@ def continuous_single_model_example(client: OpenWebUIClient) -> bool:
             logger.info(f"✅ Conversation completed: {result['total_rounds']} rounds")
             logger.info(f"💬 Chat ID: {result['chat_id']}")
             
-            # Check if we actually got meaningful results
-            if result['total_rounds'] > 0:
-                print("\n" + "=" * 60)
-                print("📚 CONVERSATION SUMMARY")
-                print("=" * 60)
-                
-                for round_data in result['conversation_history']:
-                    print(f"\n🔹 Round {round_data['round']}:")
-                    print(f"❓ Question: {round_data['question']}")
-                    print(f"🤖 Response: {round_data['response'][:200]}...")
-                    
-                    if 'follow_ups' in round_data:
-                        print(f"🤔 Follow-ups suggested: {len(round_data['follow_ups'])}")
-                        for i, follow_up in enumerate(round_data['follow_ups'][:3], 1):
-                            print(f"   {i}. {follow_up}")
-                
-                if 'suggested_tags' in result:
-                    print(f"\n🏷️ Auto-generated tags: {result['suggested_tags']}")
-                if 'suggested_title' in result:
-                    print(f"📝 Auto-generated title: {result['suggested_title']}")
-                    
-                return True
-            else:
-                logger.error("❌ Continuous conversation failed: No rounds completed")
+            # Strict validation: check if we actually got meaningful results
+            if not result.get('total_rounds') or result['total_rounds'] != num_questions:
+                logger.error(f"❌ Continuous conversation failed: Expected {num_questions} rounds, got {result.get('total_rounds', 0)}")
                 return False
+            
+            if not result.get('conversation_history'):
+                logger.error("❌ Continuous conversation failed: No conversation history returned")
+                return False
+            
+            # Validate each round has proper structure
+            for round_data in result['conversation_history']:
+                if not round_data.get('response') or len(round_data.get('response', '').strip()) < 10:
+                    logger.error(f"❌ Round {round_data.get('round', '?')} failed: Invalid or empty response")
+                    return False
+                    
+            print("\n" + "=" * 60)
+            print("📚 CONVERSATION SUMMARY")
+            print("=" * 60)
+            
+            for round_data in result['conversation_history']:
+                print(f"\n🔹 Round {round_data['round']}:")
+                print(f"❓ Question: {round_data['question']}")
+                print(f"🤖 Response: {round_data['response'][:200]}...")
+                
+                if 'follow_ups' in round_data:
+                    print(f"🤔 Follow-ups suggested: {len(round_data['follow_ups'])}")
+                    for i, follow_up in enumerate(round_data['follow_ups'][:3], 1):
+                        print(f"   {i}. {follow_up}")
+            
+            if 'suggested_tags' in result:
+                print(f"\n🏷️ Auto-generated tags: {result['suggested_tags']}")
+            if 'suggested_title' in result:
+                print(f"📝 Auto-generated title: {result['suggested_title']}")
+                
+            return True
                 
         else:
-            logger.error("❌ Continuous conversation failed")
+            logger.error("❌ Continuous conversation failed: No result returned")
             return False
             
     except Exception as e:
@@ -142,32 +152,56 @@ def continuous_parallel_model_example(client: OpenWebUIClient) -> bool:
             logger.info(f"✅ Parallel conversation completed: {result['total_rounds']} rounds")
             logger.info(f"💬 Chat ID: {result['chat_id']}")
             
-            # Check if we actually got meaningful results
-            if result['total_rounds'] > 0:
-                print("\n" + "=" * 60)
-                print("🌐 PARALLEL CONVERSATION SUMMARY")
-                print("=" * 60)
-                
-                for round_data in result['conversation_history']:
-                    print(f"\n🔹 Round {round_data['round']}:")
-                    print(f"❓ Question: {round_data['question']}")
-                    
-                    for model_id, response_data in round_data['responses'].items():
-                        print(f"\n🤖 {model_id}:")
-                        print(f"   {response_data.get('content', 'No response')[:150]}...")
-                    
-                    if 'follow_ups' in round_data:
-                        print(f"\n🤔 Combined follow-ups: {len(round_data['follow_ups'])}")
-                        for i, follow_up in enumerate(round_data['follow_ups'][:3], 1):
-                            print(f"   {i}. {follow_up}")
-                            
-                return True
-            else:
-                logger.error("❌ Continuous parallel conversation failed: No rounds completed")
+            # Strict validation: check if we actually got meaningful results
+            if not result.get('total_rounds') or result['total_rounds'] != num_questions:
+                logger.error(f"❌ Continuous parallel conversation failed: Expected {num_questions} rounds, got {result.get('total_rounds', 0)}")
+                return False
+            
+            if not result.get('conversation_history'):
+                logger.error("❌ Continuous parallel conversation failed: No conversation history returned")
                 return False
                 
+            # Validate each round has responses from all models
+            for round_data in result['conversation_history']:
+                if not round_data.get('responses'):
+                    logger.error(f"❌ Round {round_data.get('round', '?')} failed: No model responses")
+                    return False
+                
+                # Check that we got responses from all expected models
+                expected_models = set(PARALLEL_MODELS)
+                actual_models = set(round_data['responses'].keys())
+                if not expected_models.issubset(actual_models):
+                    missing_models = expected_models - actual_models
+                    logger.error(f"❌ Round {round_data.get('round', '?')} failed: Missing responses from models: {missing_models}")
+                    return False
+                
+                # Validate response quality
+                for model_id, response_data in round_data['responses'].items():
+                    if not response_data.get('content') or len(response_data.get('content', '').strip()) < 10:
+                        logger.error(f"❌ Round {round_data.get('round', '?')} failed: Invalid response from {model_id}")
+                        return False
+                        
+            print("\n" + "=" * 60)
+            print("🌐 PARALLEL CONVERSATION SUMMARY")
+            print("=" * 60)
+            
+            for round_data in result['conversation_history']:
+                print(f"\n🔹 Round {round_data['round']}:")
+                print(f"❓ Question: {round_data['question']}")
+                
+                for model_id, response_data in round_data['responses'].items():
+                    print(f"\n🤖 {model_id}:")
+                    print(f"   {response_data.get('content', 'No response')[:150]}...")
+                
+                if 'follow_ups' in round_data:
+                    print(f"\n🤔 Combined follow-ups: {len(round_data['follow_ups'])}")
+                    for i, follow_up in enumerate(round_data['follow_ups'][:3], 1):
+                        print(f"   {i}. {follow_up}")
+                        
+            return True
+                
         else:
-            logger.error("❌ Continuous parallel conversation failed")
+            logger.error("❌ Continuous parallel conversation failed: No result returned")
             return False
             
     except Exception as e:
@@ -194,6 +228,7 @@ def continuous_streaming_example(client: OpenWebUIClient) -> bool:
         
         final_result = None
         current_round = 0
+        completed_rounds = 0
         
         for chunk in client.continuous_stream_chat(
             initial_question=initial_question,
@@ -212,6 +247,7 @@ def continuous_streaming_example(client: OpenWebUIClient) -> bool:
                 print("🤖 Response: ", end="", flush=True)
                 
             elif chunk_type == "round_complete":
+                completed_rounds += 1
                 print(f"\n✅ Round {chunk['round']} completed")
                 if chunk.get("follow_ups"):
                     print(f"🤔 Follow-ups available: {len(chunk['follow_ups'])}")
@@ -224,20 +260,25 @@ def continuous_streaming_example(client: OpenWebUIClient) -> bool:
                 
             elif chunk_type == "round_error":
                 print(f"\n❌ Error in round {chunk['round']}: {chunk['error']}")
+                logger.error(f"Streaming conversation round error: {chunk['error']}")
         
         if final_result:
             logger.info(f"✅ Streaming conversation summary:")
             logger.info(f"   Total rounds: {final_result['total_rounds']}")
             logger.info(f"   Chat ID: {final_result['chat_id']}")
             
-            # Check if we actually got meaningful results
-            if final_result['total_rounds'] > 0:
-                return True
-            else:
-                logger.error("❌ Streaming conversation failed: No rounds completed")
+            # Strict validation: check if we actually got meaningful results
+            if not final_result.get('total_rounds') or final_result['total_rounds'] != num_questions:
+                logger.error(f"❌ Streaming conversation failed: Expected {num_questions} rounds, got {final_result.get('total_rounds', 0)}")
                 return False
+            
+            if completed_rounds != num_questions:
+                logger.error(f"❌ Streaming conversation failed: Expected {num_questions} completed rounds, got {completed_rounds}")
+                return False
+                
+            return True
         else:
-            logger.error("❌ Streaming conversation failed to complete")
+            logger.error("❌ Streaming conversation failed: No final result returned")
             return False
             
     except Exception as e:
@@ -288,6 +329,12 @@ def main() -> None:
     # Client initialization
     try:
         client = OpenWebUIClient(BASE_URL, AUTH_TOKEN, DEFAULT_MODEL)
+        # Test basic connectivity with model listing
+        models = client.list_models()
+        if not models:
+            logger.error("❌ Failed to list models - connectivity or authentication issue")
+            sys.exit(1)
+        logger.info(f"Successfully listed {len(models)} models.")
         logger.info("✅ Client initialized successfully")
         logger.info(f"🔗 Base URL: {BASE_URL}")
         logger.info(f"🤖 Default model: {DEFAULT_MODEL}")
@@ -296,42 +343,47 @@ def main() -> None:
         logger.error(f"❌ Failed to initialize client: {e}")
         sys.exit(1)
     
-    # Run examples and track success
-    success_count = 0
-    total_examples = 4
+    # Run functional examples and track success
+    functional_success_count = 0
+    functional_examples = [
+        ("single_model", continuous_single_model_example),
+        ("parallel_model", continuous_parallel_model_example),
+        ("streaming", continuous_streaming_example)
+    ]
     
     try:
-        # Single model example
-        if continuous_single_model_example(client):
-            success_count += 1
+        # Run functional examples
+        for example_name, example_func in functional_examples:
+            try:
+                if example_func(client):
+                    functional_success_count += 1
+                    logger.info(f"✅ {example_name} example completed successfully")
+                else:
+                    logger.error(f"❌ {example_name} example failed")
+            except Exception as e:
+                logger.error(f"❌ {example_name} example failed with exception: {e}")
         
-        # Parallel model example
-        if continuous_parallel_model_example(client):
-            success_count += 1
-            
-        # Streaming example
-        if continuous_streaming_example(client):
-            success_count += 1
+        # Run error handling example (doesn't count toward functional success)
+        try:
+            error_handling_example(client)
+            logger.info("✅ Error handling example completed")
+        except Exception as e:
+            logger.warning(f"⚠️ Error handling example failed: {e}")
         
-        # Error handling example (always runs, doesn't count toward success)
-        error_handling_example(client)
-        success_count += 1  # This one always succeeds as it tests error handling
-        
-        # Check if we had any meaningful successes
-        if success_count == 0:
+        # Strict validation: require ALL functional examples to succeed
+        total_functional = len(functional_examples)
+        if functional_success_count == 0:
             logger.error("❌ All continuous conversation examples failed to complete successfully")
-            logger.error("This indicates a serious connectivity or configuration issue")
+            logger.error("This indicates a serious connectivity, authentication, or functionality issue")
             sys.exit(1)
-        elif success_count == 1:  # Only error handling succeeded, which doesn't test real functionality
-            logger.error("❌ All functional continuous conversation examples failed")
-            logger.error("Only the error handling example succeeded, indicating connectivity issues")
+        elif functional_success_count < total_functional:
+            logger.error(f"❌ Only {functional_success_count}/{total_functional} functional examples succeeded")
+            logger.error("Integration test requires all functional examples to work properly")
+            logger.error("This indicates issues with continuous conversation functionality")
             sys.exit(1)
-        elif success_count < 3:  # At least 3 out of 4 should work for a successful test
-            logger.warning(f"⚠️ Only {success_count}/{total_examples} examples completed successfully")
-            logger.warning("Some features may not be working properly")
-            # This is acceptable - continue with warning
         
-        logger.info(f"\n🎉 Continuous conversation examples completed: {success_count}/{total_examples} successful!")
+        # All functional examples succeeded
+        logger.info(f"\n🎉 All continuous conversation examples completed successfully: {functional_success_count}/{total_functional}!")
         logger.info("💡 Key features demonstrated:")
         logger.info("   ✓ Automatic follow-up question generation and selection")
         logger.info("   ✓ Single, parallel, and streaming conversation modes")

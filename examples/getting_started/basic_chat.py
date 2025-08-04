@@ -48,7 +48,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def basic_chat_example(client: OpenWebUIClient) -> None:
+def basic_chat_example(client: OpenWebUIClient) -> bool:
     """Demonstrate basic chat functionality."""
     logger.info("💬 Basic Chat Example")
     logger.info("=" * 30)
@@ -64,11 +64,13 @@ def basic_chat_example(client: OpenWebUIClient) -> None:
         
         if result.get("chat_id"):
             logger.info(f"💾 Chat ID: {result['chat_id'][:8]}...")
+        return True
     else:
         logger.error("❌ Failed to get response")
+        return False
 
 
-def organized_chat_example(client: OpenWebUIClient) -> None:
+def organized_chat_example(client: OpenWebUIClient) -> bool:
     """Demonstrate chat organization with folders and tags."""
     logger.info("\n📁 Organized Chat Example")
     logger.info("=" * 35)
@@ -89,11 +91,13 @@ def organized_chat_example(client: OpenWebUIClient) -> None:
             logger.info(f"💾 Chat ID: {result['chat_id'][:8]}...")
             logger.info("📁 Folder: Education")
             logger.info("🏷️ Tags: learning, ai, basics")
+        return True
     else:
         logger.error("❌ Failed to create organized chat")
+        return False
 
 
-def multi_message_chat_example(client: OpenWebUIClient) -> None:
+def multi_message_chat_example(client: OpenWebUIClient) -> bool:
     """Demonstrate multiple messages in the same chat."""
     logger.info("\n🔄 Multi-Message Chat Example")
     logger.info("=" * 40)
@@ -124,13 +128,16 @@ def multi_message_chat_example(client: OpenWebUIClient) -> None:
         if result2 and result2.get("response"):
             print(f"\n🤖 Follow-up Response: {result2['response'][:150]}...")
             logger.info("✅ Successfully continued conversation")
+            return True
         else:
             logger.error("❌ Failed to send follow-up message")
+            return False
     else:
         logger.error("❌ Failed to send first message")
+        return False
 
 
-def different_models_example(client: OpenWebUIClient) -> None:
+def different_models_example(client: OpenWebUIClient) -> bool:
     """Demonstrate using different models."""
     logger.info("\n🤖 Different Models Example")
     logger.info("=" * 35)
@@ -139,7 +146,7 @@ def different_models_example(client: OpenWebUIClient) -> None:
     models = client.list_models()
     if not models or len(models) < 2:
         logger.warning("⚠️ Need at least 2 models for this example - skipping")
-        return
+        return True  # This is acceptable, not a failure
     
     # Get the first two available models
     model1 = models[0].get('id', DEFAULT_MODEL)
@@ -159,6 +166,9 @@ def different_models_example(client: OpenWebUIClient) -> None:
     
     if result1 and result1.get("response"):
         print(f"\n🤖 {model1}: {result1['response'][:150]}...")
+    else:
+        logger.error(f"❌ Failed to get response from {model1}")
+        return False
     
     # Chat with second model  
     result2 = client.chat(
@@ -171,11 +181,13 @@ def different_models_example(client: OpenWebUIClient) -> None:
     if result2 and result2.get("response"):
         print(f"\n🤖 {model2}: {result2['response'][:150]}...")
         logger.info("✅ Successfully used different models")
+        return True
     else:
         logger.error("❌ Failed to use different models")
+        return False
 
 
-def chat_management_example(client: OpenWebUIClient) -> None:
+def chat_management_example(client: OpenWebUIClient) -> bool:
     """Demonstrate basic chat management."""
     logger.info("\n🛠️ Chat Management Example")
     logger.info("=" * 35)
@@ -196,10 +208,13 @@ def chat_management_example(client: OpenWebUIClient) -> None:
         
         if success:
             logger.info(f"✅ Successfully renamed chat to: {new_title}")
+            return True
         else:
             logger.warning("⚠️ Failed to rename chat")
+            return False
     else:
         logger.error("❌ Failed to create chat for management example")
+        return False
 
 
 def main() -> None:
@@ -212,25 +227,55 @@ def main() -> None:
         logger.error("❌ OUI_AUTH_TOKEN environment variable not set")
         logger.error("Please set your OpenWebUI API token:")
         logger.error("  export OUI_AUTH_TOKEN='your_token_here'")
-        return
+        sys.exit(1)
     
     # Client initialization
     try:
         client = OpenWebUIClient(BASE_URL, AUTH_TOKEN, DEFAULT_MODEL)
+        # Test basic connectivity
+        models = client.list_models()
+        if not models:
+            logger.error("❌ Failed to list models - connectivity or authentication issue")
+            sys.exit(1)
+        logger.info(f"Successfully listed {len(models)} models.")
         logger.info("✅ Client initialized successfully")
     except Exception as e:
         logger.error(f"❌ Failed to initialize client: {e}")
         sys.exit(1)
     
-    # Run examples
+    # Run examples and track success
+    examples = [
+        ("basic_chat", basic_chat_example),
+        ("organized_chat", organized_chat_example),
+        ("multi_message_chat", multi_message_chat_example),
+        ("different_models", different_models_example),
+        ("chat_management", chat_management_example)
+    ]
+    
+    success_count = 0
     try:
-        basic_chat_example(client)
-        organized_chat_example(client)
-        multi_message_chat_example(client)
-        different_models_example(client)
-        chat_management_example(client)
+        for example_name, example_func in examples:
+            try:
+                if example_func(client):
+                    success_count += 1
+                    logger.info(f"✅ {example_name} example completed successfully")
+                else:
+                    logger.error(f"❌ {example_name} example failed")
+            except Exception as e:
+                logger.error(f"❌ {example_name} example failed with exception: {e}")
         
-        logger.info("\n🎉 Basic chat examples completed successfully!")
+        # Require most examples to succeed
+        total_examples = len(examples)
+        if success_count == 0:
+            logger.error("❌ All basic chat examples failed")
+            logger.error("This indicates a serious connectivity or functionality issue")
+            sys.exit(1)
+        elif success_count < 3:  # At least 3 out of 5 should work
+            logger.error(f"❌ Only {success_count}/{total_examples} examples succeeded")
+            logger.error("Integration test requires most basic features to work properly")
+            sys.exit(1)
+        
+        logger.info(f"\n🎉 Basic chat examples completed successfully: {success_count}/{total_examples}!")
         logger.info("💡 Next steps:")
         logger.info("   - Try: python examples/chat_features/streaming_chat.py")
         logger.info("   - Try: python examples/rag_knowledge/file_rag.py")
