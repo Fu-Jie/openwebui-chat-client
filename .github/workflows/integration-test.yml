@@ -6,23 +6,28 @@ on:
     types:
       - completed
     branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
     inputs:
       base_url:
-        description: 'OpenWebUI Base URL'
+        description: 'OpenWebUI Base URL (optional override)'
         required: false
-        default: 'https://your-openwebui-instance.com'
+        default: ''
       auth_token:
-        description: 'OpenWebUI Auth Token'
+        description: 'OpenWebUI Auth Token (optional override)'
         required: false
+        default: ''
       default_model:
-        description: 'Default Model ID'
+        description: 'Default Model ID (optional override)'
         required: false
-        default: 'gpt-4.1'
+        default: ''
       parallel_models:
-        description: 'Parallel Models (comma-separated)'
+        description: 'Parallel Models (optional override)'
         required: false
-        default: 'gpt-4.1,gpt-4o'
+        default: ''
       run_all_tests:
         description: 'Run all integration tests (ignore selective testing)'
         required: false
@@ -32,8 +37,8 @@ on:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
-    # Only run if the test workflow succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    # Only run if the test workflow succeeded or for direct triggers
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       required-tests: ${{ steps.detect.outputs.tests }}
       should-run-all: ${{ steps.detect.outputs.run-all }}
@@ -42,6 +47,8 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Need full history for git diff
+        # For workflow_run events, checkout the actual commit that triggered the workflow
+        ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v4
@@ -55,14 +62,28 @@ jobs:
 
     - name: Detect required integration tests
       id: detect
+      env:
+        # Pass workflow_run context to the detection script
+        WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
       run: |
         # Determine if we should run all tests
         if [ "${{ github.event.inputs.run_all_tests }}" = "true" ]; then
           echo "run-all=true" >> $GITHUB_OUTPUT
-          echo "tests=[\"notes_api\",\"basic_chat\",\"rag_integration\",\"model_management\",\"model_switching\",\"comprehensive_demos\",\"connectivity\"]" >> $GITHUB_OUTPUT
+          echo "tests=[\"notes_api\",\"basic_chat\",\"rag_integration\",\"model_management\",\"model_switching\",\"comprehensive_demos\",\"connectivity\",\"continuous_conversation\"]" >> $GITHUB_OUTPUT
           echo "✅ Manual override: Running all integration tests"
         else
           echo "run-all=false" >> $GITHUB_OUTPUT
+          
+          # Debug information for workflow_run events
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "🔍 Workflow run context:"
+            echo "  - Head SHA: ${{ github.event.workflow_run.head_sha }}"
+            echo "  - Head Branch: ${{ github.event.workflow_run.head_branch }}" 
+            echo "  - Event: ${{ github.event.workflow_run.event }}"
+          fi
+          
           # Use our detection script to determine required tests
           required_tests=$(python .github/scripts/detect_required_tests.py)
           echo "tests=$required_tests" >> $GITHUB_OUTPUT
@@ -95,10 +116,10 @@ jobs:
 
     - name: Check Environment Variables
       env:
-        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
-        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
-        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
+        OUI_BASE_URL: ${{ (github.event.inputs.base_url != '' && github.event.inputs.base_url) || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ (github.event.inputs.auth_token != '' && github.event.inputs.auth_token) || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
       run: |
         echo "Checking integration test environment for category: ${{ matrix.test-category }}"
         echo "Base URL: ${OUI_BASE_URL:-'not set'}"
@@ -106,14 +127,16 @@ jobs:
         echo "Default Model: ${OUI_DEFAULT_MODEL:-'not set'}"
         echo "Parallel Models: ${OUI_PARALLEL_MODELS:-'not set'}"
         
-        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ] || [ -z "$OUI_DEFAULT_MODEL" ]; then
-          echo "❌ Missing required environment variables for integration testing."
+        if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ]; then
+          echo "❌ Missing required repository secrets for integration testing."
           echo ""
-          echo "To run integration tests, set these as repository secrets or use workflow_dispatch:"
-          echo "  - OUI_BASE_URL: Your OpenWebUI instance URL"
-          echo "  - OUI_AUTH_TOKEN: Your API authentication token"
-          echo "  - OUI_DEFAULT_MODEL: A valid model ID in your instance"
-          echo "  - OUI_PARALLEL_MODELS: Comma-separated list of models for parallel testing (optional)"
+          echo "To enable automatic integration tests, set these repository secrets:"
+          echo "  - OUI_BASE_URL: Your OpenWebUI instance URL (required)"
+          echo "  - OUI_AUTH_TOKEN: Your API authentication token (required)"
+          echo "  - OUI_DEFAULT_MODEL: A valid model ID (optional, defaults to 'gpt-4.1')"
+          echo "  - OUI_PARALLEL_MODELS: Comma-separated models (optional, defaults to 'gpt-4.1,gpt-4o')"
+          echo ""
+          echo "Or use workflow_dispatch to override with custom values."
           echo ""
           echo "Skipping integration tests."
           exit 0
@@ -123,12 +146,12 @@ jobs:
 
     - name: Run Selected Integration Test
       env:
-        OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
-        OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
-        OUI_PARALLEL_MODELS: ${{ github.event.inputs.parallel_models || secrets.OUI_PARALLEL_MODELS }}
-        OUI_MULTIMODAL_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
-        OUI_RAG_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
+        OUI_BASE_URL: ${{ (github.event.inputs.base_url != '' && github.event.inputs.base_url) || secrets.OUI_BASE_URL }}
+        OUI_AUTH_TOKEN: ${{ (github.event.inputs.auth_token != '' && github.event.inputs.auth_token) || secrets.OUI_AUTH_TOKEN }}
+        OUI_DEFAULT_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
+        OUI_MULTIMODAL_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_RAG_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
       run: |
         echo "🧪 Running integration test for category: ${{ matrix.test-category }}"
         python .github/scripts/run_all_integration_tests.py --category ${{ matrix.test-category }} --verbose

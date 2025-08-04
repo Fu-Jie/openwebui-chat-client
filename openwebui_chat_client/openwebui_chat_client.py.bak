@@ -208,11 +208,209 @@ class OpenWebUIClient:
         enable_auto_titling: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Send a chat message to multiple models in parallel."""
-        return self._chat_manager.parallel_chat(
-            question, chat_title, model_ids, folder_name, image_paths, tags,
-            rag_files, rag_collections, tool_ids, enable_follow_up,
-            enable_auto_tagging, enable_auto_titling
+        if not model_ids:
+            logger.error("`model_ids` list cannot be empty for parallel chat.")
+            return None
+        self.model_id = model_ids[0]
+        logger.info("=" * 60)
+        logger.info(
+            f"Processing PARALLEL-MODEL request: title='{chat_title}', models={model_ids}"
         )
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
+        logger.info("=" * 60)
+
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error(
+                "Chat object not loaded or malformed, cannot proceed with parallel chat."
+            )
+            return None
+
+        # Handle model set changes for existing parallel chats
+        if self.chat_object_from_server and "chat" in self.chat_object_from_server:
+            current_models = self.chat_object_from_server["chat"].get("models", [])
+            if set(current_models) != set(model_ids):
+                logger.warning(f"Parallel model set changed for chat '{chat_title}'.")
+                logger.warning(f"  > From: {current_models}")
+                logger.warning(f"  > To:   {model_ids}")
+                self.model_id = model_ids[0]
+                self.chat_object_from_server["chat"]["models"] = model_ids
+
+        if not self.chat_id:
+            logger.error("Chat initialization failed, cannot proceed.")
+            return None
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.chat_id, folder_id)
+
+        chat_core = self.chat_object_from_server["chat"]
+        # Ensure chat_core has the required history structure
+        chat_core.setdefault("history", {"messages": {}, "currentId": None})
+        
+        api_rag_payload, storage_rag_payloads = self._handle_rag_references(
+            rag_files, rag_collections
+        )
+        user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
+            "currentId"
+        )
+        storage_user_message = {
+            "id": user_message_id,
+            "parentId": last_message_id,
+            "childrenIds": [],
+            "role": "user",
+            "content": question,
+            "files": [],
+            "models": model_ids,
+            "timestamp": int(time.time()),
+        }
+        if image_paths:
+            for path in image_paths:
+                url = self._encode_image_to_base64(path)
+                if url:
+                    storage_user_message["files"].append({"type": "image", "url": url})
+        storage_user_message["files"].extend(storage_rag_payloads)
+        chat_core["history"]["messages"][user_message_id] = storage_user_message
+        if last_message_id:
+            chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
+                user_message_id
+            )
+        logger.info(f"Querying {len(model_ids)} models in parallel...")
+        responses: Dict[str, Dict[str, Any]] = {}
+        with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
+            future_to_model = {
+                executor.submit(
+                    self._get_single_model_response_in_parallel,
+                    chat_core,
+                    model_id,
+                    question,
+                    image_paths,
+                    api_rag_payload,
+                    tool_ids,
+                    enable_follow_up,
+                ): model_id
+                for model_id in model_ids
+            }
+            for future in as_completed(future_to_model):
+                model_id = future_to_model[future]
+                try:
+                    content, sources, follow_ups = future.result()
+                    responses[model_id] = {
+                        "content": content,
+                        "sources": sources,
+                        "followUps": follow_ups,
+                    }
+                except Exception as exc:
+                    logger.error(f"Model '{model_id}' generated an exception: {exc}")
+                    responses[model_id] = {
+                        "content": None,
+                        "sources": [],
+                        "followUps": None,
+                    }
+
+        successful_responses = {
+            k: v for k, v in responses.items() if v.get("content") is not None
+        }
+        if not successful_responses:
+            logger.error("All models failed to respond.")
+            del chat_core["history"]["messages"][user_message_id]
+            return None
+        logger.info("Received all responses.")
+        assistant_message_ids = []
+        for model_id, resp_data in successful_responses.items():
+            assistant_id = str(uuid.uuid4())
+            assistant_message_ids.append(assistant_id)
+            storage_assistant_message = {
+                "id": assistant_id,
+                "parentId": user_message_id,
+                "childrenIds": [],
+                "role": "assistant",
+                "content": resp_data["content"],
+                "model": model_id,
+                "modelName": model_id.split(":")[0],
+                "timestamp": int(time.time()),
+                "done": True,
+                "sources": resp_data["sources"],
+            }
+            if "followUps" in resp_data:
+                storage_assistant_message["followUps"] = resp_data["followUps"]
+            chat_core["history"]["messages"][assistant_id] = storage_assistant_message
+
+        chat_core["history"]["messages"][user_message_id][
+            "childrenIds"
+        ] = assistant_message_ids
+        chat_core["history"]["currentId"] = assistant_message_ids[0]
+        chat_core["models"] = model_ids
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, assistant_message_ids[0]
+        )
+        existing_file_ids = {f.get("id") for f in chat_core.get("files", [])}
+        chat_core.setdefault("files", []).extend(
+            [f for f in storage_rag_payloads if f["id"] not in existing_file_ids]
+        )
+
+        logger.info("Updating chat history on the backend...")
+        logger.info("First update to save main responses...")
+        if self._update_remote_chat():
+            logger.info("Main responses saved successfully!")
+
+            # This part is simplified because follow-ups are already in the message objects.
+            # We just need to perform the final update if any follow-ups were generated.
+            if any(
+                r.get("followUps")
+                for r in successful_responses.values()
+                if r.get("followUps")
+            ):
+                logger.info("Updating chat again with follow-up suggestions...")
+                if self._update_remote_chat():
+                    logger.info("Follow-up suggestions saved successfully!")
+                else:
+                    logger.warning("Failed to save follow-up suggestions.")
+
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+
+            # Prepare a more detailed response object
+            final_responses = {
+                k: {"content": v["content"], "follow_ups": v.get("followUps")}
+                for k, v in successful_responses.items()
+            }
+
+            return_data = {
+                "responses": final_responses,
+                "chat_id": self.chat_id,
+                "message_ids": assistant_message_ids,
+            }
+
+            # Auto-tagging and auto-titling logic for parallel chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+            
+            return return_data
+
+        return None
 
     def stream_chat(
         self,
@@ -239,12 +437,104 @@ class OpenWebUIClient:
         Initiates a streaming chat session. Yields content chunks as they are received.
         At the end of the stream, returns the full response content, sources, and follow-up suggestions.
         """
-        return self._chat_manager.stream_chat(
-            question, chat_title, model_id, folder_name, image_paths, tags,
-            rag_files, rag_collections, tool_ids, enable_follow_up,
-            cleanup_placeholder_messages, placeholder_pool_size, min_available_messages,
-            wait_before_request, enable_auto_tagging, enable_auto_titling
+        self.model_id = model_id or self.default_model_id
+        logger.info("=" * 60)
+        logger.info(
+            f"Processing STREAMING request: title='{chat_title}', model='{self.model_id}'"
         )
+        if folder_name:
+            logger.info(f"Folder: '{folder_name}'")
+        if tags:
+            logger.info(f"Tags: {tags}")
+        if image_paths:
+            logger.info(f"With images: {image_paths}")
+        if rag_files:
+            logger.info(f"With RAG files: {rag_files}")
+        if rag_collections:
+            logger.info(f"With KB collections: {rag_collections}")
+        if tool_ids:
+            logger.info(f"Using tools: {tool_ids}")
+        logger.info("=" * 60)
+
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+            logger.error("Chat object not loaded or malformed, cannot proceed with stream.")
+            return  # End generator
+
+        if not self.chat_id:
+            logger.error("Chat initialization failed, cannot proceed with stream.")
+            return  # Yield nothing, effectively end the generator
+
+        if folder_name:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if folder_id and self.chat_object_from_server.get("folder_id") != folder_id:
+                self.move_chat_to_folder(self.chat_id, folder_id)
+
+        try:
+            # 1. Ensure there are enough placeholder messages available
+            self._ensure_placeholder_messages(
+                placeholder_pool_size, min_available_messages
+            )
+
+            # 2. If this is the first streaming request and wait time is set, wait for specified seconds
+            if self._first_stream_request and wait_before_request > 0:
+                logger.info(
+                    f"⏱️ First stream request: Waiting {wait_before_request} seconds before requesting AI response..."
+                )
+                time.sleep(wait_before_request)
+                logger.info("⏱️ Wait completed, starting AI request...")
+                self._first_stream_request = False  # Mark as not first request
+
+            # 3. Call _ask_stream method, which now uses placeholder messages
+            final_response_content, final_sources, follow_ups = (
+                yield from self._ask_stream(
+                    question,
+                    image_paths,
+                    rag_files,
+                    rag_collections,
+                    tool_ids,
+                    enable_follow_up,
+                    cleanup_placeholder_messages,
+                    placeholder_pool_size,
+                    min_available_messages,
+                )
+            )
+
+            if tags:
+                self.set_chat_tags(self.chat_id, tags)
+
+            return_data = {
+                "response": final_response_content,
+                "sources": final_sources,
+                "follow_ups": follow_ups,
+            }
+
+            # Auto-tagging and auto-titling logic for stream chat
+            api_messages_for_tasks = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
+            if enable_auto_tagging:
+                suggested_tags = self._get_tags(api_messages_for_tasks)
+                if suggested_tags:
+                    self.set_chat_tags(self.chat_id, suggested_tags)
+                    return_data["suggested_tags"] = suggested_tags
+
+            if enable_auto_titling and len(
+                self.chat_object_from_server["chat"]["history"]["messages"]
+            ) <= 2:
+                suggested_title = self._get_title(api_messages_for_tasks)
+                if suggested_title:
+                    self.rename_chat(self.chat_id, suggested_title)
+                    return_data["suggested_title"] = suggested_title
+
+            return return_data
+
+        except Exception as e:
+            logger.error(f"Error in stream_chat: {e}")
+            raise  # Re-raise the exception for the caller
 
     def continuous_chat(
         self,
@@ -314,11 +604,58 @@ class OpenWebUIClient:
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """Set tags for a chat conversation."""
-        return self._chat_manager.set_chat_tags(chat_id, tags)
+        if not tags:
+            return
+        logger.info(f"Applying tags {tags} to chat {chat_id[:8]}...")
+        url_get = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
+        try:
+            response = self.session.get(url_get, headers=self.json_headers)
+            response.raise_for_status()
+            existing_tags = {tag["name"] for tag in response.json()}
+        except requests.exceptions.RequestException:
+            logger.warning("Could not fetch existing tags. May create duplicates.")
+            existing_tags = set()
+        url_post = f"{self.base_url}/api/v1/chats/{chat_id}/tags"
+        for tag_name in tags:
+            if tag_name not in existing_tags:
+                try:
+                    self.session.post(
+                        url_post, json={"name": tag_name}, headers=self.json_headers
+                    ).raise_for_status()
+                    logger.info(f"  + Added tag: '{tag_name}'")
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"  - Failed to add tag '{tag_name}': {e}")
+            else:
+                logger.info(f"  = Tag '{tag_name}' already exists, skipping.")
 
     def rename_chat(self, chat_id: str, new_title: str) -> bool:
         """Rename an existing chat."""
-        return self._chat_manager.rename_chat(chat_id, new_title)
+        if not chat_id:
+            logger.error("rename_chat: chat_id cannot be empty.")
+            return False
+
+        url = f"{self.base_url}/api/v1/chats/{chat_id}"
+        payload = {"chat": {"title": new_title}}
+
+        try:
+            logger.info(f"Renaming chat {chat_id[:8]}... to '{new_title}'")
+            response = self.session.post(url, headers=self.json_headers, json=payload)
+            response.raise_for_status()
+            logger.info("Chat renamed successfully.")
+
+            # If the renamed chat is the currently active one, update its internal state.
+            if self.chat_id == chat_id and self.chat_object_from_server:
+                self.chat_object_from_server["title"] = new_title
+                if "chat" in self.chat_object_from_server:
+                    self.chat_object_from_server["chat"]["title"] = new_title
+
+            return True
+        except requests.exceptions.RequestException as e:
+            if hasattr(e, "response") and e.response is not None:
+                logger.error(f"Failed to rename chat: {e.response.text}")
+            else:
+                logger.error(f"Failed to rename chat: {e}")
+            return False
 
     def update_chat_metadata(
         self,
@@ -403,17 +740,54 @@ class OpenWebUIClient:
 
     def create_folder(self, name: str) -> Optional[str]:
         """Create a new folder for organizing chats."""
-        return self._chat_manager.create_folder(name)
+        logger.info(f"Creating folder '{name}'...")
+        try:
+            self.session.post(
+                f"{self.base_url}/api/v1/folders/",
+                json={"name": name},
+                headers=self.json_headers,
+            ).raise_for_status()
+            logger.info(f"Successfully sent request to create folder '{name}'.")
+            return self.get_folder_id_by_name(name, suppress_log=True)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to create folder '{name}': {e}")
+            return None
 
     def get_folder_id_by_name(
         self, name: str, suppress_log: bool = False
     ) -> Optional[str]:
         """Get folder ID by folder name."""
-        return self._chat_manager.get_folder_id_by_name(name)
+        if not suppress_log:
+            logger.info(f"Searching for folder '{name}'...")
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/v1/folders/", headers=self.json_headers
+            )
+            response.raise_for_status()
+            for folder in response.json():
+                if folder.get("name") == name:
+                    if not suppress_log:
+                        logger.info("Found folder.")
+                    return folder.get("id")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get folder list: {e}")
+        if not suppress_log:
+            logger.info(f"Folder '{name}' not found.")
+        return None
 
     def move_chat_to_folder(self, chat_id: str, folder_id: str):
         """Move a chat to a specific folder."""
-        return self._chat_manager.move_chat_to_folder(chat_id, folder_id)
+        logger.info(f"Moving chat {chat_id[:8]}... to folder {folder_id[:8]}...")
+        try:
+            self.session.post(
+                f"{self.base_url}/api/v1/chats/{chat_id}/folder",
+                json={"folder_id": folder_id},
+                headers=self.json_headers,
+            ).raise_for_status()
+            self.chat_object_from_server["folder_id"] = folder_id
+            logger.info("Chat moved successfully!")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to move chat: {e}")
 
     # =============================================================================
     # MODEL MANAGEMENT - Delegate to ModelManager
@@ -1835,7 +2209,7 @@ class OpenWebUIClient:
     def _ensure_placeholder_messages(self, pool_size: int, min_available: int) -> bool:
         """
         Ensures there are enough placeholder message pairs available for streaming.
-        Creates placeholder pairs that form a proper multi-turn conversation chain.
+        Creates placeholder pairs if needed.
         """
         if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
             logger.warning("No chat object available for placeholder message creation.")
@@ -1852,26 +2226,10 @@ class OpenWebUIClient:
             logger.info(f"✅ Sufficient placeholder pairs available ({available_pairs} >= {min_available}).")
             return True
 
-        # Create more placeholder pairs as a connected conversation chain
+        # Create more placeholder pairs
         pairs_to_create = pool_size - available_pairs
-        logger.info(f"🔧 Creating {pairs_to_create} new placeholder message pairs as a conversation chain...")
+        logger.info(f"🔧 Creating {pairs_to_create} new placeholder message pairs...")
         
-        # Find the last message in the current conversation to continue the chain
-        messages = chat_core["history"]["messages"]
-        last_message_id = None
-        
-        # Find the current end of the conversation chain
-        if chat_core["history"].get("currentId"):
-            last_message_id = chat_core["history"]["currentId"]
-        else:
-            # Find the last non-placeholder message
-            for msg_id, msg in messages.items():
-                if not msg.get("_is_placeholder") and not msg.get("childrenIds"):
-                    last_message_id = msg_id
-                    break
-        
-        # Create connected conversation pairs
-        parent_id = last_message_id
         for i in range(pairs_to_create):
             user_id = str(uuid.uuid4())
             assistant_id = str(uuid.uuid4())
@@ -1879,7 +2237,7 @@ class OpenWebUIClient:
             # Create placeholder user message
             user_message = {
                 "id": user_id,
-                "parentId": parent_id,  # Connect to previous message in conversation
+                "parentId": None,
                 "childrenIds": [assistant_id],
                 "role": "user",
                 "content": "PLACEHOLDER_USER_MESSAGE",
@@ -1906,36 +2264,11 @@ class OpenWebUIClient:
                 "_is_available": True,
             }
             
-            # Update parent message to point to this user message
-            if parent_id and parent_id in messages:
-                if "childrenIds" not in messages[parent_id]:
-                    messages[parent_id]["childrenIds"] = []
-                messages[parent_id]["childrenIds"].append(user_id)
-            
             # Add to history
-            messages[user_id] = user_message
-            messages[assistant_id] = assistant_message
-            
-            # Set up for next iteration - assistant becomes parent for next user message
-            parent_id = assistant_id
+            chat_core["history"]["messages"][user_id] = user_message
+            chat_core["history"]["messages"][assistant_id] = assistant_message
 
-        # Update the outer messages array and currentId for proper storage
-        if messages:
-            # Find the last assistant message to set as currentId
-            last_assistant_id = None
-            for msg_id, msg in messages.items():
-                if msg.get("role") == "assistant" and not msg.get("childrenIds"):
-                    last_assistant_id = msg_id
-                    break
-            
-            if last_assistant_id:
-                chat_core["history"]["currentId"] = last_assistant_id
-                # Update the linear messages array
-                chat_core["messages"] = self._build_linear_history_for_storage(
-                    chat_core, last_assistant_id
-                )
-
-        logger.info(f"✅ Created {pairs_to_create} placeholder message pairs in conversation chain.")
+        logger.info(f"✅ Created {pairs_to_create} placeholder message pairs.")
         return True
 
     def _count_available_placeholder_pairs(self) -> int:

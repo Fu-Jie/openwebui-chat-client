@@ -135,7 +135,7 @@ def main() -> None:
         logger.info("✅ Client initialized successfully")
     except Exception as e:
         logger.error(f"❌ Failed to initialize client: {e}")
-        return
+        sys.exit(1)
     
     # Get available models
     try:
@@ -163,7 +163,7 @@ def main() -> None:
             
     except Exception as e:
         logger.error(f"❌ Failed to get models from server: {e}")
-        return
+        sys.exit(1)
     
     logger.info("🎉 Model switching demonstration completed")
 

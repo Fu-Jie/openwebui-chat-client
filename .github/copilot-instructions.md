@@ -206,16 +206,22 @@ def parallel_operation(self, items: List[str]) -> Dict[str, Any]:
 #### 智能测试选择
 openwebui-chat-client项目采用**智能选择性集成测试系统**，根据代码变更自动选择相关测试类别，显著提升CI效率：
 
-- **变更分析**: 自动分析PR/push中的文件变更
+- **变更分析**: 自动分析PR/push中的文件变更，支持多种GitHub事件类型
 - **模式匹配**: 根据`.github/test-mapping.yml`配置映射测试类别
 - **并行执行**: 使用GitHub Actions矩阵策略并行运行
 - **手动覆盖**: 提供完整测试的手动触发选项
+- **事件类型适配**: 正确处理`workflow_run`、`push`、`pull_request`等不同事件类型
 
 #### 测试效率提升
-- **优化前**: 每次变更运行全部7个集成测试类别
+- **优化前**: 每次变更运行全部8个集成测试类别（包括连续对话测试）
 - **优化后**: 仅运行相关测试类别（通常1-3个）
 - **时间节省**: CI运行时间减少60-80%
 - **资源节约**: 显著降低GitHub Actions使用量
+
+#### 工作流事件处理
+- **workflow_run事件**: 从主测试工作流触发时，正确获取变更文件的SHA上下文
+- **直接触发事件**: 支持push和PR的直接触发，使用当前分支的SHA
+- **SHA上下文管理**: 确保文件变更检测在所有事件类型中都能正确工作
 
 ### 2. 测试配置管理
 
@@ -255,15 +261,16 @@ file_mappings:
 #### 标准测试类别
 项目定义了以下标准测试类别：
 
-| 类别 | 用途 | 触发条件 |
-|------|------|----------|
-| `connectivity` | 基础连接验证 | 核心文件、配置变更 |
-| `basic_chat` | 基础聊天功能 | 聊天相关代码变更 |
-| `notes_api` | 笔记API功能 | 笔记相关文件变更 |
-| `rag_integration` | RAG集成测试 | RAG、知识库相关变更 |
-| `model_management` | 模型管理 | 模型相关功能变更 |
-| `model_switching` | 模型切换 | 模型切换功能变更 |
-| `comprehensive_demos` | 综合演示 | 复杂功能、示例变更 |
+| 类别 | 用途 | 测试命令 | 触发条件 |
+|------|------|----------|----------|
+| `connectivity` | 基础连接验证 | Python客户端连接测试 | 核心文件、配置变更 |
+| `basic_chat` | 基础聊天功能 | `examples/getting_started/basic_chat.py` | 聊天相关代码变更 |
+| `notes_api` | 笔记API功能 | `examples/notes_api/basic_notes.py` | 笔记相关文件变更 |
+| `rag_integration` | RAG集成测试 | `examples/rag_knowledge/file_rag.py` | RAG、知识库相关变更 |
+| `model_management` | 模型管理 | `examples/model_management/model_operations.py` | 模型相关功能变更 |
+| `model_switching` | 模型切换 | `examples/chat_features/model_switching.py` | 模型切换功能变更 |
+| `comprehensive_demos` | 综合演示 | `examples/getting_started/quick_start.py` | 复杂功能、示例变更 |
+| `continuous_conversation` | 连续对话功能 | `examples/advanced_features/continuous_conversation.py` | 连续对话相关变更 |
 
 #### 新测试类别添加流程
 1. **定义测试目标**: 明确测试类别要验证的功能
@@ -325,17 +332,56 @@ python run_integration_tests.py --category basic_chat
 `.github/workflows/integration-test.yml`配置要点：
 
 ```yaml
+# 支持多种触发事件
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:  # 手动触发支持
+
+# 动态文件变更检测
+detect-changes:
+  steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0  # 需要完整历史进行git diff
+      # 为workflow_run事件使用正确的commit SHA
+      ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
 # 使用矩阵策略并行运行选定的测试类别
 strategy:
   matrix:
     test-category: ${{ fromJson(needs.detect-tests.outputs.test-categories) }}
   fail-fast: false  # 允许部分测试失败时继续其他测试
 
-# 动态检测需要运行的测试
-detect-tests:
-  outputs:
-    test-categories: ${{ steps.detect.outputs.categories }}
+# 环境变量传递和验证
+env:
+  OUI_BASE_URL: ${{ github.event.inputs.base_url || secrets.OUI_BASE_URL }}
+  OUI_AUTH_TOKEN: ${{ github.event.inputs.auth_token || secrets.OUI_AUTH_TOKEN }}
+  OUI_DEFAULT_MODEL: ${{ github.event.inputs.default_model || secrets.OUI_DEFAULT_MODEL }}
 ```
+
+#### 文件变更检测机制
+工作流使用智能文件变更检测：
+
+1. **SHA上下文处理**: 
+   - `workflow_run`事件: 使用`github.event.workflow_run.head_sha`
+   - 直接触发事件: 使用`github.sha`
+   - 确保在所有触发类型中都能正确检测变更
+
+2. **Git Diff策略**:
+   - 优先使用三点比较: `git diff --name-only base...head`
+   - 回退到单提交比较: `git diff --name-only HEAD~1 HEAD`
+   - 支持多种分支和引用类型
+
+3. **调试和故障排除**:
+   - 为workflow_run事件提供详细的调试输出
+   - 记录关键的SHA和分支信息
+   - 便于问题诊断和修复
 
 #### 手动触发完整测试
 开发者可以通过GitHub UI手动触发完整测试：
@@ -343,7 +389,17 @@ detect-tests:
 1. 访问Actions页面
 2. 选择"Integration Test"工作流
 3. 点击"Run workflow"
-4. 设置`run_all_tests`为`true`
+4. 配置参数:
+   - 设置`run_all_tests`为`true`运行所有测试
+   - 可选择覆盖环境变量 (base_url, auth_token等)
+   - 指定特定的模型进行测试
+
+#### 环境变量优先级
+工作流支持灵活的环境变量配置：
+
+1. **手动输入参数** (最高优先级): workflow_dispatch输入
+2. **仓库Secrets** (默认): 存储的加密环境变量
+3. **默认值** (兜底): 硬编码的合理默认值
 
 ### 6. 开发最佳实践
 
@@ -364,8 +420,125 @@ detect-tests:
 - **映射调试**: 使用`detect_required_tests.py`验证文件映射
 - **本地复现**: 在本地环境复现CI测试失败
 - **环境变量**: 确保所有必需的环境变量正确配置
+- **工作流事件调试**: 检查workflow_run事件的SHA上下文是否正确
+- **文件变更验证**: 确认文件变更检测逻辑正确识别了修改的文件
 
-### 7. 配置文件更新指南
+#### 常见问题解决
+1. **工作流未触发集成测试**:
+   - 检查主测试工作流是否成功完成
+   - 验证文件变更是否匹配任何映射模式
+   - 确认环境变量是否正确设置
+
+2. **文件变更检测失败**:
+   - 检查git历史完整性 (`fetch-depth: 0`)
+   - 验证分支引用和SHA上下文
+   - 确认`detect_required_tests.py`脚本正常运行
+
+3. **矩阵策略测试失败**:
+   - 检查测试类别JSON格式是否正确
+   - 验证各个测试命令是否可独立执行
+   - 确认测试环境依赖项完整安装
+
+### 8. 工作流事件处理详解
+
+#### workflow_run 事件处理
+`workflow_run`事件是选择性测试系统的核心触发机制：
+
+```yaml
+# 正确的workflow_run配置
+on:
+  workflow_run:
+    workflows: ["Test"]  # 依赖主测试工作流
+    types: [completed]   # 只有成功完成后才触发
+    branches: [main, master]
+```
+
+#### 关键修复点
+近期修复了以下关键问题：
+
+1. **SHA上下文获取**:
+   ```yaml
+   # 修复前: 使用错误的github.sha
+   ref: ${{ github.sha }}
+   
+   # 修复后: 根据事件类型使用正确的SHA
+   ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+   ```
+
+2. **文件变更检测逻辑**:
+   ```bash
+   # 增强调试输出
+   if [ "${{ github.event_name }}" = "workflow_run" ]; then
+     echo "🔍 Workflow run context:"
+     echo "  - Head SHA: ${{ github.event.workflow_run.head_sha }}"
+     echo "  - Head Branch: ${{ github.event.workflow_run.head_branch }}"
+   fi
+   ```
+
+3. **环境变量传递**:
+   ```yaml
+   env:
+     WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+     WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+     GITHUB_EVENT_NAME: ${{ github.event_name }}
+   ```
+
+#### 事件类型优先级
+工作流支持多种触发方式，按优先级排序：
+
+1. **workflow_dispatch** (手动触发): 最高优先级，支持完全控制
+2. **workflow_run** (自动触发): 标准CI流程
+3. **push/pull_request** (直接触发): 开发过程中的即时反馈
+
+#### 测试结果汇总
+工作流提供详细的测试结果汇总：
+
+```yaml
+integration-test-summary:
+  steps:
+  - name: Integration Test Summary
+    run: |
+      echo '${{ needs.detect-changes.outputs.required-tests }}' | jq -r '.[]' | while read category; do
+        echo "  ✅ $category"
+      done
+```
+
+### 9. 高级配置和优化
+
+#### 测试并行度控制
+通过GitHub Actions矩阵策略实现最优并行度：
+
+```yaml
+strategy:
+  matrix:
+    test-category: ${{ fromJson(needs.detect-tests.outputs.test-categories) }}
+  fail-fast: false  # 关键：允许部分失败继续执行
+  max-parallel: 8   # 可选：限制最大并行数
+```
+
+#### 条件执行逻辑
+智能的条件执行确保资源有效利用：
+
+```yaml
+# 只有在测试工作流成功时才执行
+if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+# 只有在检测到相关变更时才执行测试
+if: ${{ needs.detect-changes.outputs.required-tests != '[]' }}
+```
+
+#### 超时和重试配置
+为长时间运行的集成测试配置合理的超时：
+
+```yaml
+# 在test-mapping.yml中配置
+test_categories:
+  comprehensive_demos:
+    timeout: 1200  # 10分钟超时
+    retry: 2      # 失败时重试2次
+```
+
+### 10. 配置文件更新指南
 
 #### 添加新文件映射
 当项目结构发生变化时，需要更新文件映射：
@@ -378,6 +551,10 @@ detect-tests:
 # 示例：添加新的示例目录映射  
 - pattern: "examples/new_feature/**"
   categories: ["new_feature_test", "comprehensive_demos"]
+
+# 示例：添加连续对话相关映射
+- pattern: "**/*continuous*"
+  categories: ["continuous_conversation", "comprehensive_demos"]
 ```
 
 #### 测试类别配置更新
@@ -389,9 +566,28 @@ test_categories:
     name: "New Feature Integration Test"
     command: "python examples/new_feature/test_new_feature.py"
     description: "Tests new feature functionality"
-    timeout: 300  # 可选：测试超时时间（秒）
+    timeout: 1200  # 可选：测试超时时间（秒）
     retry: 1      # 可选：失败重试次数
 ```
+
+#### 验证配置更新
+配置更新后的验证步骤：
+
+1. **本地验证测试映射**:
+   ```bash
+   python .github/scripts/detect_required_tests.py --files "your_changed_file.py" --verbose
+   ```
+
+2. **测试命令验证**:
+   ```bash
+   python .github/scripts/run_all_integration_tests.py --category new_category --verbose
+   ```
+
+3. **工作流语法检查**:
+   ```bash
+   # 使用GitHub CLI验证工作流语法
+   gh workflow view integration-test.yml
+   ```
 
 ---
 
