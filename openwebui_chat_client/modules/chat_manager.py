@@ -94,7 +94,11 @@ class ChatManager:
         # Use the main client's method if available (for test mocking)
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
-            parent_client._find_or_create_chat_by_title(chat_title)
+            try:
+                parent_client._find_or_create_chat_by_title(chat_title)
+            except Exception as e:
+                logger.error(f"Parent client _find_or_create_chat_by_title failed: {e}")
+                self._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
 
@@ -119,19 +123,31 @@ class ChatManager:
             # Use parent client's method if available (for test mocking)
             parent_client = getattr(self.base_client, '_parent_client', None)
             if parent_client and hasattr(parent_client, 'get_folder_id_by_name'):
-                folder_id = parent_client.get_folder_id_by_name(folder_name)
+                try:
+                    folder_id = parent_client.get_folder_id_by_name(folder_name)
+                except Exception as e:
+                    logger.warning(f"Parent client get_folder_id_by_name failed: {e}")
+                    folder_id = self.get_folder_id_by_name(folder_name)
             else:
                 folder_id = self.get_folder_id_by_name(folder_name)
             
             if not folder_id:
                 if parent_client and hasattr(parent_client, 'create_folder'):
-                    folder_id = parent_client.create_folder(folder_name)
+                    try:
+                        folder_id = parent_client.create_folder(folder_name)
+                    except Exception as e:
+                        logger.warning(f"Parent client create_folder failed: {e}")
+                        folder_id = self.create_folder(folder_name)
                 else:
                     folder_id = self.create_folder(folder_name)
             
             if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
                 if parent_client and hasattr(parent_client, 'move_chat_to_folder'):
-                    parent_client.move_chat_to_folder(self.base_client.chat_id, folder_id)
+                    try:
+                        parent_client.move_chat_to_folder(self.base_client.chat_id, folder_id)
+                    except Exception as e:
+                        logger.warning(f"Parent client move_chat_to_folder failed: {e}")
+                        self.move_chat_to_folder(self.base_client.chat_id, folder_id)
                 else:
                     self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
@@ -160,7 +176,11 @@ class ChatManager:
                 # Use parent client's method if available (for test mocking)
                 parent_client = getattr(self.base_client, '_parent_client', None)
                 if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                    parent_client.set_chat_tags(self.base_client.chat_id, tags)
+                    try:
+                        parent_client.set_chat_tags(self.base_client.chat_id, tags)
+                    except Exception as e:
+                        logger.warning(f"Parent client set_chat_tags failed: {e}")
+                        self.set_chat_tags(self.base_client.chat_id, tags)
                 else:
                     self.set_chat_tags(self.base_client.chat_id, tags)
 
@@ -239,7 +259,11 @@ class ChatManager:
         # Use main client's method if available (for test mocking)
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
-            parent_client._find_or_create_chat_by_title(chat_title)
+            try:
+                parent_client._find_or_create_chat_by_title(chat_title)
+            except Exception as e:
+                logger.warning(f"Parent client _find_or_create_chat_by_title failed: {e}")
+                self._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
 
@@ -398,7 +422,11 @@ class ChatManager:
         # Use parent client's method if available (for test mocking)
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_update_remote_chat'):
-            update_success = parent_client._update_remote_chat()
+            try:
+                update_success = parent_client._update_remote_chat()
+            except Exception as e:
+                logger.warning(f"Parent client _update_remote_chat failed: {e}")
+                update_success = self._update_remote_chat()
         else:
             update_success = self._update_remote_chat()
             
@@ -799,12 +827,29 @@ class ChatManager:
 
             # Update on server
             if parent_client and hasattr(parent_client, '_update_remote_chat'):
-                update_success = parent_client._update_remote_chat()
+                try:
+                    update_success = parent_client._update_remote_chat()
+                except Exception as e:
+                    logger.warning(f"Parent client _update_remote_chat failed: {e}")
+                    # Call the main client's method if this is being used by switch_chat_model
+                    if (self.base_client._parent_client and 
+                        hasattr(self.base_client._parent_client, '_update_remote_chat')):
+                        try:
+                            update_success = self.base_client._parent_client._update_remote_chat()
+                        except Exception as e2:
+                            logger.warning(f"Base client parent _update_remote_chat failed: {e2}")
+                            update_success = self._update_remote_chat()
+                    else:
+                        update_success = self._update_remote_chat()
             else:
                 # Call the main client's method if this is being used by switch_chat_model
                 if (self.base_client._parent_client and 
                     hasattr(self.base_client._parent_client, '_update_remote_chat')):
-                    update_success = self.base_client._parent_client._update_remote_chat()
+                    try:
+                        update_success = self.base_client._parent_client._update_remote_chat()
+                    except Exception as e:
+                        logger.warning(f"Base client parent _update_remote_chat failed: {e}")
+                        update_success = self._update_remote_chat()
                 else:
                     update_success = self._update_remote_chat()
 
@@ -924,7 +969,11 @@ class ChatManager:
             if (hasattr(self.base_client, '_parent_client') and 
                 self.base_client._parent_client and
                 hasattr(self.base_client._parent_client, 'get_folder_id_by_name')):
-                return self.base_client._parent_client.get_folder_id_by_name(name)
+                try:
+                    return self.base_client._parent_client.get_folder_id_by_name(name)
+                except Exception as e:
+                    logger.warning(f"Parent client get_folder_id_by_name failed: {e}")
+                    return self.get_folder_id_by_name(name)
             else:
                 return self.get_folder_id_by_name(name)
         except requests.exceptions.RequestException as e:
@@ -1377,7 +1426,11 @@ class ChatManager:
                 # Use parent client's method if available (for test mocking)
                 parent_client = getattr(self.base_client, '_parent_client', None)
                 if parent_client and hasattr(parent_client, '_upload_file'):
-                    file_obj = parent_client._upload_file(file_path)
+                    try:
+                        file_obj = parent_client._upload_file(file_path)
+                    except Exception as e:
+                        logger.warning(f"Parent client _upload_file failed: {e}")
+                        file_obj = self.base_client._upload_file(file_path)
                 else:
                     file_obj = self.base_client._upload_file(file_path)
                 
@@ -1392,23 +1445,51 @@ class ChatManager:
                 # Use parent client's method if available (for test mocking)
                 parent_client = getattr(self.base_client, '_parent_client', None)
                 if parent_client and hasattr(parent_client, 'get_knowledge_base_by_name'):
-                    kb_summary = parent_client.get_knowledge_base_by_name(kb_name)
+                    try:
+                        kb_summary = parent_client.get_knowledge_base_by_name(kb_name)
+                    except Exception as e:
+                        logger.warning(f"Parent client get_knowledge_base_by_name failed: {e}")
+                        # Access through base client's parent reference to main client
+                        kb_summary = None
+                        if (self.base_client._parent_client and 
+                            hasattr(self.base_client._parent_client, 'get_knowledge_base_by_name')):
+                            try:
+                                kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name)
+                            except Exception as e2:
+                                logger.warning(f"Base client parent get_knowledge_base_by_name failed: {e2}")
                 else:
                     # Access through base client's parent reference to main client
                     kb_summary = None
                     if (self.base_client._parent_client and 
                         hasattr(self.base_client._parent_client, 'get_knowledge_base_by_name')):
-                        kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name)
+                        try:
+                            kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name)
+                        except Exception as e:
+                            logger.warning(f"Base client parent get_knowledge_base_by_name failed: {e}")
                 
                 if kb_summary:
                     if parent_client and hasattr(parent_client, '_get_knowledge_base_details'):
-                        kb_details = parent_client._get_knowledge_base_details(kb_summary["id"])
+                        try:
+                            kb_details = parent_client._get_knowledge_base_details(kb_summary["id"])
+                        except Exception as e:
+                            logger.warning(f"Parent client _get_knowledge_base_details failed: {e}")
+                            # Access through base client's parent reference to main client
+                            kb_details = None
+                            if (self.base_client._parent_client and 
+                                hasattr(self.base_client._parent_client, '_get_knowledge_base_details')):
+                                try:
+                                    kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"])
+                                except Exception as e2:
+                                    logger.warning(f"Base client parent _get_knowledge_base_details failed: {e2}")
                     else:
                         # Access through base client's parent reference to main client
                         kb_details = None
                         if (self.base_client._parent_client and 
                             hasattr(self.base_client._parent_client, '_get_knowledge_base_details')):
-                            kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"])
+                            try:
+                                kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"])
+                            except Exception as e:
+                                logger.warning(f"Base client parent _get_knowledge_base_details failed: {e}")
                     
                     if kb_details:
                         file_ids = [f["id"] for f in kb_details.get("files", [])]
@@ -2071,7 +2152,11 @@ class ChatManager:
         # Use the parent client's method for proper test mocking
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
-            parent_client._find_or_create_chat_by_title(chat_title)
+            try:
+                parent_client._find_or_create_chat_by_title(chat_title)
+            except Exception as e:
+                logger.warning(f"Parent client _find_or_create_chat_by_title failed: {e}")
+                self._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
         
