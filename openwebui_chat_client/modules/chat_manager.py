@@ -477,11 +477,20 @@ class ChatManager:
             if tags:
                 self.set_chat_tags(self.base_client.chat_id, tags)
 
-            # Prepare a more detailed response object
-            final_responses = {
-                k: {"content": v["content"], "follow_ups": v.get("followUps")}
-                for k, v in successful_responses.items()
-            }
+            # Prepare a more detailed response object with robust type checking
+            final_responses = {}
+            for k, v in successful_responses.items():
+                if isinstance(v, dict):
+                    final_responses[k] = {
+                        "content": v.get("content"),
+                        "follow_ups": v.get("followUps")
+                    }
+                else:
+                    logger.warning(f"Response for model {k} is not a dictionary: {type(v)}")
+                    final_responses[k] = {
+                        "content": str(v) if v is not None else None,
+                        "follow_ups": None
+                    }
 
             return_data = {
                 "responses": final_responses,
@@ -1579,34 +1588,43 @@ class ChatManager:
         enable_follow_up: bool = False,
     ) -> Tuple[Optional[str], List, Optional[List[str]]]:
         """Get response from a single model for parallel chat functionality."""
-        api_messages = self._build_linear_history_for_api(chat_core)
-        current_user_content_parts = [{"type": "text", "text": question}]
-        if image_paths:
-            for path in image_paths:
-                url = self._encode_image_to_base64(path)
-                if url:
-                    current_user_content_parts.append(
-                        {"type": "image_url", "image_url": {"url": url}}
-                    )
-        final_api_content = (
-            question
-            if len(current_user_content_parts) == 1
-            else current_user_content_parts
-        )
-        api_messages.append({"role": "user", "content": final_api_content})
-        content, sources = self._get_model_completion(
-            self.base_client.chat_id, api_messages, api_rag_payload, model_id, tool_ids
-        )
+        try:
+            logger.info(f"🔄 Getting response from model: {model_id}")
+            api_messages = self._build_linear_history_for_api(chat_core)
+            current_user_content_parts = [{"type": "text", "text": question}]
+            if image_paths:
+                for path in image_paths:
+                    url = self._encode_image_to_base64(path)
+                    if url:
+                        current_user_content_parts.append(
+                            {"type": "image_url", "image_url": {"url": url}}
+                        )
+            final_api_content = (
+                question
+                if len(current_user_content_parts) == 1
+                else current_user_content_parts
+            )
+            api_messages.append({"role": "user", "content": final_api_content})
+            content, sources = self._get_model_completion(
+                self.base_client.chat_id, api_messages, api_rag_payload, model_id, tool_ids
+            )
 
-        follow_ups = None
-        if content and enable_follow_up:
-            # To get follow-ups, we need the assistant's response in the history
-            temp_history_for_follow_up = api_messages + [
-                {"role": "assistant", "content": content}
-            ]
-            follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
+            follow_ups = None
+            if content and enable_follow_up:
+                logger.info(f"🤔 Getting follow-ups for model: {model_id}")
+                # To get follow-ups, we need the assistant's response in the history
+                temp_history_for_follow_up = api_messages + [
+                    {"role": "assistant", "content": content}
+                ]
+                follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
+                logger.info(f"✅ Got {len(follow_ups) if follow_ups else 0} follow-ups for {model_id}")
 
-        return content, sources, follow_ups
+            return content, sources, follow_ups
+            
+        except Exception as e:
+            logger.error(f"❌ Error in _get_single_model_response_in_parallel for {model_id}: {e}")
+            logger.error(f"   Error type: {type(e)}")
+            return None, [], None
     
     def _build_linear_history_for_api(self, chat_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Build linear message history for API calls."""
@@ -2380,7 +2398,12 @@ class ChatManager:
             responses = result.get("responses", {})
             if isinstance(responses, dict):
                 for model_id, model_result in responses.items():
-                    if isinstance(model_result, dict) and "follow_ups" in model_result:
+                    # Add robust type checking for model_result
+                    if not isinstance(model_result, dict):
+                        logger.warning(f"Model {model_id} result is not a dictionary: {type(model_result)}")
+                        continue
+                        
+                    if "follow_ups" in model_result:
                         follow_ups = model_result["follow_ups"]
                         if isinstance(follow_ups, list):
                             all_follow_ups.extend(follow_ups)

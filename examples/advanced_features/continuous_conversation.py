@@ -239,15 +239,24 @@ def continuous_parallel_model_example(client: OpenWebUIClient) -> bool:
                 logger.error(f"❌ Round {round_num} failed: Missing responses from models: {missing_models}")
                 return False
             
-            # Validate response quality
+            # Validate response quality with robust type checking
             for model_id, response_data in responses.items():
                 if not isinstance(response_data, dict):
                     logger.error(f"❌ Round {round_num} failed: Invalid response data type for {model_id}: {type(response_data)}")
+                    logger.error(f"   Response data: {str(response_data)[:100]}...")
                     return False
+                    
                 content = response_data.get('content', '')
                 if not content or not isinstance(content, str) or len(content.strip()) < 10:
                     logger.error(f"❌ Round {round_num} failed: Invalid response from {model_id}: {content[:50] if content else 'None'}...")
                     return False
+                    
+                # Check follow_ups if present
+                follow_ups = response_data.get('follow_ups')
+                if follow_ups is not None and not isinstance(follow_ups, (list, type(None))):
+                    logger.warning(f"⚠️ Round {round_num}: Unexpected follow_ups type for {model_id}: {type(follow_ups)}")
+                    # Convert to None to avoid issues downstream
+                    response_data['follow_ups'] = None
                         
         print("\n" + "=" * 60)
         print("🌐 PARALLEL CONVERSATION SUMMARY")
