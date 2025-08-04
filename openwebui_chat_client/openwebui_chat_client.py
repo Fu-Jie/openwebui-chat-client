@@ -1835,7 +1835,7 @@ class OpenWebUIClient:
     def _ensure_placeholder_messages(self, pool_size: int, min_available: int) -> bool:
         """
         Ensures there are enough placeholder message pairs available for streaming.
-        Creates placeholder pairs if needed.
+        Creates placeholder pairs that form a proper multi-turn conversation chain.
         """
         if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
             logger.warning("No chat object available for placeholder message creation.")
@@ -1852,10 +1852,26 @@ class OpenWebUIClient:
             logger.info(f"✅ Sufficient placeholder pairs available ({available_pairs} >= {min_available}).")
             return True
 
-        # Create more placeholder pairs
+        # Create more placeholder pairs as a connected conversation chain
         pairs_to_create = pool_size - available_pairs
-        logger.info(f"🔧 Creating {pairs_to_create} new placeholder message pairs...")
+        logger.info(f"🔧 Creating {pairs_to_create} new placeholder message pairs as a conversation chain...")
         
+        # Find the last message in the current conversation to continue the chain
+        messages = chat_core["history"]["messages"]
+        last_message_id = None
+        
+        # Find the current end of the conversation chain
+        if chat_core["history"].get("currentId"):
+            last_message_id = chat_core["history"]["currentId"]
+        else:
+            # Find the last non-placeholder message
+            for msg_id, msg in messages.items():
+                if not msg.get("_is_placeholder") and not msg.get("childrenIds"):
+                    last_message_id = msg_id
+                    break
+        
+        # Create connected conversation pairs
+        parent_id = last_message_id
         for i in range(pairs_to_create):
             user_id = str(uuid.uuid4())
             assistant_id = str(uuid.uuid4())
@@ -1863,7 +1879,7 @@ class OpenWebUIClient:
             # Create placeholder user message
             user_message = {
                 "id": user_id,
-                "parentId": None,
+                "parentId": parent_id,  # Connect to previous message in conversation
                 "childrenIds": [assistant_id],
                 "role": "user",
                 "content": "PLACEHOLDER_USER_MESSAGE",
@@ -1890,11 +1906,36 @@ class OpenWebUIClient:
                 "_is_available": True,
             }
             
+            # Update parent message to point to this user message
+            if parent_id and parent_id in messages:
+                if "childrenIds" not in messages[parent_id]:
+                    messages[parent_id]["childrenIds"] = []
+                messages[parent_id]["childrenIds"].append(user_id)
+            
             # Add to history
-            chat_core["history"]["messages"][user_id] = user_message
-            chat_core["history"]["messages"][assistant_id] = assistant_message
+            messages[user_id] = user_message
+            messages[assistant_id] = assistant_message
+            
+            # Set up for next iteration - assistant becomes parent for next user message
+            parent_id = assistant_id
 
-        logger.info(f"✅ Created {pairs_to_create} placeholder message pairs.")
+        # Update the outer messages array and currentId for proper storage
+        if messages:
+            # Find the last assistant message to set as currentId
+            last_assistant_id = None
+            for msg_id, msg in messages.items():
+                if msg.get("role") == "assistant" and not msg.get("childrenIds"):
+                    last_assistant_id = msg_id
+                    break
+            
+            if last_assistant_id:
+                chat_core["history"]["currentId"] = last_assistant_id
+                # Update the linear messages array
+                chat_core["messages"] = self._build_linear_history_for_storage(
+                    chat_core, last_assistant_id
+                )
+
+        logger.info(f"✅ Created {pairs_to_create} placeholder message pairs in conversation chain.")
         return True
 
     def _count_available_placeholder_pairs(self) -> int:
