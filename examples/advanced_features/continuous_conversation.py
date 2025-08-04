@@ -58,7 +58,7 @@ def continuous_single_model_example(client: OpenWebUIClient) -> bool:
     logger.info("=" * 60)
     
     initial_question = "Explain the concept of artificial intelligence"
-    num_questions = 3
+    num_questions = 2
     chat_title = "AI Deep Dive - Continuous"
     
     logger.info(f"🎯 Starting conversation: {initial_question}")
