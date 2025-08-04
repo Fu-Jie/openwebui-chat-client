@@ -362,6 +362,7 @@ def main() -> None:
                     logger.error(f"❌ {example_name} example failed")
             except Exception as e:
                 logger.error(f"❌ {example_name} example failed with exception: {e}")
+                # Don't increment success count for exceptions
         
         # Run error handling example (doesn't count toward functional success)
         try:
