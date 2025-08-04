@@ -2072,16 +2072,25 @@ class ChatManager:
             
             # Collect follow-up suggestions from all models
             all_follow_ups = []
-            for model_id, model_result in result.get("responses", {}).items():
-                if "follow_ups" in model_result:
-                    all_follow_ups.extend(model_result["follow_ups"])
+            responses = result.get("responses", {})
+            if isinstance(responses, dict):
+                for model_id, model_result in responses.items():
+                    if isinstance(model_result, dict) and "follow_ups" in model_result:
+                        follow_ups = model_result["follow_ups"]
+                        if isinstance(follow_ups, list):
+                            all_follow_ups.extend(follow_ups)
+                        elif follow_ups is not None:
+                            # Handle case where follow_ups is not a list but not None
+                            logger.warning(f"Unexpected follow_ups type for {model_id}: {type(follow_ups)}")
+            else:
+                logger.warning(f"Unexpected responses type in round {round_num}: {type(responses)}")
             
             if all_follow_ups:
                 # Remove duplicates while preserving order
                 seen = set()
                 unique_follow_ups = []
                 for follow_up in all_follow_ups:
-                    if follow_up not in seen:
+                    if isinstance(follow_up, str) and follow_up not in seen:
                         seen.add(follow_up)
                         unique_follow_ups.append(follow_up)
                 round_data["follow_ups"] = unique_follow_ups

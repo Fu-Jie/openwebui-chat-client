@@ -76,50 +76,77 @@ def continuous_single_model_example(client: OpenWebUIClient) -> bool:
             enable_auto_titling=True
         )
         
-        if result:
-            logger.info(f"✅ Conversation completed: {result['total_rounds']} rounds")
-            logger.info(f"💬 Chat ID: {result['chat_id']}")
-            
-            # Strict validation: check if we actually got meaningful results
-            if not result.get('total_rounds') or result['total_rounds'] != num_questions:
-                logger.error(f"❌ Continuous conversation failed: Expected {num_questions} rounds, got {result.get('total_rounds', 0)}")
-                return False
-            
-            if not result.get('conversation_history'):
-                logger.error("❌ Continuous conversation failed: No conversation history returned")
-                return False
-            
-            # Validate each round has proper structure
-            for round_data in result['conversation_history']:
-                if not round_data.get('response') or len(round_data.get('response', '').strip()) < 10:
-                    logger.error(f"❌ Round {round_data.get('round', '?')} failed: Invalid or empty response")
-                    return False
-                    
-            print("\n" + "=" * 60)
-            print("📚 CONVERSATION SUMMARY")
-            print("=" * 60)
-            
-            for round_data in result['conversation_history']:
-                print(f"\n🔹 Round {round_data['round']}:")
-                print(f"❓ Question: {round_data['question']}")
-                print(f"🤖 Response: {round_data['response'][:200]}...")
-                
-                if 'follow_ups' in round_data:
-                    print(f"🤔 Follow-ups suggested: {len(round_data['follow_ups'])}")
-                    for i, follow_up in enumerate(round_data['follow_ups'][:3], 1):
-                        print(f"   {i}. {follow_up}")
-            
-            if 'suggested_tags' in result:
-                print(f"\n🏷️ Auto-generated tags: {result['suggested_tags']}")
-            if 'suggested_title' in result:
-                print(f"📝 Auto-generated title: {result['suggested_title']}")
-                
-            return True
-                
-        else:
-            logger.error("❌ Continuous conversation failed: No result returned")
+        if not result:
+            logger.error("❌ Continuous conversation returned None")
             return False
             
+        # Type check the result
+        if not isinstance(result, dict):
+            logger.error(f"❌ Continuous conversation returned unexpected type: {type(result)}")
+            return False
+        
+        logger.info(f"✅ Conversation completed: {result.get('total_rounds', 0)} rounds")
+        logger.info(f"💬 Chat ID: {result.get('chat_id', 'N/A')}")
+        
+        # Strict validation: check if we actually got meaningful results
+        total_rounds = result.get('total_rounds', 0)
+        if not total_rounds or total_rounds != num_questions:
+            logger.error(f"❌ Continuous conversation failed: Expected {num_questions} rounds, got {total_rounds}")
+            return False
+        
+        conversation_history = result.get('conversation_history', [])
+        if not conversation_history:
+            logger.error("❌ Continuous conversation failed: No conversation history returned")
+            return False
+        
+        if len(conversation_history) != num_questions:
+            logger.error(f"❌ Continuous conversation failed: Expected {num_questions} history entries, got {len(conversation_history)}")
+            return False
+        
+        # Validate each round has proper structure
+        for round_data in conversation_history:
+            if not isinstance(round_data, dict):
+                logger.error(f"❌ Round data is not a dictionary: {type(round_data)}")
+                return False
+                
+            round_num = round_data.get('round', '?')
+            response = round_data.get('response', '')
+            
+            if not response or not isinstance(response, str) or len(response.strip()) < 10:
+                logger.error(f"❌ Round {round_num} failed: Invalid or empty response: {response[:50] if response else 'None'}...")
+                return False
+                
+        print("\n" + "=" * 60)
+        print("📚 CONVERSATION SUMMARY")
+        print("=" * 60)
+        
+        for round_data in conversation_history:
+            print(f"\n🔹 Round {round_data.get('round', '?')}:")
+            print(f"❓ Question: {round_data.get('question', 'N/A')}")
+            print(f"🤖 Response: {round_data.get('response', 'N/A')[:200]}...")
+            
+            follow_ups = round_data.get('follow_ups', [])
+            if follow_ups and isinstance(follow_ups, list):
+                print(f"🤔 Follow-ups suggested: {len(follow_ups)}")
+                for i, follow_up in enumerate(follow_ups[:3], 1):
+                    print(f"   {i}. {follow_up}")
+        
+        suggested_tags = result.get('suggested_tags', [])
+        if suggested_tags:
+            print(f"\n🏷️ Auto-generated tags: {suggested_tags}")
+        
+        suggested_title = result.get('suggested_title')
+        if suggested_title:
+            print(f"📝 Auto-generated title: {suggested_title}")
+            
+        return True
+                
+    except ValueError as e:
+        logger.error(f"❌ Continuous single-model conversation validation error: {e}")
+        return False
+    except TypeError as e:
+        logger.error(f"❌ Continuous single-model conversation type error: {e}")
+        return False        
     except Exception as e:
         logger.error(f"❌ Continuous single-model conversation failed: {e}")
         raise  # Re-raise to be handled by main function
@@ -134,8 +161,19 @@ def continuous_parallel_model_example(client: OpenWebUIClient) -> bool:
     num_questions = 2
     chat_title = "Web Dev Challenges - Multi-Model Analysis"
     
+    # Validate parallel models
+    if not PARALLEL_MODELS or len(PARALLEL_MODELS) == 0:
+        logger.error("❌ PARALLEL_MODELS is empty or not set")
+        return False
+    
+    # Clean up model names (remove empty strings)
+    cleaned_models = [model.strip() for model in PARALLEL_MODELS if model.strip()]
+    if not cleaned_models:
+        logger.error("❌ No valid models in PARALLEL_MODELS after cleanup")
+        return False
+    
     logger.info(f"🎯 Starting parallel conversation: {initial_question}")
-    logger.info(f"🤖 Models: {PARALLEL_MODELS}")
+    logger.info(f"🤖 Models: {cleaned_models}")
     logger.info(f"📊 Target rounds: {num_questions}")
     
     try:
@@ -143,67 +181,108 @@ def continuous_parallel_model_example(client: OpenWebUIClient) -> bool:
             initial_question=initial_question,
             num_questions=num_questions,
             chat_title=chat_title,
-            model_ids=PARALLEL_MODELS,
+            model_ids=cleaned_models,
             folder_name="Continuous Conversations",
             tags=["web-dev", "parallel", "analysis"],
         )
         
-        if result:
-            logger.info(f"✅ Parallel conversation completed: {result['total_rounds']} rounds")
-            logger.info(f"💬 Chat ID: {result['chat_id']}")
-            
-            # Strict validation: check if we actually got meaningful results
-            if not result.get('total_rounds') or result['total_rounds'] != num_questions:
-                logger.error(f"❌ Continuous parallel conversation failed: Expected {num_questions} rounds, got {result.get('total_rounds', 0)}")
-                return False
-            
-            if not result.get('conversation_history'):
-                logger.error("❌ Continuous parallel conversation failed: No conversation history returned")
-                return False
-                
-            # Validate each round has responses from all models
-            for round_data in result['conversation_history']:
-                if not round_data.get('responses'):
-                    logger.error(f"❌ Round {round_data.get('round', '?')} failed: No model responses")
-                    return False
-                
-                # Check that we got responses from all expected models
-                expected_models = set(PARALLEL_MODELS)
-                actual_models = set(round_data['responses'].keys())
-                if not expected_models.issubset(actual_models):
-                    missing_models = expected_models - actual_models
-                    logger.error(f"❌ Round {round_data.get('round', '?')} failed: Missing responses from models: {missing_models}")
-                    return False
-                
-                # Validate response quality
-                for model_id, response_data in round_data['responses'].items():
-                    if not response_data.get('content') or len(response_data.get('content', '').strip()) < 10:
-                        logger.error(f"❌ Round {round_data.get('round', '?')} failed: Invalid response from {model_id}")
-                        return False
-                        
-            print("\n" + "=" * 60)
-            print("🌐 PARALLEL CONVERSATION SUMMARY")
-            print("=" * 60)
-            
-            for round_data in result['conversation_history']:
-                print(f"\n🔹 Round {round_data['round']}:")
-                print(f"❓ Question: {round_data['question']}")
-                
-                for model_id, response_data in round_data['responses'].items():
-                    print(f"\n🤖 {model_id}:")
-                    print(f"   {response_data.get('content', 'No response')[:150]}...")
-                
-                if 'follow_ups' in round_data:
-                    print(f"\n🤔 Combined follow-ups: {len(round_data['follow_ups'])}")
-                    for i, follow_up in enumerate(round_data['follow_ups'][:3], 1):
-                        print(f"   {i}. {follow_up}")
-                        
-            return True
-                
-        else:
-            logger.error("❌ Continuous parallel conversation failed: No result returned")
+        if not result:
+            logger.error("❌ Continuous parallel conversation returned None")
             return False
             
+        # Type check the result
+        if not isinstance(result, dict):
+            logger.error(f"❌ Continuous parallel conversation returned unexpected type: {type(result)}")
+            return False
+        
+        logger.info(f"✅ Parallel conversation completed: {result.get('total_rounds', 0)} rounds")
+        logger.info(f"💬 Chat ID: {result.get('chat_id', 'N/A')}")
+        
+        # Strict validation: check if we actually got meaningful results
+        total_rounds = result.get('total_rounds', 0)
+        if not total_rounds or total_rounds != num_questions:
+            logger.error(f"❌ Continuous parallel conversation failed: Expected {num_questions} rounds, got {total_rounds}")
+            return False
+        
+        conversation_history = result.get('conversation_history', [])
+        if not conversation_history:
+            logger.error("❌ Continuous parallel conversation failed: No conversation history returned")
+            return False
+            
+        if len(conversation_history) != num_questions:
+            logger.error(f"❌ Continuous parallel conversation failed: Expected {num_questions} history entries, got {len(conversation_history)}")
+            return False
+            
+        # Validate each round has responses from all models
+        for round_data in conversation_history:
+            if not isinstance(round_data, dict):
+                logger.error(f"❌ Round data is not a dictionary: {type(round_data)}")
+                return False
+                
+            round_num = round_data.get('round', '?')
+            responses = round_data.get('responses')
+            
+            if not responses:
+                logger.error(f"❌ Round {round_num} failed: No model responses")
+                return False
+            
+            # Check if responses is a dictionary as expected
+            if not isinstance(responses, dict):
+                logger.error(f"❌ Round {round_num} failed: Unexpected type for responses: {type(responses)}")
+                return False
+            
+            # Check that we got responses from all expected models
+            expected_models = set(cleaned_models)
+            actual_models = set(responses.keys())
+            if not expected_models.issubset(actual_models):
+                missing_models = expected_models - actual_models
+                logger.error(f"❌ Round {round_num} failed: Missing responses from models: {missing_models}")
+                return False
+            
+            # Validate response quality
+            for model_id, response_data in responses.items():
+                if not isinstance(response_data, dict):
+                    logger.error(f"❌ Round {round_num} failed: Invalid response data type for {model_id}: {type(response_data)}")
+                    return False
+                content = response_data.get('content', '')
+                if not content or not isinstance(content, str) or len(content.strip()) < 10:
+                    logger.error(f"❌ Round {round_num} failed: Invalid response from {model_id}: {content[:50] if content else 'None'}...")
+                    return False
+                        
+        print("\n" + "=" * 60)
+        print("🌐 PARALLEL CONVERSATION SUMMARY")
+        print("=" * 60)
+        
+        for round_data in conversation_history:
+            print(f"\n🔹 Round {round_data.get('round', '?')}:")
+            print(f"❓ Question: {round_data.get('question', 'N/A')}")
+            
+            responses = round_data.get('responses', {})
+            if isinstance(responses, dict):
+                for model_id, response_data in responses.items():
+                    print(f"\n🤖 {model_id}:")
+                    if isinstance(response_data, dict):
+                        content = response_data.get('content', 'No response')
+                    else:
+                        content = str(response_data)
+                    print(f"   {content[:150]}...")
+            else:
+                print(f"   ⚠️ Unexpected response format: {type(responses)}")
+            
+            follow_ups = round_data.get('follow_ups', [])
+            if follow_ups and isinstance(follow_ups, list):
+                print(f"\n🤔 Combined follow-ups: {len(follow_ups)}")
+                for i, follow_up in enumerate(follow_ups[:3], 1):
+                    print(f"   {i}. {follow_up}")
+                    
+        return True
+                
+    except ValueError as e:
+        logger.error(f"❌ Continuous parallel conversation validation error: {e}")
+        return False
+    except TypeError as e:
+        logger.error(f"❌ Continuous parallel conversation type error: {e}")
+        return False
     except Exception as e:
         logger.error(f"❌ Continuous parallel conversation failed: {e}")
         raise  # Re-raise to be handled by main function
@@ -229,58 +308,104 @@ def continuous_streaming_example(client: OpenWebUIClient) -> bool:
         final_result = None
         current_round = 0
         completed_rounds = 0
+        error_count = 0
         
-        for chunk in client.continuous_stream_chat(
-            initial_question=initial_question,
-            num_questions=num_questions,
-            chat_title=chat_title,
-            model_id=DEFAULT_MODEL,
-            folder_name="Continuous Conversations",
-            tags=["quantum", "streaming", "educational"]
-        ):
-            chunk_type = chunk.get("type")
+        try:
+            stream_generator = client.continuous_stream_chat(
+                initial_question=initial_question,
+                num_questions=num_questions,
+                chat_title=chat_title,
+                model_id=DEFAULT_MODEL,
+                folder_name="Continuous Conversations",
+                tags=["quantum", "streaming", "educational"]
+            )
             
-            if chunk_type == "round_start":
-                current_round = chunk["round"]
-                print(f"\n🔹 Round {current_round} Starting...")
-                print(f"❓ Question: {chunk['question']}")
-                print("🤖 Response: ", end="", flush=True)
+            for chunk in stream_generator:
+                if not isinstance(chunk, dict):
+                    logger.warning(f"Unexpected chunk type: {type(chunk)}")
+                    continue
+                    
+                chunk_type = chunk.get("type")
                 
-            elif chunk_type == "round_complete":
-                completed_rounds += 1
-                print(f"\n✅ Round {chunk['round']} completed")
-                if chunk.get("follow_ups"):
-                    print(f"🤔 Follow-ups available: {len(chunk['follow_ups'])}")
-                    for i, follow_up in enumerate(chunk['follow_ups'][:2], 1):
-                        print(f"   {i}. {follow_up}")
+                if chunk_type == "round_start":
+                    current_round = chunk.get("round", 0)
+                    print(f"\n🔹 Round {current_round} Starting...")
+                    question = chunk.get('question', 'N/A')
+                    print(f"❓ Question: {question}")
+                    print("🤖 Response: ", end="", flush=True)
+                    
+                elif chunk_type == "round_complete":
+                    completed_rounds += 1
+                    round_num = chunk.get('round', '?')
+                    print(f"\n✅ Round {round_num} completed")
+                    follow_ups = chunk.get("follow_ups", [])
+                    if follow_ups and isinstance(follow_ups, list):
+                        print(f"🤔 Follow-ups available: {len(follow_ups)}")
+                        for i, follow_up in enumerate(follow_ups[:2], 1):
+                            if isinstance(follow_up, str):
+                                print(f"   {i}. {follow_up}")
+                            
+                elif chunk_type == "conversation_complete":
+                    summary = chunk.get("summary")
+                    if isinstance(summary, dict):
+                        final_result = summary
+                        print(f"\n🎉 Streaming conversation completed!")
+                    else:
+                        logger.warning(f"Unexpected summary type: {type(summary)}")
                         
-            elif chunk_type == "conversation_complete":
-                final_result = chunk["summary"]
-                print(f"\n🎉 Streaming conversation completed!")
-                
-            elif chunk_type == "round_error":
-                print(f"\n❌ Error in round {chunk['round']}: {chunk['error']}")
-                logger.error(f"Streaming conversation round error: {chunk['error']}")
+                elif chunk_type == "round_error":
+                    error_count += 1
+                    round_num = chunk.get('round', '?')
+                    error_msg = chunk.get('error', 'Unknown error')
+                    print(f"\n❌ Error in round {round_num}: {error_msg}")
+                    logger.error(f"Streaming conversation round error: {error_msg}")
+                    
+                elif chunk_type == "content":
+                    # Handle streaming content chunks
+                    content = chunk.get("content", "")
+                    if isinstance(content, str):
+                        print(content, end="", flush=True)
+                        
+        except Exception as stream_error:
+            logger.error(f"Streaming generator error: {stream_error}")
+            return False
         
         if final_result:
+            if not isinstance(final_result, dict):
+                logger.error(f"Final result is not a dictionary: {type(final_result)}")
+                return False
+                
             logger.info(f"✅ Streaming conversation summary:")
-            logger.info(f"   Total rounds: {final_result['total_rounds']}")
-            logger.info(f"   Chat ID: {final_result['chat_id']}")
+            
+            total_rounds = final_result.get('total_rounds', 0)
+            chat_id = final_result.get('chat_id', 'N/A')
+            
+            logger.info(f"   Total rounds: {total_rounds}")
+            logger.info(f"   Chat ID: {chat_id}")
             
             # Strict validation: check if we actually got meaningful results
-            if not final_result.get('total_rounds') or final_result['total_rounds'] != num_questions:
-                logger.error(f"❌ Streaming conversation failed: Expected {num_questions} rounds, got {final_result.get('total_rounds', 0)}")
+            if not total_rounds or total_rounds != num_questions:
+                logger.error(f"❌ Streaming conversation failed: Expected {num_questions} rounds, got {total_rounds}")
                 return False
             
             if completed_rounds != num_questions:
                 logger.error(f"❌ Streaming conversation failed: Expected {num_questions} completed rounds, got {completed_rounds}")
                 return False
+            
+            if error_count > 0:
+                logger.warning(f"⚠️ Streaming conversation had {error_count} errors but completed")
                 
             return True
         else:
             logger.error("❌ Streaming conversation failed: No final result returned")
             return False
             
+    except ValueError as e:
+        logger.error(f"❌ Continuous streaming conversation validation error: {e}")
+        return False
+    except TypeError as e:
+        logger.error(f"❌ Continuous streaming conversation type error: {e}")
+        return False            
     except Exception as e:
         logger.error(f"❌ Continuous streaming conversation failed: {e}")
         raise  # Re-raise to be handled by main function
