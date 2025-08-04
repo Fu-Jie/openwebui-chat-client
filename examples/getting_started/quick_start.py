@@ -184,12 +184,6 @@ def demo_chat_organization(client: OpenWebUIClient) -> None:
             "title": "ML Fundamentals",
             "folder": "Education",
             "tags": ["ml", "education", "fundamentals"]
-        },
-        {
-            "question": "What are some healthy breakfast ideas?",
-            "title": "Healthy Breakfast Ideas",
-            "folder": "Lifestyle",
-            "tags": ["health", "nutrition", "breakfast"]
         }
     ]
     
