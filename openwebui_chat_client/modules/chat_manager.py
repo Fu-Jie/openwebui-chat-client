@@ -1073,6 +1073,14 @@ class ChatManager:
         """Find an existing chat by title or create a new one."""
         logger.info(f"🔍 _find_or_create_chat_by_title() started for '{title}'")
         
+        # Check if we should skip title search (for continuous conversations with auto-titling)
+        if getattr(self.base_client, '_skip_title_search', False):
+            logger.info(f"🔄 Skipping title search, using existing chat_id: {self.base_client.chat_id}")
+            # Load chat details for the existing chat_id
+            if self.base_client.chat_id:
+                self._load_chat_details(self.base_client.chat_id)
+            return
+        
         if existing_chat := self._search_latest_chat_by_title(title):
             logger.info(f"✅ Found existing chat '{title}', loading details...")
             self._load_chat_details(existing_chat["id"])
@@ -2201,12 +2209,13 @@ class ChatManager:
         conversation_history = []
         current_question = initial_question
         chat_id = None
+        should_track_chat_id = enable_auto_titling  # Only track chat_id when auto-titling is enabled
         
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
             
             # For the first round, use all parameters including images and setup
-            # For subsequent rounds, only pass the question to continue the same chat
+            # For subsequent rounds, continue the existing chat by ID to handle auto-titling
             if round_num == 1:
                 # First round: create/find chat with full setup
                 current_image_paths = image_paths
@@ -2227,15 +2236,40 @@ class ChatManager:
                 
                 if result:
                     chat_id = result.get("chat_id")
+                    logger.info(f"🔗 Tracking chat_id for continuous conversation: {chat_id}")
                     
             else:
-                # Subsequent rounds: continue existing chat with just the question
-                result = self.chat(
-                    question=current_question,
-                    chat_title=chat_title,  # Same title will find existing chat
-                    model_id=model_id,
-                    enable_follow_up=round_num < num_questions,  # Enable follow-up for all except last
-                )
+                # Subsequent rounds: continue existing chat by ID instead of title ONLY if auto-titling is enabled
+                # This handles cases where auto-titling changed the chat title
+                if should_track_chat_id and chat_id:
+                    logger.info(f"🔄 Auto-titling enabled: Continuing existing chat by ID: {chat_id}")
+                    # Temporarily set chat_id to bypass search in _find_or_create_chat_by_title
+                    original_chat_id = self.base_client.chat_id
+                    self.base_client.chat_id = chat_id
+                    # Also set a flag to indicate we want to skip title search
+                    self.base_client._skip_title_search = True
+                    
+                    result = self.chat(
+                        question=current_question,
+                        chat_title=chat_title,
+                        model_id=model_id,
+                        enable_follow_up=round_num < num_questions,
+                    )
+                    
+                    # Clean up the flag
+                    self.base_client._skip_title_search = False
+                    
+                    # Update chat_id if needed
+                    if result and result.get("chat_id"):
+                        chat_id = result.get("chat_id")
+                else:
+                    # Normal case: use title-based chat continuation
+                    result = self.chat(
+                        question=current_question,
+                        chat_title=chat_title,
+                        model_id=model_id,
+                        enable_follow_up=round_num < num_questions,
+                    )
             
             if not result:
                 logger.error(f"Failed to get response for round {round_num}, stopping conversation")
@@ -2345,12 +2379,13 @@ class ChatManager:
         conversation_history = []
         current_question = initial_question
         chat_id = None
+        should_track_chat_id = enable_auto_titling  # Only track chat_id when auto-titling is enabled
         
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
             
             # For the first round, use all parameters including images and setup
-            # For subsequent rounds, only pass the question to continue the same chat
+            # For subsequent rounds, continue the existing chat by ID to handle auto-titling
             if round_num == 1:
                 # First round: create/find chat with full setup
                 current_image_paths = image_paths
@@ -2371,15 +2406,40 @@ class ChatManager:
                 
                 if result:
                     chat_id = result.get("chat_id")
+                    logger.info(f"🔗 Tracking chat_id for continuous parallel conversation: {chat_id}")
                     
             else:
-                # Subsequent rounds: continue existing chat with just the question
-                result = self.parallel_chat(
-                    question=current_question,
-                    chat_title=chat_title,  # Same title will find existing chat
-                    model_ids=model_ids,
-                    enable_follow_up=round_num < num_questions,  # Enable follow-up for all except last
-                )
+                # Subsequent rounds: continue existing chat by ID instead of title ONLY if auto-titling is enabled
+                # This handles cases where auto-titling changed the chat title
+                if should_track_chat_id and chat_id:
+                    logger.info(f"🔄 Auto-titling enabled: Continuing existing parallel chat by ID: {chat_id}")
+                    # Temporarily set chat_id to bypass search in _find_or_create_chat_by_title
+                    original_chat_id = self.base_client.chat_id
+                    self.base_client.chat_id = chat_id
+                    # Also set a flag to indicate we want to skip title search
+                    self.base_client._skip_title_search = True
+                    
+                    result = self.parallel_chat(
+                        question=current_question,
+                        chat_title=chat_title,
+                        model_ids=model_ids,
+                        enable_follow_up=round_num < num_questions,
+                    )
+                    
+                    # Clean up the flag
+                    self.base_client._skip_title_search = False
+                    
+                    # Update chat_id if needed
+                    if result and result.get("chat_id"):
+                        chat_id = result.get("chat_id")
+                else:
+                    # Normal case: use title-based parallel chat continuation
+                    result = self.parallel_chat(
+                        question=current_question,
+                        chat_title=chat_title,
+                        model_ids=model_ids,
+                        enable_follow_up=round_num < num_questions,
+                    )
             
             if not result:
                 logger.error(f"Failed to get responses for round {round_num}, stopping conversation")
