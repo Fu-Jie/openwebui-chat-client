@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.15] - 2025-01-28
+## [0.1.15] - 2025-08-04
 
 ### Added
 - **Continuous Conversation Feature**: New high-level conversation automation functionality
@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
   - Full test coverage with focused unit tests in `tests/test_continuous_conversation.py`
   - Demonstration example in `examples/advanced_features/continuous_conversation.py`
 
-## [0.1.14] - 2025-01-27
+## [0.1.14] - 2025-08-02
 
 ### Added in 0.1.14
 - **Modular Architecture Refactor**: Complete restructuring of the codebase into modular components:
