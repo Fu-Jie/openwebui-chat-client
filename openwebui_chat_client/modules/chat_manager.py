@@ -802,7 +802,8 @@ class ChatManager:
                 update_success = parent_client._update_remote_chat()
             else:
                 # Call the main client's method if this is being used by switch_chat_model
-                if hasattr(self.base_client, '_update_remote_chat'):
+                if (self.base_client._parent_client and 
+                    hasattr(self.base_client._parent_client, '_update_remote_chat')):
                     update_success = self.base_client._parent_client._update_remote_chat()
                 else:
                     update_success = self._update_remote_chat()
@@ -920,7 +921,9 @@ class ChatManager:
             response.raise_for_status()
             logger.info(f"Successfully sent request to create folder '{name}'.")
             # Use parent client if available (for test mocking)
-            if hasattr(self.base_client, '_parent_client') and self.base_client._parent_client:
+            if (hasattr(self.base_client, '_parent_client') and 
+                self.base_client._parent_client and
+                hasattr(self.base_client._parent_client, 'get_folder_id_by_name')):
                 return self.base_client._parent_client.get_folder_id_by_name(name)
             else:
                 return self.get_folder_id_by_name(name)
@@ -1392,14 +1395,20 @@ class ChatManager:
                     kb_summary = parent_client.get_knowledge_base_by_name(kb_name)
                 else:
                     # Access through base client's parent reference to main client
-                    kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name) if self.base_client._parent_client else None
+                    kb_summary = None
+                    if (self.base_client._parent_client and 
+                        hasattr(self.base_client._parent_client, 'get_knowledge_base_by_name')):
+                        kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name)
                 
                 if kb_summary:
                     if parent_client and hasattr(parent_client, '_get_knowledge_base_details'):
                         kb_details = parent_client._get_knowledge_base_details(kb_summary["id"])
                     else:
                         # Access through base client's parent reference to main client
-                        kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"]) if self.base_client._parent_client else None
+                        kb_details = None
+                        if (self.base_client._parent_client and 
+                            hasattr(self.base_client._parent_client, '_get_knowledge_base_details')):
+                            kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"])
                     
                     if kb_details:
                         file_ids = [f["id"] for f in kb_details.get("files", [])]
