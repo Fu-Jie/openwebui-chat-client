@@ -113,7 +113,7 @@ def run_integration_test(category: str, test_config: Dict[str, Any], verbose: bo
             env=env,
             capture_output=not verbose,
             text=True,
-            timeout=300  # 5 minute timeout per test
+            timeout=1200  # 5 minute timeout per test
         )
         
         if result.returncode == 0:

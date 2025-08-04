@@ -534,7 +534,7 @@ if: ${{ needs.detect-changes.outputs.required-tests != '[]' }}
 # 在test-mapping.yml中配置
 test_categories:
   comprehensive_demos:
-    timeout: 600  # 10分钟超时
+    timeout: 1200  # 10分钟超时
     retry: 2      # 失败时重试2次
 ```
 
@@ -566,7 +566,7 @@ test_categories:
     name: "New Feature Integration Test"
     command: "python examples/new_feature/test_new_feature.py"
     description: "Tests new feature functionality"
-    timeout: 300  # 可选：测试超时时间（秒）
+    timeout: 1200  # 可选：测试超时时间（秒）
     retry: 1      # 可选：失败重试次数
 ```
 
