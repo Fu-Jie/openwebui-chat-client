@@ -1799,7 +1799,7 @@ class ChatManager:
                 f"{self.base_client.base_url}/api/chat/completions",
                 json=payload,
                 headers=self.base_client.json_headers,
-                timeout=30  # Add explicit timeout
+                timeout=300  # Add explicit timeout
             )
             
             logger.info(f"📡 Response received: Status {response.status_code}")
@@ -1949,7 +1949,7 @@ class ChatManager:
                 f"{self.base_client.base_url}/api/v1/tasks/follow_up/completions",
                 json=payload,
                 headers=self.base_client.json_headers,
-                timeout=30  # Add explicit timeout
+                timeout=300  # Add explicit timeout
             )
             
             logger.info(f"📡 Follow-up response: Status {response.status_code}")
