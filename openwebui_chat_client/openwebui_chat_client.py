@@ -12,6 +12,7 @@ from typing import Optional, List, Dict, Any, Union, Generator, Tuple
 # Import required modules for backward compatibility with tests
 import requests
 import json
+import re
 import uuid
 import time
 import base64
@@ -1522,6 +1523,59 @@ class OpenWebUIClient:
 
 
 
+    def _extract_json_from_content(self, content: str) -> Optional[Dict[str, Any]]:
+        """
+        Extract JSON from content that may be wrapped in markdown code blocks or have extra formatting.
+        
+        Args:
+            content: The raw content string that may contain JSON
+            
+        Returns:
+            Parsed JSON dictionary or None if parsing fails
+        """
+        if not content or not content.strip():
+            return None
+            
+        # Try parsing the content as-is first (most common case)
+        try:
+            return json.loads(content.strip())
+        except json.JSONDecodeError:
+            pass
+            
+        # Try to extract JSON from markdown code blocks
+        # Look for JSON wrapped in markdown code blocks
+        # Patterns: ```json\n{...}\n``` or ```\n{...}\n```
+        code_block_patterns = [
+            r'```json\s*\n(.*?)\n\s*```',  # ```json ... ```
+            r'```\s*\n(.*?)\n\s*```',      # ``` ... ```
+            r'`(.*?)`',                     # `...` (single backticks)
+        ]
+        
+        for pattern in code_block_patterns:
+            matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
+            for match in matches:
+                try:
+                    return json.loads(match.strip())
+                except json.JSONDecodeError:
+                    continue
+                    
+        # Try to find JSON-like content by looking for { ... } patterns
+        json_patterns = [
+            r'\{.*\}',  # Find any {...} block
+        ]
+        
+        for pattern in json_patterns:
+            matches = re.findall(pattern, content, re.DOTALL)
+            for match in matches:
+                try:
+                    return json.loads(match.strip())
+                except json.JSONDecodeError:
+                    continue
+                    
+        # If all parsing attempts fail, log the content for debugging
+        logger.debug(f"Failed to extract JSON from content: {content[:200]}...")
+        return None
+
     def _get_follow_up_completions(
         self, messages: List[Dict[str, Any]]
     ) -> Optional[List[str]]:
@@ -1556,9 +1610,9 @@ class OpenWebUIClient:
                 message = data["choices"][0].get("message", {})
                 content = message.get("content")
                 if content:
-                    try:
-                        # The actual suggestions are in a JSON string inside the content
-                        content_json = json.loads(content)
+                    # Use the robust JSON extraction method
+                    content_json = self._extract_json_from_content(content)
+                    if content_json:
                         follow_ups = content_json.get(
                             "follow_ups"
                         )  # Note: key is 'follow_ups' not 'followUps'
@@ -1567,7 +1621,9 @@ class OpenWebUIClient:
                                 f"   ✅ Received {len(follow_ups)} follow-up suggestions."
                             )
                             return follow_ups
-                    except json.JSONDecodeError:
+                        else:
+                            logger.warning(f"follow_ups field is not a list: {type(follow_ups)}")
+                    else:
                         logger.error(
                             f"Failed to decode JSON from follow-up content: {content}"
                         )
