@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.16] - 2025-08-10
+
 ### Added
 - **Prompts Management System**: Complete implementation of prompts functionality
   - `PromptsManager` module for managing custom prompts with variable substitution
