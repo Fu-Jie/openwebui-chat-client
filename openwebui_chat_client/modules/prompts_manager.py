@@ -147,13 +147,16 @@ class PromptsManager:
         """
         logger.info(f"Getting prompt by command '{command}'...")
         
-        # Ensure command starts with "/"
+        # Ensure command starts with "/" for consistency but remove it for API call
         if not command.startswith("/"):
             command = f"/{command}"
         
+        # Remove leading "/" for API call as the endpoint expects command without it
+        api_command = command[1:] if command.startswith("/") else command
+        
         try:
             # URL encode the command to handle special characters
-            encoded_command = requests.utils.quote(command, safe='')
+            encoded_command = requests.utils.quote(api_command, safe='')
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/v1/prompts/command/{encoded_command}",
                 headers=self.base_client.json_headers
@@ -185,6 +188,9 @@ class PromptsManager:
         """
         Update an existing prompt by its command.
         
+        Note: This method can only update title and content, not the command itself.
+        To change the command, use replace_prompt_by_command() instead.
+        
         Args:
             command: The command identifier (e.g., "/summarize")
             title: New title for the prompt (optional)
@@ -196,7 +202,7 @@ class PromptsManager:
         """
         logger.info(f"Updating prompt with command '{command}'...")
         
-        # Ensure command starts with "/"
+        # Ensure command starts with "/" for consistency but remove it for API call
         if not command.startswith("/"):
             command = f"/{command}"
         
@@ -218,9 +224,12 @@ class PromptsManager:
         elif "access_control" in current_prompt:
             payload["access_control"] = current_prompt["access_control"]
         
+        # Remove leading "/" for API call as the endpoint expects command without it
+        api_command = command[1:] if command.startswith("/") else command
+        
         try:
             # URL encode the command to handle special characters
-            encoded_command = requests.utils.quote(command, safe='')
+            encoded_command = requests.utils.quote(api_command, safe='')
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/prompts/command/{encoded_command}/update",
                 json=payload,
@@ -237,6 +246,74 @@ class PromptsManager:
             return None
         except Exception as e:
             logger.error(f"Unexpected error updating prompt '{command}': {e}")
+            return None
+
+    def replace_prompt_by_command(
+        self,
+        old_command: str,
+        new_command: str,
+        title: str,
+        content: str,
+        access_control: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Replace an existing prompt completely (including command) by deleting and recreating.
+        
+        This method is needed when you want to change the command itself, since the update
+        API doesn't allow changing the command identifier.
+        
+        Args:
+            old_command: The existing command identifier (e.g., "/old_summarize")
+            new_command: The new command identifier (e.g., "/new_summarize")
+            title: New title for the prompt
+            content: New content for the prompt
+            access_control: New access control settings (optional)
+            
+        Returns:
+            The newly created prompt object, or None if replacement failed.
+        """
+        logger.info(f"Replacing prompt '{old_command}' with '{new_command}'...")
+        
+        # First, check if the old prompt exists
+        old_prompt = self.get_prompt_by_command(old_command)
+        if not old_prompt:
+            logger.error(f"Cannot replace prompt '{old_command}': prompt not found.")
+            return None
+        
+        # Check if new command already exists
+        if old_command != new_command:
+            existing_new = self.get_prompt_by_command(new_command)
+            if existing_new:
+                logger.error(f"Cannot replace prompt: new command '{new_command}' already exists.")
+                return None
+        
+        # Delete the old prompt
+        logger.info(f"Deleting old prompt '{old_command}'...")
+        delete_success = self.delete_prompt_by_command(old_command)
+        if not delete_success:
+            logger.error(f"Failed to delete old prompt '{old_command}'. Replacement aborted.")
+            return None
+        
+        # Create the new prompt
+        logger.info(f"Creating new prompt '{new_command}'...")
+        new_prompt = self.create_prompt(new_command, title, content, access_control)
+        if new_prompt:
+            logger.info(f"Successfully replaced prompt '{old_command}' with '{new_command}'.")
+            return new_prompt
+        else:
+            logger.error(f"Failed to create new prompt '{new_command}'. Original prompt was deleted!")
+            # Try to restore the original prompt if possible
+            logger.info("Attempting to restore original prompt...")
+            restored = self.create_prompt(
+                old_command,
+                old_prompt.get("title", "Restored Prompt"),
+                old_prompt.get("content", "Original content was lost during replacement failure"),
+                old_prompt.get("access_control")
+            )
+            if restored:
+                logger.info(f"Successfully restored original prompt '{old_command}'.")
+            else:
+                logger.error(f"Failed to restore original prompt '{old_command}'. Data may be lost!")
             return None
 
     def delete_prompt_by_command(self, command: str) -> bool:

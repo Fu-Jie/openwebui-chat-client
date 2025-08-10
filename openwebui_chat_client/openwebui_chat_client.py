@@ -864,9 +864,22 @@ class OpenWebUIClient:
         content: Optional[str] = None,
         access_control: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
-        """Update an existing prompt by its command."""
+        """Update an existing prompt by its command (title/content only)."""
         return self._prompts_manager.update_prompt_by_command(
             command, title, content, access_control
+        )
+
+    def replace_prompt_by_command(
+        self,
+        old_command: str,
+        new_command: str,
+        title: str,
+        content: str,
+        access_control: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Replace a prompt completely including command (delete + recreate)."""
+        return self._prompts_manager.replace_prompt_by_command(
+            old_command, new_command, title, content, access_control
         )
 
     def delete_prompt_by_command(self, command: str) -> bool:

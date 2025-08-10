@@ -433,6 +433,118 @@ Develop a detailed, actionable plan with milestones and deliverables."""
     logger.info(f"Created {len(created_templates)} template-based prompts")
 
 
+def demonstrate_prompt_replacement(client: OpenWebUIClient):
+    """Demonstrate prompt replacement functionality (delete + recreate)."""
+    logger.info("\n=== Prompt Replacement Demo ===")
+    
+    import time
+    timestamp = str(int(time.time()))
+    
+    # Create an initial prompt that we'll replace
+    initial_command = f"/demo_initial_{timestamp}"
+    logger.info("Creating initial prompt to demonstrate replacement...")
+    
+    initial_prompt = client.create_prompt(
+        command=initial_command,
+        title="Initial Demo Prompt",
+        content="""This is version 1.0 of the prompt.
+
+**Input:** {{input_text}}
+**Style:** Simple processing
+
+Basic processing of the input."""
+    )
+    
+    if not initial_prompt:
+        logger.error("❌ Failed to create initial prompt for replacement demo")
+        return
+    
+    logger.info(f"✅ Created initial prompt: {initial_prompt['command']}")
+    
+    # Demonstrate updating title/content only (standard update)
+    logger.info("Demonstrating standard update (title/content only)...")
+    updated_prompt = client.update_prompt_by_command(
+        command=initial_command,
+        title="Updated Demo Prompt",
+        content="""This is version 1.1 of the prompt (updated).
+
+**Input:** {{input_text}}
+**Style:** Enhanced processing
+**Options:** {{processing_options | select:options=["Fast","Thorough","Custom"]}}
+
+Enhanced processing of the input with more options."""
+    )
+    
+    if updated_prompt:
+        logger.info(f"✅ Standard update successful: {updated_prompt['title']}")
+    
+    # Demonstrate full replacement with new command
+    new_command = f"/demo_evolved_{timestamp}"
+    logger.info(f"Demonstrating full replacement: {initial_command} → {new_command}")
+    
+    replaced_prompt = client.replace_prompt_by_command(
+        old_command=initial_command,
+        new_command=new_command,
+        title="Evolved Demo Prompt",
+        content="""This is version 2.0 of the prompt (completely replaced).
+
+**Primary Input:** {{primary_input | textarea:placeholder="Main content to process"}}
+**Processing Style:** {{style | select:options=["Fast","Balanced","Thorough","Custom"]}}
+**Output Format:** {{format | select:options=["Summary","Detailed","Report","Analysis"]}}
+**Priority Level:** {{priority | select:options=["Low","Medium","High","Urgent"]}}
+**Additional Context:** {{context | textarea:placeholder="Any additional context"}}
+
+Advanced processing with comprehensive options and new command structure."""
+    )
+    
+    if replaced_prompt:
+        logger.info(f"✅ Full replacement successful!")
+        logger.info(f"   Old command: {initial_command} (deleted)")
+        logger.info(f"   New command: {replaced_prompt['command']} (created)")
+        logger.info(f"   New title: {replaced_prompt['title']}")
+        
+        # Extract variables from the new prompt to show the enhanced structure
+        variables = client.extract_variables(replaced_prompt['content'])
+        logger.info(f"   Variables in new prompt: {variables}")
+        
+        # Demonstrate using the evolved prompt
+        logger.info("Demonstrating variable substitution with evolved prompt...")
+        sample_data = {
+            "primary_input": "Customer feedback analysis for Q4 2024",
+            "style": "Thorough",
+            "format": "Report", 
+            "priority": "High",
+            "context": "Focus on satisfaction scores and improvement areas"
+        }
+        
+        system_vars = client.get_system_variables()
+        final_content = client.substitute_variables(
+            replaced_prompt['content'], 
+            sample_data, 
+            system_vars
+        )
+        
+        logger.info("📋 Sample substituted content:")
+        logger.info("-" * 50)
+        logger.info(final_content[:300] + "..." if len(final_content) > 300 else final_content)
+        logger.info("-" * 50)
+        
+        # Clean up the demo prompt
+        logger.info("Cleaning up replacement demo prompt...")
+        cleanup_success = client.delete_prompt_by_command(new_command)
+        if cleanup_success:
+            logger.info(f"✅ Cleaned up demo prompt: {new_command}")
+        
+    else:
+        logger.error("❌ Full replacement failed")
+        # Clean up the original prompt if replacement failed
+        cleanup_success = client.delete_prompt_by_command(initial_command)
+        if cleanup_success:
+            logger.info(f"🧹 Cleaned up original prompt after replacement failure")
+    
+    logger.info("Prompt replacement demonstration completed")
+
+
 def cleanup_advanced_prompts(client: OpenWebUIClient):
     """Clean up all prompts created in this demo."""
     logger.info("\n=== Cleanup Advanced Prompts ===")
@@ -489,6 +601,7 @@ def main():
         demonstrate_dynamic_prompt_creation(client) 
         simulate_chat_with_prompts(client)
         demonstrate_prompt_templates(client)
+        demonstrate_prompt_replacement(client)
         
         logger.info(f"\n🎉 Advanced prompts demonstration completed!")
         logger.info(f"Created {len(created_prompts)} interactive prompts ready for use.")
