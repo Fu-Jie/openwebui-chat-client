@@ -2,8 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
-
 ## [0.1.16] - 2025-08-10
 
 ### Added
@@ -18,6 +16,8 @@ All notable changes to this project will be documented in this file.
   - Comprehensive examples in `examples/prompts_api/` with basic and advanced usage patterns
   - Full test coverage in `tests/test_prompts_functionality.py` 
   - Integration with CI test mapping for automated testing
+
+## [Unreleased]
 
 ## [0.1.15] - 2025-08-04
 
