@@ -2,6 +2,21 @@
 
 本项目的所有显著更改都将记录在此文件中。
 
+## [未发布]
+
+### 新增
+- **提示词管理系统**: 完整实现提示词功能
+  - `PromptsManager` 模块用于管理带变量替换的自定义提示词
+  - 完整的 CRUD 操作：`get_prompts()`、`create_prompt()`、`update_prompt_by_command()`、`delete_prompt_by_command()`
+  - 高级变量提取和替换功能：`extract_variables()` 和 `substitute_variables()`
+  - 系统变量支持：`CURRENT_DATE`、`CURRENT_TIME`、`CURRENT_DATETIME`、`CURRENT_WEEKDAY`、`CURRENT_TIMEZONE`
+  - 交互式提示词表单，支持类型化变量（text、textarea、select、number、date、checkbox 等）
+  - 搜索功能：`search_prompts()` 支持按命令、标题或内容过滤
+  - 批量操作：`batch_create_prompts()` 和 `batch_delete_prompts()` 用于高效批量管理
+  - 在 `examples/prompts_api/` 中提供全面示例，包含基础和高级使用模式
+  - 在 `tests/test_prompts_functionality.py` 中提供完整测试覆盖
+  - 集成 CI 测试映射以实现自动化测试
+
 ## [0.1.15] - 2025-08-04
 
 ### 新增

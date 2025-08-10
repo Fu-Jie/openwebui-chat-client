@@ -63,6 +63,7 @@ if result:
 - **RAG Integration**: Use files or knowledge bases for retrieval-augmented responses.
 - **Knowledge Base Management**: Create, update, and use knowledge bases.
 - **Notes Management**: Create, retrieve, update, and delete notes with structured data and metadata.
+- **Prompts Management**: Create, manage, and use custom prompts with variable substitution and interactive forms.
 - **Model Management**: List, create, update, and delete custom model entries, with enhanced auto-creation/retry for `get_model`.
 - **Chat Organization**: Rename chats, use folders, tags, and search functionality.
 - **Concurrent Processing**: Parallel model querying for fast multi-model responses.
@@ -274,6 +275,69 @@ for chat in results['failed_chats']:
 - **Time filter**: Only archives chats not updated for the specified number of days
 - **Parallel processing**: Uses concurrent processing for efficient bulk operations
 
+### 6. Using Prompts with Variable Substitution
+
+Create and use interactive prompts with dynamic variable substitution for reusable AI interactions.
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+# Create a prompt with variables
+prompt = client.create_prompt(
+    command="/summarize",
+    title="Article Summarizer",
+    content="""Please summarize this {{document_type}} for a {{audience}} audience:
+
+Title: {{title}}
+Content: {{content}}
+
+Provide a {{length}} summary focusing on {{key_points}}."""
+)
+
+# Extract variables from prompt
+variables = client.extract_variables(prompt['content'])
+print(f"Variables found: {variables}")
+
+# Substitute variables with actual values
+variables_data = {
+    "document_type": "research paper",
+    "audience": "general",
+    "title": "AI in Healthcare",
+    "content": "Artificial intelligence is transforming...",
+    "length": "concise",
+    "key_points": "main findings and implications"
+}
+
+# Get system variables and substitute
+system_vars = client.get_system_variables()
+final_prompt = client.substitute_variables(
+    prompt['content'], 
+    variables_data, 
+    system_vars
+)
+
+# Use the processed prompt in a chat
+result = client.chat(
+    question=final_prompt,
+    chat_title="AI Healthcare Summary"
+)
+
+print(f"Summary: {result['response']}")
+```
+
+**Prompt Features:**
+- **Variable Types**: Support for text, select, date, number, checkbox, and more
+- **System Variables**: Auto-populated CURRENT_DATE, CURRENT_TIME, etc.
+- **Batch Operations**: Create/delete multiple prompts efficiently
+- **Search & Filter**: Find prompts by command, title, or content
+- **Interactive Forms**: Complex input types for user-friendly prompt collection
+
 ---
 
 ## 🔑 How to get your API Key
@@ -345,6 +409,23 @@ for chat in results['failed_chats']:
 | `get_note_by_id()` | Retrieve a specific note by its ID | `note_id` |
 | `update_note_by_id()` | Update an existing note with new content or metadata | `note_id, title, data, meta, access_control` |
 | `delete_note_by_id()` | Delete a note by its ID | `note_id` |
+
+### 📝 Prompts API
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `get_prompts()` | Get all prompts for the current user | None |
+| `get_prompts_list()` | Get prompts list with detailed user information | None |
+| `create_prompt()` | Create a new prompt with variables and access control | `command, title, content, access_control` |
+| `get_prompt_by_command()` | Retrieve a specific prompt by its slash command | `command` |
+| `update_prompt_by_command()` | Update an existing prompt by its command | `command, title, content, access_control` |
+| `delete_prompt_by_command()` | Delete a prompt by its slash command | `command` |
+| `search_prompts()` | Search prompts by various criteria | `query, by_command, by_title, by_content` |
+| `extract_variables()` | Extract variable names from prompt content | `content` |
+| `substitute_variables()` | Replace variables in prompt content with values | `content, variables, system_variables` |
+| `get_system_variables()` | Get current system variables for substitution | None |
+| `batch_create_prompts()` | Create multiple prompts in a single operation | `prompts_data, continue_on_error` |
+| `batch_delete_prompts()` | Delete multiple prompts by their commands | `commands, continue_on_error` |
 
 ### 📊 Return Value Examples
 

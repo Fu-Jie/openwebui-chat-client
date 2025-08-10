@@ -33,6 +33,10 @@ examples/
 ├── notes_api/                    # Notes API examples
 │   ├── basic_notes.py           # Basic notes operations
 │   └── advanced_notes.py        # Advanced notes management
+├── prompts_api/                  # Prompts API examples
+│   ├── basic_prompts.py         # Basic prompts CRUD operations
+│   ├── advanced_prompts.py      # Advanced prompts with variables
+│   └── README.md                # Detailed prompts usage guide
 ├── advanced_features/            # Advanced functionality
 │   ├── real_time_streaming.py   # Real-time streaming with updates
 │   ├── concurrent_operations.py # Concurrent/parallel operations
@@ -67,7 +71,46 @@ examples/
    python examples/chat_features/streaming_chat.py
    python examples/rag_knowledge/file_rag.py
    python examples/model_management/list_models.py
+   python examples/prompts_api/basic_prompts.py
    ```
+
+## 📂 Example Categories
+
+### 🗨️ Prompts API (`prompts_api/`)
+Create and manage custom prompt templates with variable substitution:
+- **`basic_prompts.py`**: CRUD operations, variable extraction/substitution, search functionality
+- **`advanced_prompts.py`**: Interactive forms, dynamic prompt creation, chat integration
+- **Key Features**: Variable types (text, select, date, etc.), system variables, batch operations
+
+### 💬 Chat Features (`chat_features/`)
+Core conversation functionality:
+- **`basic_chat.py`**: Simple single-model conversations
+- **`streaming_chat.py`**: Real-time streaming responses
+- **`parallel_chat.py`**: Multi-model parallel conversations
+- **`model_switching.py`**: Switching models within existing chats
+
+### 📚 RAG & Knowledge (`rag_knowledge/`)
+Retrieval-Augmented Generation and knowledge management:
+- **`file_rag.py`**: RAG with uploaded files
+- **`knowledge_base.py`**: Knowledge base CRUD operations
+- **`batch_knowledge_ops.py`**: Bulk knowledge base management
+
+### 🤖 Model Management (`model_management/`)
+Model configuration and management:
+- **`list_models.py`**: Enumerate available models
+- **`model_operations.py`**: Create, update, delete custom models
+- **`batch_permissions.py`**: Bulk permission management
+
+### 📝 Notes API (`notes_api/`)
+Structured note management:
+- **`basic_notes.py`**: Note CRUD operations with metadata
+- **`advanced_notes.py`**: Advanced note management patterns
+
+### 🚀 Getting Started (`getting_started/`)
+Entry-level examples for new users:
+- **`hello_world.py`**: Minimal example
+- **`basic_chat.py`**: Core chat functionality
+- **`quick_start.py`**: Multi-feature demonstration
 
 ## 📋 Example Standards
 

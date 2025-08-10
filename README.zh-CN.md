@@ -56,6 +56,8 @@ if result:
 - 工具集成：在对话中调用服务器端工具
 - RAG 检索增强：文件/知识库辅助回复
 - 知识库管理：创建、更新、查询
+- **笔记管理**：创建、检索、更新和删除带有结构化数据和元数据的笔记。
+- **提示词管理**：创建、管理和使用带有变量替换和交互式表单的自定义提示词。
 - 模型管理：列出、创建、更新、删除自定义模型条目，并增强了 `get_model` 的自动创建/重试功能。
 - 聊天组织：重命名、文件夹、标签、搜索
 - **并发处理**: 并行模型查询，实现快速多模型响应。
@@ -265,6 +267,69 @@ for chat in results['failed_chats']:
 - **时间过滤**: 仅归档在指定天数内未更新的聊天
 - **并行处理**: 使用并发处理提高批量操作效率
 
+### 6. 使用带变量替换的提示词
+
+创建和使用交互式提示词，通过动态变量替换实现可重用的AI交互。
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+# 创建带变量的提示词
+prompt = client.create_prompt(
+    command="/summarize",
+    title="文章摘要器",
+    content="""请为{{audience}}受众总结这篇{{document_type}}：
+
+标题：{{title}}
+内容：{{content}}
+
+提供一个{{length}}摘要，重点关注{{key_points}}。"""
+)
+
+# 从提示词中提取变量
+variables = client.extract_variables(prompt['content'])
+print(f"发现的变量: {variables}")
+
+# 用实际值替换变量
+variables_data = {
+    "document_type": "研究论文",
+    "audience": "普通大众",
+    "title": "AI在医疗中的应用",
+    "content": "人工智能正在改变...",
+    "length": "简洁的",
+    "key_points": "主要发现和影响"
+}
+
+# 获取系统变量并进行替换
+system_vars = client.get_system_variables()
+final_prompt = client.substitute_variables(
+    prompt['content'], 
+    variables_data, 
+    system_vars
+)
+
+# 在聊天中使用处理后的提示词
+result = client.chat(
+    question=final_prompt,
+    chat_title="AI医疗摘要"
+)
+
+print(f"摘要: {result['response']}")
+```
+
+**提示词功能：**
+- **变量类型**: 支持文本、选择、日期、数字、复选框等
+- **系统变量**: 自动填充的 CURRENT_DATE、CURRENT_TIME 等
+- **批量操作**: 高效创建/删除多个提示词
+- **搜索过滤**: 按命令、标题或内容查找提示词
+- **交互式表单**: 用户友好的提示词收集复杂输入类型
+
 ---
 
 ## 🔑 如何获取你的 API 密钥
@@ -336,6 +401,23 @@ for chat in results['failed_chats']:
 | `get_note_by_id()` | 根据ID检索特定笔记 | `note_id` |
 | `update_note_by_id()` | 使用新内容或元数据更新现有笔记 | `note_id, title, data, meta, access_control` |
 | `delete_note_by_id()` | 根据ID删除笔记 | `note_id` |
+
+### 📝 提示词 API
+
+| 方法 | 描述 | 参数 |
+|--------|-------------|------------|
+| `get_prompts()` | 获取当前用户的所有提示词 | None |
+| `get_prompts_list()` | 获取带有详细用户信息的提示词列表 | None |
+| `create_prompt()` | 创建带有变量和访问控制的新提示词 | `command, title, content, access_control` |
+| `get_prompt_by_command()` | 根据斜杠命令检索特定提示词 | `command` |
+| `update_prompt_by_command()` | 根据命令更新现有提示词 | `command, title, content, access_control` |
+| `delete_prompt_by_command()` | 根据斜杠命令删除提示词 | `command` |
+| `search_prompts()` | 按各种条件搜索提示词 | `query, by_command, by_title, by_content` |
+| `extract_variables()` | 从提示词内容中提取变量名称 | `content` |
+| `substitute_variables()` | 用值替换提示词内容中的变量 | `content, variables, system_variables` |
+| `get_system_variables()` | 获取用于替换的当前系统变量 | None |
+| `batch_create_prompts()` | 在单个操作中创建多个提示词 | `prompts_data, continue_on_error` |
+| `batch_delete_prompts()` | 根据命令删除多个提示词 | `commands, continue_on_error` |
 
 ### 📊 返回值示例
 
