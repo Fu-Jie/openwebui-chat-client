@@ -63,12 +63,24 @@ file_mappings:
   - pattern: "**/*continuous*"
     categories: ["continuous_conversation", "comprehensive_demos"]
     
-  # Notes API functionality
-  - pattern: "**/*note*"
+  # Notes API functionality - more specific patterns  
+  - pattern: "openwebui_chat_client/modules/notes_manager.py"
     categories: ["notes_api"]
     
-  # Prompts API functionality
-  - pattern: "**/*prompt*"
+  - pattern: "examples/notes_api/**"
+    categories: ["notes_api"]
+    
+  - pattern: "tests/**/test_notes*"
+    categories: ["notes_api"]
+    
+  # Prompts API functionality - more specific patterns
+  - pattern: "openwebui_chat_client/modules/prompts_manager.py"
+    categories: ["prompts_api"]
+    
+  - pattern: "examples/prompts_api/**"
+    categories: ["prompts_api"]
+    
+  - pattern: "tests/**/test_prompts*"
     categories: ["prompts_api"]
     
   # RAG and knowledge base functionality

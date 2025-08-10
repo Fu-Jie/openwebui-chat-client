@@ -251,13 +251,16 @@ class PromptsManager:
         """
         logger.info(f"Deleting prompt with command '{command}'...")
         
-        # Ensure command starts with "/"
+        # Ensure command starts with "/" for consistency but remove it for API call
         if not command.startswith("/"):
             command = f"/{command}"
         
+        # Remove leading "/" for API call as the endpoint expects command without it
+        api_command = command[1:] if command.startswith("/") else command
+        
         try:
             # URL encode the command to handle special characters
-            encoded_command = requests.utils.quote(command, safe='')
+            encoded_command = requests.utils.quote(api_command, safe='')
             response = self.base_client.session.delete(
                 f"{self.base_client.base_url}/api/v1/prompts/command/{encoded_command}/delete",
                 headers=self.base_client.json_headers
