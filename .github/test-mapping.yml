@@ -8,6 +8,11 @@ test_categories:
     command: "python examples/notes_api/basic_notes.py"
     description: "Tests notes CRUD operations and API functionality"
     
+  prompts_api:
+    name: "Prompts API Integration Test"
+    command: "python examples/prompts_api/basic_prompts.py"
+    description: "Tests prompts CRUD operations, variables, and management functionality"
+    
   basic_chat:
     name: "Basic Usage Integration Test"
     command: "python examples/getting_started/basic_chat.py"
@@ -62,6 +67,10 @@ file_mappings:
   - pattern: "**/*note*"
     categories: ["notes_api"]
     
+  # Prompts API functionality
+  - pattern: "**/*prompt*"
+    categories: ["prompts_api"]
+    
   # RAG and knowledge base functionality
   - pattern: "**/*rag*"
     categories: ["rag_integration", "comprehensive_demos"]
@@ -76,6 +85,9 @@ file_mappings:
   # Examples - run corresponding integration tests
   - pattern: "examples/notes_api/**"
     categories: ["notes_api"]
+    
+  - pattern: "examples/prompts_api/**"
+    categories: ["prompts_api"]
     
   - pattern: "examples/getting_started/**"
     categories: ["basic_chat", "comprehensive_demos", "connectivity"]
