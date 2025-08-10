@@ -8,6 +8,11 @@ test_categories:
     command: "python examples/notes_api/basic_notes.py"
     description: "Tests notes CRUD operations and API functionality"
     
+  prompts_api:
+    name: "Prompts API Integration Test"
+    command: "python examples/prompts_api/basic_prompts.py"
+    description: "Tests prompts CRUD operations, variables, and management functionality"
+    
   basic_chat:
     name: "Basic Usage Integration Test"
     command: "python examples/getting_started/basic_chat.py"
@@ -48,43 +53,59 @@ test_categories:
 file_mappings:
   # Core client functionality - triggers multiple tests
   - pattern: "openwebui_chat_client/openwebui_chat_client.py"
-    categories: ["connectivity", "basic_chat", "model_management"]
+    categories: ["connectivity", "basic_chat"]
     
-  # Chat-related functionality
-  - pattern: "openwebui_chat_client/**/*chat*"
+  # Chat-related functionality - be more specific to avoid prompts conflicts
+  - pattern: "openwebui_chat_client/**/*chat*.py"
     categories: ["basic_chat", "model_switching", "comprehensive_demos"]
     
   # Continuous conversation functionality
   - pattern: "**/*continuous*"
     categories: ["continuous_conversation", "comprehensive_demos"]
     
-  # Notes API functionality
-  - pattern: "**/*note*"
+  # Notes API functionality - specific patterns only  
+  - pattern: "openwebui_chat_client/modules/notes_manager.py"
     categories: ["notes_api"]
     
-  # RAG and knowledge base functionality
-  - pattern: "**/*rag*"
-    categories: ["rag_integration", "comprehensive_demos"]
-    
-  - pattern: "**/*knowledge*"
-    categories: ["rag_integration", "comprehensive_demos"]
-    
-  # Model management functionality
-  - pattern: "**/*model*"
-    categories: ["model_management", "model_switching", "connectivity"]
-    
-  # Examples - run corresponding integration tests
   - pattern: "examples/notes_api/**"
     categories: ["notes_api"]
     
-  - pattern: "examples/getting_started/**"
-    categories: ["basic_chat", "comprehensive_demos", "connectivity"]
+  - pattern: "tests/**/test_notes*"
+    categories: ["notes_api"]
+    
+  # Prompts API functionality - specific patterns only
+  - pattern: "openwebui_chat_client/modules/prompts_manager.py"
+    categories: ["prompts_api"]
+    
+  - pattern: "examples/prompts_api/**"
+    categories: ["prompts_api"]
+    
+  - pattern: "tests/**/test_prompts*"
+    categories: ["prompts_api"]
+    
+  # RAG and knowledge base functionality - more specific patterns
+  - pattern: "openwebui_chat_client/**/*rag*.py"
+    categories: ["rag_integration", "comprehensive_demos"]
+    
+  - pattern: "openwebui_chat_client/**/*knowledge*.py"
+    categories: ["rag_integration", "comprehensive_demos"]
     
   - pattern: "examples/rag_knowledge/**"
     categories: ["rag_integration"]
     
+  # Model management functionality - more specific patterns
+  - pattern: "openwebui_chat_client/modules/model_manager.py"
+    categories: ["model_management", "connectivity"]
+    
   - pattern: "examples/model_management/**"
     categories: ["model_management"]
+    
+  - pattern: "examples/chat_features/model_switching.py"
+    categories: ["model_switching"]
+    
+  # Examples - run corresponding integration tests
+  - pattern: "examples/getting_started/**"
+    categories: ["basic_chat", "comprehensive_demos", "connectivity"]
     
   - pattern: "examples/chat_features/**"
     categories: ["basic_chat", "model_switching"]

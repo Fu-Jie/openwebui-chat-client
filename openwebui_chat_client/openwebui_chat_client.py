@@ -25,6 +25,7 @@ from .modules.notes_manager import NotesManager
 from .modules.knowledge_base_manager import KnowledgeBaseManager
 from .modules.file_manager import FileManager
 from .modules.chat_manager import ChatManager
+from .modules.prompts_manager import PromptsManager
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class OpenWebUIClient:
         self._knowledge_base_manager = KnowledgeBaseManager(self._base_client)
         self._file_manager = FileManager(self._base_client)
         self._chat_manager = ChatManager(self._base_client)
+        self._prompts_manager = PromptsManager(self._base_client)
         
         # Set up available model IDs from model manager
         self._base_client.available_model_ids = self._model_manager.available_model_ids
@@ -828,6 +830,104 @@ class OpenWebUIClient:
     def delete_note_by_id(self, note_id: str) -> bool:
         """Delete a note by its ID."""
         return self._notes_manager.delete_note_by_id(note_id)
+
+    # =============================================================================
+    # PROMPTS API - Delegate to PromptsManager
+    # =============================================================================
+
+    def get_prompts(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all prompts for the current user."""
+        return self._prompts_manager.get_prompts()
+
+    def get_prompts_list(self) -> Optional[List[Dict[str, Any]]]:
+        """Get a detailed list of prompts with user information."""
+        return self._prompts_manager.get_prompts_list()
+
+    def create_prompt(
+        self,
+        command: str,
+        title: str,
+        content: str,
+        access_control: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Create a new prompt."""
+        return self._prompts_manager.create_prompt(command, title, content, access_control)
+
+    def get_prompt_by_command(self, command: str) -> Optional[Dict[str, Any]]:
+        """Get a specific prompt by its command."""
+        return self._prompts_manager.get_prompt_by_command(command)
+
+    def update_prompt_by_command(
+        self,
+        command: str,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        access_control: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Update an existing prompt by its command (title/content only)."""
+        return self._prompts_manager.update_prompt_by_command(
+            command, title, content, access_control
+        )
+
+    def replace_prompt_by_command(
+        self,
+        old_command: str,
+        new_command: str,
+        title: str,
+        content: str,
+        access_control: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Replace a prompt completely including command (delete + recreate)."""
+        return self._prompts_manager.replace_prompt_by_command(
+            old_command, new_command, title, content, access_control
+        )
+
+    def delete_prompt_by_command(self, command: str) -> bool:
+        """Delete a prompt by its command."""
+        return self._prompts_manager.delete_prompt_by_command(command)
+
+    def search_prompts(
+        self, 
+        query: Optional[str] = None,
+        by_command: bool = False,
+        by_title: bool = True,
+        by_content: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Search prompts by various criteria."""
+        return self._prompts_manager.search_prompts(query, by_command, by_title, by_content)
+
+    def extract_variables(self, content: str) -> List[str]:
+        """Extract variable names from prompt content."""
+        return self._prompts_manager.extract_variables(content)
+
+    def substitute_variables(
+        self, 
+        content: str, 
+        variables: Dict[str, Any],
+        system_variables: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Substitute variables in prompt content."""
+        return self._prompts_manager.substitute_variables(content, variables, system_variables)
+
+    def get_system_variables(self) -> Dict[str, Any]:
+        """Get current system variables for substitution."""
+        return self._prompts_manager.get_system_variables()
+
+    def batch_create_prompts(
+        self, 
+        prompts_data: List[Dict[str, Any]],
+        continue_on_error: bool = True
+    ) -> Dict[str, Any]:
+        """Create multiple prompts in batch."""
+        return self._prompts_manager.batch_create_prompts(prompts_data, continue_on_error)
+
+    def batch_delete_prompts(
+        self, 
+        commands: List[str],
+        continue_on_error: bool = True
+    ) -> Dict[str, Any]:
+        """Delete multiple prompts by their commands."""
+        return self._prompts_manager.batch_delete_prompts(commands, continue_on_error)
 
     # =============================================================================
     # FILE OPERATIONS - Delegate to FileManager

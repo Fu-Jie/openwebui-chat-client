@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Prompts Management System**: Complete implementation of prompts functionality
+  - `PromptsManager` module for managing custom prompts with variable substitution
+  - Full CRUD operations: `get_prompts()`, `create_prompt()`, `update_prompt_by_command()`, `delete_prompt_by_command()`
+  - Advanced variable extraction and substitution with `extract_variables()` and `substitute_variables()`
+  - System variables support: `CURRENT_DATE`, `CURRENT_TIME`, `CURRENT_DATETIME`, `CURRENT_WEEKDAY`, `CURRENT_TIMEZONE`
+  - Interactive prompt forms with typed variables (text, textarea, select, number, date, checkbox, etc.)
+  - Search functionality: `search_prompts()` with filtering by command, title, or content
+  - Batch operations: `batch_create_prompts()` and `batch_delete_prompts()` for efficient bulk management
+  - Comprehensive examples in `examples/prompts_api/` with basic and advanced usage patterns
+  - Full test coverage in `tests/test_prompts_functionality.py` 
+  - Integration with CI test mapping for automated testing
+
 ## [0.1.15] - 2025-08-04
 
 ### Added
