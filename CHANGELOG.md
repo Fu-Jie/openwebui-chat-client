@@ -17,8 +17,6 @@ All notable changes to this project will be documented in this file.
   - Full test coverage in `tests/test_prompts_functionality.py` 
   - Integration with CI test mapping for automated testing
 
-## [Unreleased]
-
 ## [0.1.15] - 2025-08-04
 
 ### Added
