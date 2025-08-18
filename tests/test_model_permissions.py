@@ -310,6 +310,64 @@ class TestModelPermissions(unittest.TestCase):
             self.assertEqual(len(result["success"]), 0)
             self.assertEqual(len(result["failed"]), 0)
 
+    @patch("openwebui_chat_client.core.base_client.requests.Session.post")
+    def test_create_model_success_with_full_metadata(self, mock_post):
+        """
+        Test create_model sends the correct payload with full metadata,
+        matching the structure from the user's curl command.
+        """
+        # --- Arrange ---
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "success", "id": "new-test-model"}
+        mock_post.return_value = mock_response
+
+        # Define full metadata for the call
+        model_id = "new-test-model"
+        name = "New Test Model"
+        base_model_id = "base-model-id"
+        description = "A detailed description."
+        tags = ["tag1", "tag2"]
+        suggestion_prompts = ["Prompt 1", "Prompt 2"]
+        capabilities = {"vision": True, "code_interpreter": True}
+        is_active = True
+
+        # --- Act ---
+        result = self.client.create_model(
+            model_id=model_id,
+            name=name,
+            base_model_id=base_model_id,
+            description=description,
+            tags=tags,
+            suggestion_prompts=suggestion_prompts,
+            capabilities=capabilities,
+            is_active=is_active
+        )
+
+        # --- Assert ---
+        self.assertIsNotNone(result)
+        self.assertEqual(result["id"], model_id)
+
+        # Verify the call payload
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        payload = call_args.kwargs["json"]
+
+        # Top-level fields
+        self.assertEqual(payload["id"], model_id)
+        self.assertEqual(payload["name"], name)
+        self.assertEqual(payload["base_model_id"], base_model_id)
+        self.assertEqual(payload["is_active"], is_active)
+        self.assertIsNone(payload["access_control"]) # Default is public (None)
+
+        # Meta object fields
+        self.assertIn("meta", payload)
+        meta = payload["meta"]
+        self.assertEqual(meta["description"], description)
+        self.assertEqual(meta["tags"], tags)
+        self.assertEqual(meta["suggestion_prompts"], suggestion_prompts)
+        self.assertEqual(meta["capabilities"], capabilities)
+
 
 if __name__ == "__main__":
     unittest.main()

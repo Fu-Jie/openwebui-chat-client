@@ -254,58 +254,77 @@ class ModelManager:
     def create_model(
         self,
         model_id: str,
-        base_model_id: str,
         name: str,
-        description: str = "",
+        base_model_id: Optional[str] = None,
+        description: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         permission_type: str = "public",
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
+        profile_image_url: str = "/static/favicon.png",
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
-        Creates a new model configuration.
+        Creates a new model configuration with detailed metadata.
 
         Args:
             model_id: Unique identifier for the new model (e.g., 'my-gpt-4.1')
-            base_model_id: ID of the base model to use (e.g., 'gpt-4.1')
             name: Display name for the model
-            description: Description of the model
-            params: Additional parameters for model configuration
-            permission_type: "public", "private", or "group"
-            group_identifiers: List of group IDs or names (for group permission)
-            user_ids: List of user IDs (for private/group permission)
+            base_model_id: ID of the base model to use. Can be None.
+            description: Description for the model's meta object.
+            params: Additional parameters for model configuration.
+            permission_type: "public", "private", or "group".
+            group_identifiers: List of group IDs or names for group permission.
+            user_ids: List of user IDs for private/group permission.
+            profile_image_url: URL for the model's profile image.
+            suggestion_prompts: List of suggestion prompts.
+            tags: List of tags.
+            capabilities: Dictionary of model capabilities (e.g., {"vision": True}).
+            is_active: Whether the model is active.
 
         Returns:
             The created model data, or None if creation fails.
         """
-        logger.info(f"Creating model '{model_id}' based on '{base_model_id}'...")
+        logger.info(f"Creating model '{model_id}'...")
 
-        if not model_id or not base_model_id or not name:
-            logger.error("Model ID, base model ID, and name are required.")
+        if not model_id or not name:
+            logger.error("Model ID and name are required.")
             return None
 
         # Build access control
         access_control = self._build_access_control(
             permission_type, group_identifiers, user_ids
         )
-        if access_control is False:  # Error in building access control
+        if access_control is False:
             return None
 
+        # Build the full model data payload, matching the curl command structure
         model_data = {
+            "meta": {
+                "profile_image_url": profile_image_url,
+                "description": description,
+                "suggestion_prompts": suggestion_prompts,
+                "tags": tags or [],
+                "capabilities": capabilities or {},
+            },
             "id": model_id,
-            "base_model_id": base_model_id,
             "name": name,
-            "description": description,
+            "base_model_id": base_model_id,
             "params": params or {},
+            "access_control": access_control,
+            "is_active": is_active,
         }
 
-        # Add access control if not public
-        if access_control is not None:
-            model_data["access_control"] = access_control
+        # The API expects `access_control: null` for public, not the absence of the key
+        if permission_type == "public":
+            model_data["access_control"] = None
 
         try:
             response = self.base_client.session.post(
-                f"{self.base_client.base_url}/api/models/", 
+                f"{self.base_client.base_url}/api/v1/models/create",
                 json=model_data, 
                 headers=self.base_client.json_headers
             )

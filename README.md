@@ -279,6 +279,25 @@ for chat in results['failed_chats']:
 
 Create and use interactive prompts with dynamic variable substitution for reusable AI interactions.
 
+### 7. Deep Research Agent
+
+Initiate an autonomous research agent to perform a multi-step investigation on a topic. The agent will plan and execute research steps, with the entire process visible as a multi-turn chat in the UI, culminating in a final summary report.
+
+```python
+# Start a research agent to analyze a topic
+result = client.deep_research(
+    topic="The impact of generative AI on the software development industry",
+    num_steps=3,  # The agent will perform 3 plan-execute cycles
+    general_models=["llama3"],
+    search_models=["duckduckgo-search"] # Optional: models with search capability
+)
+
+if result:
+    print("--- Final Report ---")
+    print(result.get('final_report'))
+    print(f"\\n👉 View the full research process in the UI under the chat titled '{result.get('chat_title')}'.")
+```
+
 ```python
 from openwebui_chat_client import OpenWebUIClient
 
@@ -382,7 +401,7 @@ print(f"Summary: {result['response']}")
 | `list_base_models()` | List all available base models with improved reliability | None |
 | `list_groups()` | List all available groups for permission management | None |
 | `get_model()` | Retrieve details for a specific model with auto-retry on creation | `model_id` |
-| `create_model()` | Create a detailed, custom model variant | `model_config` |
+| `create_model()` | Create a detailed, custom model variant with full metadata | `model_id, name, base_model_id, description, params, capabilities, ...` |
 | `update_model()` | Update an existing model entry with granular changes | `model_id, access_control, **kwargs` |
 | `delete_model()` | Delete a model entry from the server | `model_id` |
 | `batch_update_model_permissions()` | Batch update access control permissions for multiple models | `model_identifiers, model_keyword, permission_type, group_identifiers, user_ids, max_workers` |

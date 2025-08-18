@@ -611,64 +611,37 @@ class OpenWebUIClient:
     def create_model(
         self,
         model_id: str,
-        name: Optional[str] = None,
+        name: str,
         base_model_id: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-        temperature: Optional[float] = None,
-        stream_response: bool = True,
-        other_params: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
-        profile_image_url: str = "/static/favicon.png",
-        capabilities: Optional[Dict[str, bool]] = None,
-        suggestion_prompts: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        is_active: bool = True,
-        # New modular parameters for backward compatibility
         params: Optional[Dict[str, Any]] = None,
         permission_type: str = "public",
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
+        profile_image_url: str = "/static/favicon.png",
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
-        Creates a new model configuration - delegates to ModelManager.
-        Maintains backward compatibility with original signature.
+        Creates a new model configuration with detailed metadata. This method
+        delegates directly to the ModelManager.
         """
-        # Ensure we have required fields
-        if not name or not base_model_id:
-            raise ValueError("name and base_model_id are required parameters")
-        
-        # Build params dict from individual parameters if provided
-        if params is None:
-            params = {}
-        
-        if system_prompt is not None:
-            params["system_prompt"] = system_prompt
-        if temperature is not None:
-            params["temperature"] = temperature
-        if stream_response is not None:
-            params["stream_response"] = stream_response
-        if other_params:
-            params.update(other_params)
-        if profile_image_url != "/static/favicon.png":
-            params["profile_image_url"] = profile_image_url
-        if capabilities is not None:
-            params["capabilities"] = capabilities
-        if suggestion_prompts is not None:
-            params["suggestion_prompts"] = suggestion_prompts
-        if tags is not None:
-            params["tags"] = tags
-        if is_active is not None:
-            params["is_active"] = is_active
-            
         return self._model_manager.create_model(
             model_id=model_id,
-            base_model_id=base_model_id,
             name=name,
-            description=description or "",
+            base_model_id=base_model_id,
+            description=description,
             params=params,
             permission_type=permission_type,
             group_identifiers=group_identifiers,
             user_ids=user_ids,
+            profile_image_url=profile_image_url,
+            suggestion_prompts=suggestion_prompts,
+            tags=tags,
+            capabilities=capabilities,
+            is_active=is_active,
         )
 
     def update_model(
