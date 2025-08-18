@@ -2868,3 +2868,118 @@ class ChatManager:
         parent_client = getattr(self.base_client, '_parent_client', None)
         if parent_client and hasattr(parent_client, '_stream_delta_update'):
             parent_client._stream_delta_update(chat_id, message_id, delta_content)
+
+    def _perform_research_step(
+        self,
+        topic: str,
+        research_history: List[str],
+        step_num: int,
+        total_steps: int,
+        general_models: List[str],
+        search_models: List[str],
+    ) -> Optional[Tuple[str, str, str]]:
+        """
+        Performs a single, intelligent step of the research process.
+
+        This involves:
+        1.  A "planning" call to a general model to decide the next question AND the
+            best model type to use (general vs. search).
+        2.  An "execution" call using the chosen model type to answer the question.
+
+        Args:
+            topic: The main research topic.
+            research_history: A list of previously gathered information.
+            step_num: The current step number.
+            total_steps: The total number of research steps.
+            general_models: List of general-purpose model IDs.
+            search_models: List of search-capable model IDs.
+
+        Returns:
+            A tuple containing (question, answer, model_used), or None if it fails.
+        """
+        import random
+        logger.info("-" * 80)
+        logger.info(f"🔬 Performing Research Step {step_num}/{total_steps} for topic: '{topic}'")
+
+        # 1. --- Planning Step with Model Routing ---
+        history_summary = "\n".join(
+            f"- {item}" for item in research_history
+        ) if research_history else "No information gathered yet."
+
+        # Dynamically build the model options string for the prompt
+        model_options = f"1. General Models (for reasoning, summarizing, and internal knowledge): {general_models}"
+        if search_models:
+            model_options += f"\n2. Search-Capable Models (for accessing recent, external information): {search_models}"
+
+        planning_prompt = (
+            f"You are a research director. Your goal is to research '{topic}'.\n"
+            f"Current research summary:\n{history_summary}\n\n"
+            f"You have access to the following types of models:\n{model_options}\n\n"
+            f"Based on the current summary, what is the next single best question to ask?\n"
+            f"And, crucially, which type of model ('General' or 'Search-Capable') is best suited to answer it?\n\n"
+            f"Return your answer ONLY as a valid JSON object with two keys: \"next_question\" and \"chosen_model_type\"."
+        )
+
+        logger.info("  - 🧠 Planning: Asking for the next question and model type...")
+        planning_chat_title = f"[Research] Step {step_num} - Planning"
+
+        # Planning always uses a general model
+        planning_model = general_models[0]
+        logger.info(f"    Using planning model: {planning_model}")
+
+        planning_result = self.chat(
+            question=planning_prompt,
+            chat_title=planning_chat_title,
+            model_id=planning_model,
+        )
+
+        if not planning_result or not planning_result.get("response"):
+            logger.error("  - ❌ Planning step failed: Did not receive a response for planning.")
+            return None
+
+        # Use the parent client's method to robustly extract JSON
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_extract_json_from_content'):
+            plan_json = parent_client._extract_json_from_content(planning_result["response"])
+        else:
+            # Fallback to simple json.loads
+            try:
+                plan_json = json.loads(planning_result["response"])
+            except json.JSONDecodeError:
+                plan_json = None
+
+        if not plan_json or "next_question" not in plan_json or "chosen_model_type" not in plan_json:
+            logger.error(f"  - ❌ Planning step failed: Response was not valid JSON with required keys. Response: {planning_result['response']}")
+            return None
+
+        next_question = plan_json["next_question"]
+        chosen_type = plan_json["chosen_model_type"]
+        logger.info(f"  - 🎯 Planned next question: '{next_question}'")
+        logger.info(f"  - 🤖 Chosen model type: '{chosen_type}'")
+
+        # 2. --- Execution Step with Dynamic Model Selection ---
+        execution_model = None
+        if chosen_type == "Search-Capable" and search_models:
+            execution_model = random.choice(search_models)
+        else:
+            if chosen_type != "General":
+                logger.warning(f"  - Model type '{chosen_type}' not recognized or available, defaulting to 'General'.")
+            execution_model = random.choice(general_models)
+
+        logger.info(f"  -  EXECUTION: Asking '{next_question}' using model '{execution_model}'...")
+        execution_chat_title = f"Deep Dive: {topic}"
+
+        answer_result = self.chat(
+            question=next_question,
+            chat_title=execution_chat_title,
+            model_id=execution_model,
+        )
+
+        if not answer_result or not answer_result.get("response"):
+            logger.error(f"  - ❌ Execution step failed: Did not receive an answer for '{next_question}'.")
+            return None
+
+        answer = answer_result["response"]
+        logger.info(f"  - ✅ Answer received: {len(answer)} characters.")
+
+        return next_question, answer, execution_model

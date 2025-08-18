@@ -315,6 +315,111 @@ class OpenWebUIClient:
             enable_auto_tagging, enable_auto_titling
         )
 
+    def deep_research(
+        self,
+        topic: str,
+        chat_title: Optional[str] = None,
+        num_steps: int = 3,
+        general_models: Optional[List[str]] = None,
+        search_models: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Performs an advanced, autonomous, multi-step research process on a given topic
+        using intelligent model routing.
+
+        The agent will iteratively plan questions and decide which type of model to use
+        (general vs. search-capable), with the entire process being visible as a
+        multi-turn chat in the UI.
+
+        Args:
+            topic: The topic to be researched.
+            chat_title: Optional title for the research chat. If not provided,
+                        it will be generated from the topic.
+            num_steps: The number of research steps (plan -> execute cycles).
+            general_models: A list of model IDs for general reasoning and summarization.
+                            If not provided, the client's default model will be used.
+            search_models: A list of model IDs with search capabilities. If not provided,
+                           the agent will not have the option to use a search model.
+
+        Returns:
+            A dictionary containing the research results and chat information, or None if it fails.
+        """
+        logger.info("=" * 80)
+        logger.info(f"🚀 Starting Deep Research on topic: '{topic}' for {num_steps} steps.")
+        logger.info("=" * 80)
+
+        # If no chat title is provided, create one from the topic
+        final_chat_title = chat_title or f"Deep Dive: {topic}"
+
+        # Ensure there's at least one general model to use
+        if not general_models:
+            general_models = [self._base_client.default_model_id]
+            logger.warning(f"No general_models provided. Falling back to default model: {general_models[0]}")
+
+        if not search_models:
+            search_models = [] # Ensure it's a list
+
+        research_history = []
+
+        for i in range(1, num_steps + 1):
+            step_result = self._chat_manager._perform_research_step(
+                topic=topic,
+                research_history=research_history,
+                step_num=i,
+                total_steps=num_steps,
+                general_models=general_models,
+                search_models=search_models,
+            )
+
+            if step_result:
+                question, answer, model_used = step_result
+                # Append a formatted summary of the step to the history
+                research_history.append(f"Step {i}: Asked '{question}' (using {model_used}) and received a detailed answer.")
+            else:
+                logger.error(f"Research step {i} failed. Halting the research process.")
+                return None
+
+        # --- Final Report Generation ---
+        logger.info("=" * 80)
+        logger.info("✍️ All research steps completed. Generating final report...")
+
+        # Format the research history for the final prompt
+        formatted_history = "\n\n".join(research_history)
+
+        summary_prompt = (
+            f"You are a research analyst. Your task is to synthesize the following research findings "
+            f"into a comprehensive and well-structured report on the topic: '{topic}'.\n\n"
+            f"## Research Log:\n{formatted_history}\n\n"
+            f"Based on the information gathered, please generate the final report. "
+            f"The report should be clear, concise, and cover the key findings from the research steps."
+        )
+
+        # Use the first general model for the final summarization
+        summary_model = general_models[0]
+        logger.info(f"Using model '{summary_model}' for final report generation.")
+
+        final_report_result = self._chat_manager.chat(
+            question=summary_prompt,
+            chat_title=final_chat_title,
+            model_id=summary_model,
+        )
+
+        if not final_report_result or not final_report_result.get("response"):
+            logger.error("❌ Failed to generate the final report.")
+            final_report = "Error: Could not generate the final report."
+        else:
+            final_report = final_report_result["response"]
+            logger.info("✅ Final report generated successfully.")
+
+        return {
+            "topic": topic,
+            "chat_id": self._base_client.chat_id,
+            "chat_title": final_chat_title,
+            "research_log": research_history,
+            "final_report": final_report,
+            "total_steps_completed": len(research_history),
+        }
+
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """Set tags for a chat conversation."""
         return self._chat_manager.set_chat_tags(chat_id, tags)
