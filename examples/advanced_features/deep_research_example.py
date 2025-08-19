@@ -6,24 +6,39 @@ a report on a given topic. The agent will perform a multi-step research process,
 and the entire workflow will be visible as a conversation in the OpenWebUI interface.
 """
 import os
+import sys
+import logging
 from openwebui_chat_client import OpenWebUIClient
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # --- Configuration ---
-# Make sure to set the environment variables OPENWEBUI_BASE_URL and OPENWEBUI_TOKEN
-# or replace the os.getenv calls with your actual base_url and token.
-BASE_URL = os.getenv("OPENWEBUI_BASE_URL", "http://localhost:8080")
-TOKEN = os.getenv("OPENWEBUI_TOKEN", "your_token_here")
+BASE_URL = os.getenv("OUI_BASE_URL", "http://localhost:3000")
+TOKEN = os.getenv("OUI_AUTH_TOKEN")
+DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "llama3")
+
+# Logging setup
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
 
 # --- Initialization ---
+if not TOKEN:
+    logger.error("❌ OUI_AUTH_TOKEN environment variable not set.")
+    sys.exit(1)
+
 try:
     client = OpenWebUIClient(
         base_url=BASE_URL,
         token=TOKEN,
-        default_model_id="llama3"  # Provide a default model for initialization
+        default_model_id=DEFAULT_MODEL
     )
+    logger.info("✅ Client initialized successfully")
 except Exception as e:
-    print(f"Error initializing client: {e}")
-    exit(1)
+    logger.error(f"❌ Failed to initialize client: {e}")
+    sys.exit(1)
 
 # --- Deep Research Execution ---
 if __name__ == "__main__":
