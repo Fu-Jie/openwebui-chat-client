@@ -19,6 +19,7 @@ try:
     client = OpenWebUIClient(
         base_url=BASE_URL,
         token=TOKEN,
+        default_model_id="llama3"  # Provide a default model for initialization
     )
 except Exception as e:
     print(f"Error initializing client: {e}")

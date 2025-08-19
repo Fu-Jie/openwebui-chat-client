@@ -152,7 +152,7 @@ class OpenWebUIClient:
         """
         Destructor: Automatically cleans up placeholder messages and syncs with remote server when instance is destroyed
         """
-        if self._auto_cleanup_enabled and self.chat_id and self.chat_object_from_server:
+        if hasattr(self, '_base_client') and self._base_client and self._base_client._auto_cleanup_enabled and self.chat_id and self.chat_object_from_server:
             try:
                 logger.info(
                     "🧹 Client cleanup: Removing unused placeholder messages..."

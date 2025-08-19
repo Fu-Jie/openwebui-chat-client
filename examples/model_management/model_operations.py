@@ -149,9 +149,11 @@ def create_model_example(client: OpenWebUIClient, base_model_id: str) -> bool:
             model_id=TEST_MODEL_ID,
             name=TEST_MODEL_NAME,
             base_model_id=base_model_id,
-            system_prompt="You are a helpful test assistant created via the OpenWebUI Chat Client API. You provide clear, concise, and factual responses.",
-            temperature=0.7,
             description="This is a test model created to demonstrate the OpenWebUI Chat Client model management capabilities.",
+            params={
+                "system_prompt": "You are a helpful test assistant created via the OpenWebUI Chat Client API. You provide clear, concise, and factual responses.",
+                "temperature": 0.7,
+            },
             suggestion_prompts=[
                 "What is OpenWebUI?",
                 "How does the Chat Client work?",
@@ -195,7 +197,7 @@ def update_model_example(client: OpenWebUIClient) -> None:
             model_id=TEST_MODEL_ID,
             name=f"{TEST_MODEL_NAME} (Updated)",
             description="This test model has been updated via the OpenWebUI Chat Client API to demonstrate update functionality.",
-            temperature=0.5,  # Changed from 0.7
+            params={"temperature": 0.5},  # Changed from 0.7
             tags=["test", "api-updated", "demo", "modified"],
             is_active=False  # Deactivate the model
         )
