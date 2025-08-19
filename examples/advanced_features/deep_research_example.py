@@ -54,8 +54,8 @@ if __name__ == "__main__":
         result = client.deep_research(
             topic=research_topic,
             num_steps=research_steps,
-            general_models=["llama3", "gemma:7b"],
-            search_models=["duckduckgo-search"]  # Assumes a model with search capabilities is configured
+            general_models=[DEFAULT_MODEL],
+            search_models=["duckduckgo-search"]  # Assumes a model with this ID is configured for search
         )
 
         if result:

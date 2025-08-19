@@ -348,23 +348,24 @@ class ModelManager:
         self,
         model_id: str,
         name: Optional[str] = None,
+        base_model_id: Optional[str] = None,
         description: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         permission_type: Optional[str] = None,
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
+        profile_image_url: Optional[str] = None,
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: Optional[bool] = None,
     ) -> Optional[Dict[str, Any]]:
         """
-        Updates an existing model configuration.
+        Updates an existing model configuration with detailed metadata.
 
         Args:
-            model_id: ID of the model to update
-            name: New display name for the model
-            description: New description
-            params: New parameters
-            permission_type: New permission type ("public", "private", "group")
-            group_identifiers: List of group IDs or names (for group permission)
-            user_ids: List of user IDs (for private/group permission)
+            model_id: ID of the model to update.
+            ... (and all other optional parameters similar to create_model)
 
         Returns:
             The updated model data, or None if update fails.
@@ -375,21 +376,28 @@ class ModelManager:
             logger.error("Model ID is required.")
             return None
 
-        # Get current model data
+        # Get current model data to use as a base
         current_model = self.get_model(model_id)
         if not current_model:
             logger.error(f"Model '{model_id}' not found. Cannot update.")
             return None
 
-        # Build update data with only provided fields
-        update_data = {"id": model_id}
+        # Build update payload by layering changes over the current state
+        update_data = current_model.copy()
 
-        if name is not None:
-            update_data["name"] = name
-        if description is not None:
-            update_data["description"] = description
-        if params is not None:
-            update_data["params"] = params
+        # Update top-level fields
+        if name is not None: update_data['name'] = name
+        if base_model_id is not None: update_data['base_model_id'] = base_model_id
+        if is_active is not None: update_data['is_active'] = is_active
+        if params is not None: update_data['params'] = params
+
+        # Update meta fields
+        if 'meta' not in update_data: update_data['meta'] = {}
+        if description is not None: update_data['meta']['description'] = description
+        if profile_image_url is not None: update_data['meta']['profile_image_url'] = profile_image_url
+        if suggestion_prompts is not None: update_data['meta']['suggestion_prompts'] = suggestion_prompts
+        if tags is not None: update_data['meta']['tags'] = tags
+        if capabilities is not None: update_data['meta']['capabilities'] = capabilities
 
         # Handle permission updates
         if permission_type is not None:
@@ -398,16 +406,14 @@ class ModelManager:
             )
             if access_control is False:
                 return None
-            if access_control is None:
-                # Public access - remove access_control entirely
-                update_data["access_control"] = None
-            else:
-                update_data["access_control"] = access_control
+            update_data["access_control"] = access_control
 
         try:
-            response = self.base_client.session.put(
-                f"{self.base_client.base_url}/api/models/{model_id}", 
-                json=update_data, 
+            # The endpoint for updating is different from creating
+            response = self.base_client.session.post(
+                f"{self.base_client.base_url}/api/v1/models/model/update",
+                params={"id": model_id},
+                json=update_data,
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()

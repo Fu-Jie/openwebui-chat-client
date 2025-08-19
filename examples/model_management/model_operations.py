@@ -203,9 +203,9 @@ def update_model_example(client: OpenWebUIClient) -> None:
             model_id=TEST_MODEL_ID,
             name=f"{TEST_MODEL_NAME} (Updated)",
             description="This test model has been updated via the OpenWebUI Chat Client API to demonstrate update functionality.",
-            params={"temperature": 0.5},  # Changed from 0.7
+            params={"temperature": 0.5},
             tags=["test", "api-updated", "demo", "modified"],
-            is_active=False  # Deactivate the model
+            is_active=False
         )
         
         if updated_model:

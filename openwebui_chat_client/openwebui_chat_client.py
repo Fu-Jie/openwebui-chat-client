@@ -648,74 +648,37 @@ class OpenWebUIClient:
         self,
         model_id: str,
         name: Optional[str] = None,
+        base_model_id: Optional[str] = None,
         description: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         permission_type: Optional[str] = None,
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
-        access_control: Optional[Dict[str, Any]] = ...,
+        profile_image_url: Optional[str] = None,
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: Optional[bool] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Updates an existing model configuration."""
-        # If access_control is provided directly (including None), or if we need to handle
-        # special cases for backward compatibility, handle it specially
-        if access_control is not ... or any(param is not None for param in [name, description, params]):
-            # Get current model data
-            current_model = self.get_model(model_id)
-            if not current_model:
-                logger.error(f"Model '{model_id}' not found. Cannot update.")
-                return None
-
-            # Build update data with only provided fields
-            update_data = {"id": model_id}
-            
-            if name is not None:
-                update_data["name"] = name
-            else:
-                update_data["name"] = current_model.get("name", "")
-                
-            if description is not None:
-                update_data["description"] = description
-            else:
-                update_data["description"] = current_model.get("description", "")
-                
-            if params is not None:
-                update_data["params"] = params
-            else:
-                update_data["params"] = current_model.get("params", {})
-                
-            # Handle metadata
-            update_data["meta"] = current_model.get("meta", {"capabilities": {}})
-            
-            # Handle access_control
-            if access_control is not ...:
-                # access_control was explicitly provided (including None)
-                update_data["access_control"] = access_control
-            else:
-                # access_control was not provided, preserve existing
-                update_data["access_control"] = current_model.get("access_control")
-            
-            try:
-                response = self.session.post(
-                    f"{self.base_url}/api/v1/models/model/update", 
-                    params={"id": model_id},
-                    json=update_data, 
-                    headers=self.json_headers
-                )
-                response.raise_for_status()
-                updated_model = response.json()
-                logger.info(f"Successfully updated model '{model_id}'.")
-                return updated_model
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Failed to update model '{model_id}'. Request error: {e}")
-                if e.response is not None:
-                    logger.error(f"Response content: {e.response.text}")
-                return None
-        else:
-            # Use the normal model manager path only if no parameters are provided
-            return self._model_manager.update_model(
-                model_id, name, description, params,
-                permission_type, group_identifiers, user_ids
-            )
+        """
+        Updates an existing model configuration with detailed metadata. This method
+        delegates directly to the ModelManager.
+        """
+        return self._model_manager.update_model(
+            model_id=model_id,
+            name=name,
+            base_model_id=base_model_id,
+            description=description,
+            params=params,
+            permission_type=permission_type,
+            group_identifiers=group_identifiers,
+            user_ids=user_ids,
+            profile_image_url=profile_image_url,
+            suggestion_prompts=suggestion_prompts,
+            tags=tags,
+            capabilities=capabilities,
+            is_active=is_active,
+        )
 
     def delete_model(self, model_id: str) -> bool:
         """Deletes a model configuration."""
