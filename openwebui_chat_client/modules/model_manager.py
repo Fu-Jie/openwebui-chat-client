@@ -391,15 +391,18 @@ class ModelManager:
         if is_active is not None: update_data['is_active'] = is_active
         if params is not None: update_data['params'] = params
 
-        # Update meta fields
-        if 'meta' not in update_data: update_data['meta'] = {}
-        if description is not None: update_data['meta']['description'] = description
-        if profile_image_url is not None: update_data['meta']['profile_image_url'] = profile_image_url
-        if suggestion_prompts is not None: update_data['meta']['suggestion_prompts'] = suggestion_prompts
-        if tags is not None: update_data['meta']['tags'] = tags
-        if capabilities is not None: update_data['meta']['capabilities'] = capabilities
+        # Update meta fields, merging with existing meta
+        meta_update = {}
+        if description is not None: meta_update['description'] = description
+        if profile_image_url is not None: meta_update['profile_image_url'] = profile_image_url
+        if suggestion_prompts is not None: meta_update['suggestion_prompts'] = suggestion_prompts
+        if tags is not None: meta_update['tags'] = tags
+        if capabilities is not None: meta_update['capabilities'] = capabilities
 
-        # Handle permission updates
+        if meta_update:
+            update_data['meta'] = {**current_model.get('meta', {}), **meta_update}
+
+        # Handle permission updates only if permission_type is explicitly provided
         if permission_type is not None:
             access_control = self._build_access_control(
                 permission_type, group_identifiers, user_ids
@@ -407,6 +410,7 @@ class ModelManager:
             if access_control is False:
                 return None
             update_data["access_control"] = access_control
+        # If permission_type is None, we do nothing and the existing access_control from current_model is preserved.
 
         try:
             # The endpoint for updating is different from creating
