@@ -42,20 +42,40 @@ except Exception as e:
 
 # --- Deep Research Execution ---
 if __name__ == "__main__":
-    print("Starting deep research example...")
+    logger.info("Starting deep research example...")
+
+    # 1. Dynamically find available models
+    logger.info("Discovering available models...")
+    all_models = client.list_models()
+    if not all_models:
+        logger.error("❌ No models found. Cannot proceed with the example.")
+        sys.exit(1)
+
+    general_models = [m['id'] for m in all_models if 'search' not in m['id'].lower() and 'web' not in m['id'].lower()]
+    search_models = [m['id'] for m in all_models if 'search' in m['id'].lower() or 'web' in m['id'].lower()]
+
+    if not general_models:
+        logger.error("❌ No suitable general-purpose models found. Cannot proceed.")
+        sys.exit(1)
+
+    logger.info(f"✅ Found {len(general_models)} general-purpose model(s): {general_models}")
+    if search_models:
+        logger.info(f"✅ Found {len(search_models)} search-capable model(s): {search_models}")
+    else:
+        logger.warning("⚠️ No search-capable models found. Proceeding with general models only.")
+
 
     # Define the research topic and number of steps
     research_topic = "The impact of generative AI on the software development industry"
     research_steps = 3  # The agent will perform 3 plan-and-execute cycles
 
     try:
-        # Call the deep_research method with lists of models for routing.
-        # The agent will decide whether to use a 'general' or 'search' model for each step.
+        # 2. Call the deep_research method with the dynamically discovered models
         result = client.deep_research(
             topic=research_topic,
             num_steps=research_steps,
-            general_models=[DEFAULT_MODEL],
-            search_models=["duckduckgo-search"]  # Assumes a model with this ID is configured for search
+            general_models=general_models,
+            search_models=search_models
         )
 
         if result:
