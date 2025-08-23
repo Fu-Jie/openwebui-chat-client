@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - **HTTP Retry Mechanism**: Implemented a robust retry strategy in the base client for API calls, automatically retrying on transient server errors (5xx) to improve stability.
 
 ### Fixed
-- **`create_model` Payload**: Corrected the `create_model` method to send the full, accurate payload, including the `meta` object with capabilities, tags, etc., and fixed the endpoint URL to `/api/v1/models/create`.
+- **`create_model` Payload Fix**: Corrected the `create_model` method to send the full, accurate payload, including the `meta` object with capabilities, tags, etc., and fixed the endpoint URL to `/api/v1/models/create`.
 
 ## [0.1.16] - 2025-08-10
 
