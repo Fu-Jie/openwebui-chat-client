@@ -2251,9 +2251,7 @@ class ChatManager:
             
         Returns:
             Dictionary containing all conversation rounds, chat_id, and metadata
-        """
-        import 
-        
+        """        
         if num_questions < 1:
             logger.error("num_questions must be at least 1")
             return None
