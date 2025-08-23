@@ -2895,7 +2895,6 @@ class ChatManager:
         Returns:
             A tuple containing (question, answer, model_used), or None if it fails.
         """
-        import random
         logger.info("-" * 80)
         logger.info(f"🔬 Performing Research Step {step_num}/{total_steps} for topic: '{topic}'")
 
