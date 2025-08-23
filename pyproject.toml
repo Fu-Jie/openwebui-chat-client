@@ -29,7 +29,17 @@ classifiers = [
 ]
 dependencies = [
     "requests",
-    "python-dotenv"
+    "python-dotenv",
+    "httpx[http2]",
+    "aiofiles"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "respx"
 ]
 
 [project.urls]
