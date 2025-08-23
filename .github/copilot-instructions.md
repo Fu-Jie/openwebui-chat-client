@@ -140,6 +140,7 @@ def chat(self, question: str, chat_title: Optional[str] = None,
    - **关键**: 必须完全移除空的 `[未发布]` / `[Unreleased]` 部分，否则发布工作流不会触发
    - 确保新版本条目位于 CHANGELOG 文件的最顶部
    - 同时更新英文和中文版本的 CHANGELOG
+   - **同步更新版本号**: 确保 `pyproject.toml` 和 `openwebui_chat_client/__init__.py` 文件中的版本号与发布版本一致。
 3. **版本发布时**: 同时更新 README 文件以反映新功能和 API 变更。
 4. **发布完成后**: 在 CHANGELOG 顶部添加新的 `[未发布]` 部分，准备下一轮开发。
 
