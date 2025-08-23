@@ -2872,6 +2872,7 @@ class ChatManager:
     def _perform_research_step(
         self,
         topic: str,
+        chat_title: str,
         research_history: List[str],
         step_num: int,
         total_steps: int,
@@ -2879,15 +2880,12 @@ class ChatManager:
         search_models: List[str],
     ) -> Optional[Tuple[str, str, str]]:
         """
-        Performs a single, intelligent step of the research process.
-
-        This involves:
-        1.  A "planning" call to a general model to decide the next question AND the
-            best model type to use (general vs. search).
-        2.  An "execution" call using the chosen model type to answer the question.
+        Performs a single, intelligent step of the research process within a consistent
+        chat session.
 
         Args:
             topic: The main research topic.
+            chat_title: The consistent title for the chat session.
             research_history: A list of previously gathered information.
             step_num: The current step number.
             total_steps: The total number of research steps.
@@ -2921,15 +2919,15 @@ class ChatManager:
         )
 
         logger.info("  - 🧠 Planning: Asking for the next question and model type...")
-        planning_chat_title = f"[Research] Step {step_num} - Planning"
 
         # Planning always uses a general model
         planning_model = general_models[0]
         logger.info(f"    Using planning model: {planning_model}")
 
+        # Use the consistent chat_title for all interactions
         planning_result = self.chat(
             question=planning_prompt,
-            chat_title=planning_chat_title,
+            chat_title=chat_title,
             model_id=planning_model,
         )
 
@@ -2967,11 +2965,11 @@ class ChatManager:
             execution_model = random.choice(general_models)
 
         logger.info(f"  -  EXECUTION: Asking '{next_question}' using model '{execution_model}'...")
-        execution_chat_title = f"Deep Dive: {topic}"
 
+        # Use the same consistent chat_title for the execution step
         answer_result = self.chat(
             question=next_question,
-            chat_title=execution_chat_title,
+            chat_title=chat_title,
             model_id=execution_model,
         )
 

@@ -16,14 +16,15 @@ class TestDeepResearch(unittest.TestCase):
     @patch('openwebui_chat_client.modules.chat_manager.ChatManager.chat')
     def test_deep_research_success_with_routing(self, mock_chat_method):
         """
-        Test the successful execution of the deep_research workflow with intelligent
-        model routing.
+        Test the successful execution of the deep_research workflow, ensuring
+        a consistent chat title is used throughout.
         """
         # --- Arrange ---
         topic = "Test Topic"
         num_steps = 2
         general_models = ["gemma:7b"]
         search_models = ["duckduckgo-search"]
+        expected_chat_title = f"Deep Dive: {topic}"
 
         # Define the sequence of responses from the mocked chat method
         mock_chat_method.side_effect = [
@@ -49,6 +50,10 @@ class TestDeepResearch(unittest.TestCase):
 
         # --- Assert ---
         self.assertEqual(mock_chat_method.call_count, 5)
+
+        # Verify that all calls used the same, consistent chat title
+        for call in mock_chat_method.call_args_list:
+            self.assertEqual(call.kwargs['chat_title'], expected_chat_title)
 
         # Check execution calls for correct model routing
         execution_call_1 = mock_chat_method.call_args_list[1]

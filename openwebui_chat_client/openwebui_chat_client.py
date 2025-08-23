@@ -364,6 +364,7 @@ class OpenWebUIClient:
         for i in range(1, num_steps + 1):
             step_result = self._chat_manager._perform_research_step(
                 topic=topic,
+                chat_title=final_chat_title,
                 research_history=research_history,
                 step_num=i,
                 total_steps=num_steps,
