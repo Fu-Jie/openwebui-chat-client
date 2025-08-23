@@ -2363,7 +2363,7 @@ class ChatManager:
                         "How does this relate to real-world applications?",
                         "What are the potential challenges with this approach?"
                     ]
-                    current_question = .choice(generic_follow_ups)
+                    current_question = random.choice(generic_follow_ups)
                     logger.info(f"🔄 Using generic follow-up: {current_question}")
         
         # Create final result
