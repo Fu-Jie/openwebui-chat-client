@@ -2351,7 +2351,7 @@ class ChatManager:
             if round_num < num_questions:
                 if follow_ups:
                     # ly select a follow-up question
-                    current_question = .choice(follow_ups)
+                    current_question = random.choice(follow_ups)
                     logger.info(f"🎲 Selected follow-up: {current_question}")
                 else:
                     logger.warning(f"No follow-up suggestions available for round {round_num}")
