@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.17] - 2025-08-23
 
 ### Added
 - **Deep Research Agent**: Introduced the `deep_research` method, an autonomous agent that performs multi-step research on a topic using intelligent model routing between general and search-capable models.
