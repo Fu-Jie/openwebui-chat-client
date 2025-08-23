@@ -254,58 +254,77 @@ class ModelManager:
     def create_model(
         self,
         model_id: str,
-        base_model_id: str,
         name: str,
-        description: str = "",
+        base_model_id: Optional[str] = None,
+        description: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         permission_type: str = "public",
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
+        profile_image_url: str = "/static/favicon.png",
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
-        Creates a new model configuration.
+        Creates a new model configuration with detailed metadata.
 
         Args:
             model_id: Unique identifier for the new model (e.g., 'my-gpt-4.1')
-            base_model_id: ID of the base model to use (e.g., 'gpt-4.1')
             name: Display name for the model
-            description: Description of the model
-            params: Additional parameters for model configuration
-            permission_type: "public", "private", or "group"
-            group_identifiers: List of group IDs or names (for group permission)
-            user_ids: List of user IDs (for private/group permission)
+            base_model_id: ID of the base model to use. Can be None.
+            description: Description for the model's meta object.
+            params: Additional parameters for model configuration.
+            permission_type: "public", "private", or "group".
+            group_identifiers: List of group IDs or names for group permission.
+            user_ids: List of user IDs for private/group permission.
+            profile_image_url: URL for the model's profile image.
+            suggestion_prompts: List of suggestion prompts.
+            tags: List of tags.
+            capabilities: Dictionary of model capabilities (e.g., {"vision": True}).
+            is_active: Whether the model is active.
 
         Returns:
             The created model data, or None if creation fails.
         """
-        logger.info(f"Creating model '{model_id}' based on '{base_model_id}'...")
+        logger.info(f"Creating model '{model_id}'...")
 
-        if not model_id or not base_model_id or not name:
-            logger.error("Model ID, base model ID, and name are required.")
+        if not model_id or not name:
+            logger.error("Model ID and name are required.")
             return None
 
         # Build access control
         access_control = self._build_access_control(
             permission_type, group_identifiers, user_ids
         )
-        if access_control is False:  # Error in building access control
+        if access_control is False:
             return None
 
+        # Build the full model data payload, matching the curl command structure
         model_data = {
+            "meta": {
+                "profile_image_url": profile_image_url,
+                "description": description,
+                "suggestion_prompts": suggestion_prompts,
+                "tags": tags or [],
+                "capabilities": capabilities or {},
+            },
             "id": model_id,
-            "base_model_id": base_model_id,
             "name": name,
-            "description": description,
+            "base_model_id": base_model_id,
             "params": params or {},
+            "access_control": access_control,
+            "is_active": is_active,
         }
 
-        # Add access control if not public
-        if access_control is not None:
-            model_data["access_control"] = access_control
+        # The API expects `access_control: null` for public, not the absence of the key
+        if permission_type == "public":
+            model_data["access_control"] = None
 
         try:
             response = self.base_client.session.post(
-                f"{self.base_client.base_url}/api/models/", 
+                f"{self.base_client.base_url}/api/v1/models/create",
                 json=model_data, 
                 headers=self.base_client.json_headers
             )
@@ -329,23 +348,24 @@ class ModelManager:
         self,
         model_id: str,
         name: Optional[str] = None,
+        base_model_id: Optional[str] = None,
         description: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         permission_type: Optional[str] = None,
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
+        profile_image_url: Optional[str] = None,
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: Optional[bool] = None,
     ) -> Optional[Dict[str, Any]]:
         """
-        Updates an existing model configuration.
+        Updates an existing model configuration with detailed metadata.
 
         Args:
-            model_id: ID of the model to update
-            name: New display name for the model
-            description: New description
-            params: New parameters
-            permission_type: New permission type ("public", "private", "group")
-            group_identifiers: List of group IDs or names (for group permission)
-            user_ids: List of user IDs (for private/group permission)
+            model_id: ID of the model to update.
+            ... (and all other optional parameters similar to create_model)
 
         Returns:
             The updated model data, or None if update fails.
@@ -356,39 +376,48 @@ class ModelManager:
             logger.error("Model ID is required.")
             return None
 
-        # Get current model data
+        # Get current model data to use as a base
         current_model = self.get_model(model_id)
         if not current_model:
             logger.error(f"Model '{model_id}' not found. Cannot update.")
             return None
 
-        # Build update data with only provided fields
-        update_data = {"id": model_id}
+        # Build update payload by layering changes over the current state
+        update_data = current_model.copy()
 
-        if name is not None:
-            update_data["name"] = name
-        if description is not None:
-            update_data["description"] = description
-        if params is not None:
-            update_data["params"] = params
+        # Update top-level fields
+        if name is not None: update_data['name'] = name
+        if base_model_id is not None: update_data['base_model_id'] = base_model_id
+        if is_active is not None: update_data['is_active'] = is_active
+        if params is not None: update_data['params'] = params
 
-        # Handle permission updates
+        # Update meta fields, merging with existing meta
+        meta_update = {}
+        if description is not None: meta_update['description'] = description
+        if profile_image_url is not None: meta_update['profile_image_url'] = profile_image_url
+        if suggestion_prompts is not None: meta_update['suggestion_prompts'] = suggestion_prompts
+        if tags is not None: meta_update['tags'] = tags
+        if capabilities is not None: meta_update['capabilities'] = capabilities
+
+        if meta_update:
+            update_data['meta'] = {**current_model.get('meta', {}), **meta_update}
+
+        # Handle permission updates only if permission_type is explicitly provided
         if permission_type is not None:
             access_control = self._build_access_control(
                 permission_type, group_identifiers, user_ids
             )
             if access_control is False:
                 return None
-            if access_control is None:
-                # Public access - remove access_control entirely
-                update_data["access_control"] = None
-            else:
-                update_data["access_control"] = access_control
+            update_data["access_control"] = access_control
+        # If permission_type is None, we do nothing and the existing access_control from current_model is preserved.
 
         try:
-            response = self.base_client.session.put(
-                f"{self.base_client.base_url}/api/models/{model_id}", 
-                json=update_data, 
+            # The endpoint for updating is different from creating
+            response = self.base_client.session.post(
+                f"{self.base_client.base_url}/api/v1/models/model/update",
+                params={"id": model_id},
+                json=update_data,
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()

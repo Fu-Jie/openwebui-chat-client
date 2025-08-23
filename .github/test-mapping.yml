@@ -48,16 +48,24 @@ test_categories:
     command: "python examples/advanced_features/continuous_conversation.py"
     description: "Tests continuous conversation features including multi-turn dialogues, follow-up suggestions, and advanced conversation management"
 
+  deep_research:
+    name: "Deep Research Agent Integration Test"
+    command: "python examples/advanced_features/deep_research_example.py"
+    description: "Tests the autonomous deep research agent with intelligent model routing"
+
 # File patterns mapped to test categories
 # When files matching these patterns change, the corresponding tests will run
 file_mappings:
   # Core client functionality - triggers multiple tests
   - pattern: "openwebui_chat_client/openwebui_chat_client.py"
+    categories: ["connectivity", "basic_chat", "deep_research"]
+
+  - pattern: "openwebui_chat_client/core/base_client.py"
     categories: ["connectivity", "basic_chat"]
     
   # Chat-related functionality - be more specific to avoid prompts conflicts
   - pattern: "openwebui_chat_client/**/*chat*.py"
-    categories: ["basic_chat", "model_switching", "comprehensive_demos"]
+    categories: ["basic_chat", "model_switching", "comprehensive_demos", "deep_research"]
     
   # Continuous conversation functionality
   - pattern: "**/*continuous*"
@@ -113,6 +121,12 @@ file_mappings:
   - pattern: "examples/advanced_features/**"
     categories: ["continuous_conversation", "comprehensive_demos"]
     
+  - pattern: "examples/advanced_features/deep_research_example.py"
+    categories: ["deep_research"]
+
+  - pattern: "tests/test_deep_research.py"
+    categories: ["deep_research"]
+
   # Test files - run basic connectivity to ensure changes don't break core functionality
   - pattern: "tests/**"
     categories: ["connectivity"]

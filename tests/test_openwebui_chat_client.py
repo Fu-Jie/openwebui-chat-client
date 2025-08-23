@@ -176,8 +176,10 @@ class TestOpenWebUIClient(unittest.TestCase):
             model_id=model_id,
             name=model_name,
             base_model_id=base_model_id,
-            system_prompt="Test prompt",
-            temperature=0.7,
+            params={
+                "system_prompt": "Test prompt",
+                "temperature": 0.7,
+            }
         )
 
         self.assertIsNotNone(result)

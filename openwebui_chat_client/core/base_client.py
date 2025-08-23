@@ -7,6 +7,8 @@ import requests
 import json
 import logging
 from typing import Optional, Dict, Any, List
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +36,20 @@ class BaseClient:
         self.default_model_id = default_model_id
         self.model_id = default_model_id
         
-        # Session setup
+        # Session setup with retry logic
         self.session = requests.Session()
         self.session.headers.update({"Authorization": f"Bearer {token}"})
+
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,  # Total number of retries
+            backoff_factor=1,  # Wait 1s, 2s, 4s between retries
+            status_forcelist=[500, 502, 503, 504],  # Retry on these server error codes
+            allowed_methods=["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
         
         # JSON headers for POST requests
         self.json_headers = {
@@ -100,6 +113,9 @@ class BaseClient:
                 logger.error(f"Unsupported HTTP method: {method}")
                 return None
                 
+            # The retry adapter will handle raising an exception for status codes
+            # in the status_forcelist after all retries are exhausted.
+            # We still call it here to handle non-retryable error codes immediately.
             response.raise_for_status()
             return response
             

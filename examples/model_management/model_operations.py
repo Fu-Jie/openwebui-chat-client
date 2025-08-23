@@ -149,9 +149,11 @@ def create_model_example(client: OpenWebUIClient, base_model_id: str) -> bool:
             model_id=TEST_MODEL_ID,
             name=TEST_MODEL_NAME,
             base_model_id=base_model_id,
-            system_prompt="You are a helpful test assistant created via the OpenWebUI Chat Client API. You provide clear, concise, and factual responses.",
-            temperature=0.7,
             description="This is a test model created to demonstrate the OpenWebUI Chat Client model management capabilities.",
+            params={
+                "system_prompt": "You are a helpful test assistant created via the OpenWebUI Chat Client API. You provide clear, concise, and factual responses.",
+                "temperature": 0.7,
+            },
             suggestion_prompts=[
                 "What is OpenWebUI?",
                 "How does the Chat Client work?",
@@ -166,15 +168,21 @@ def create_model_example(client: OpenWebUIClient, base_model_id: str) -> bool:
             logger.info(f"   Model ID: {created_model.get('id', 'Unknown')}")
             logger.info(f"   Model Name: {created_model.get('name', 'Unknown')}")
             
-            # Verify the model was created
-            time.sleep(2)  # Give the server time to process
-            verification = client.get_model(TEST_MODEL_ID)
-            if verification:
-                logger.info("✅ Model creation verified")
-                return True
-            else:
-                logger.error("❌ Model creation verification failed")
-                return False
+            # Verify the model was created with a polling mechanism
+            logger.info("Verifying model creation with polling...")
+            is_verified = False
+            for attempt in range(5): # Poll for up to 10 seconds
+                time.sleep(2)
+                logger.info(f"  ... verification attempt {attempt + 1}")
+                verification = client.get_model(TEST_MODEL_ID)
+                if verification:
+                    logger.info("✅ Model creation verified")
+                    is_verified = True
+                    break
+
+            if not is_verified:
+                logger.error("❌ Model creation verification failed after multiple attempts")
+            return is_verified
         else:
             logger.error("❌ Model creation failed")
             return False
@@ -195,9 +203,9 @@ def update_model_example(client: OpenWebUIClient) -> None:
             model_id=TEST_MODEL_ID,
             name=f"{TEST_MODEL_NAME} (Updated)",
             description="This test model has been updated via the OpenWebUI Chat Client API to demonstrate update functionality.",
-            temperature=0.5,  # Changed from 0.7
+            params={"temperature": 0.5},
             tags=["test", "api-updated", "demo", "modified"],
-            is_active=False  # Deactivate the model
+            is_active=False
         )
         
         if updated_model:

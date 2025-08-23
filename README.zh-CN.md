@@ -169,6 +169,24 @@ if result:
 
 你可以用一个模型开始对话，然后切换到另一个模型进行后续提问，所有这些都在同一个聊天历史中。客户端无缝处理状态。
 
+### 7. 深度研究代理
+
+使用 `deep_research` 方法启动一个自主研究代理。该代理将对给定主题进行多轮规划和执行，并将整个过程作为多轮对话呈现在UI上，最终生成一份综合报告。
+
+```python
+# 启动一个研究代理来分析一个主题
+result = client.deep_research(
+    topic="生成式AI对软件开发行业的影响",
+    num_steps=3,  # 代理将执行3轮“规划-执行”循环
+    model_id="llama3"
+)
+
+if result:
+    print("--- 最终报告 ---")
+    print(result.get('final_report'))
+    print(f"\n👉 在UI中查看标题为 '{result.get('chat_title')}' 的完整研究过程。")
+```
+
 ```python
 # 用一个强大的通用模型开始聊天
 result_1 = client.chat(

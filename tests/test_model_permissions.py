@@ -70,98 +70,83 @@ class TestModelPermissions(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.post")
-    def test_update_model_with_access_control_none_for_public(self, mock_post):
-        """Test updating model with access_control=None for public permissions."""
-        # Mock get_model to return existing model
+    @patch("openwebui_chat_client.modules.model_manager.ModelManager.get_model")
+    @patch("openwebui_chat_client.core.base_client.requests.Session.post")
+    def test_update_model_to_public(self, mock_post, mock_get_model):
+        """Test updating a model to public permissions."""
+        # Arrange
+        existing_model = {"id": "test-model", "name": "Test Model", "access_control": {"read": [], "write": []}}
+        mock_get_model.return_value = existing_model
+        
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "test-model", "updated": True}
+        mock_post.return_value = mock_response
+
+        # Act
+        result = self.client.update_model(model_id="test-model", permission_type="public")
+
+        # Assert
+        self.assertIsNotNone(result)
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertIsNone(payload["access_control"])
+
+    @patch("openwebui_chat_client.modules.model_manager.ModelManager.get_model")
+    @patch("openwebui_chat_client.core.base_client.requests.Session.post")
+    def test_update_model_preserves_permissions(self, mock_post, mock_get_model):
+        """Test that updating a model without specifying permissions preserves the old ones."""
+        # Arrange
+        existing_permissions = {"read": {"group_ids": ["existing"], "user_ids": []}}
         existing_model = {
             "id": "test-model",
             "name": "Test Model",
-            "base_model_id": "base-model",
-            "params": {},
-            "meta": {"capabilities": {}}
+            "access_control": existing_permissions
         }
+        mock_get_model.return_value = existing_model
         
-        with patch.object(self.client, 'get_model', return_value=existing_model):
-            mock_response = Mock()
-            mock_response.json.return_value = {"id": "test-model", "updated": True}
-            mock_response.raise_for_status.return_value = None
-            mock_post.return_value = mock_response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "test-model", "updated": True}
+        mock_post.return_value = mock_response
 
-            # Test with access_control=None for public permissions
-            result = self.client.update_model("test-model", access_control=None)
+        # Act: Update only the name, not permissions
+        result = self.client.update_model(model_id="test-model", name="New Name")
 
-            self.assertIsNotNone(result)
-            self.assertEqual(result["id"], "test-model")
-            
-            # Verify the payload included access_control set to None
-            call_args = mock_post.call_args
-            payload = call_args[1]["json"]
-            self.assertIn("access_control", payload)
-            self.assertIsNone(payload["access_control"])
+        # Assert
+        self.assertIsNotNone(result)
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["access_control"], existing_permissions)
 
-    @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.post")
-    def test_update_model_without_access_control_parameter(self, mock_post):
-        """Test updating model without providing access_control parameter."""
-        # Mock get_model to return existing model
-        existing_model = {
-            "id": "test-model",
-            "name": "Test Model",
-            "base_model_id": "base-model",
-            "params": {},
-            "meta": {"capabilities": {}},
-            "access_control": {"read": {"group_ids": ["existing"], "user_ids": []}}
+    @patch("openwebui_chat_client.modules.model_manager.ModelManager.get_model")
+    @patch("openwebui_chat_client.modules.model_manager.ModelManager._resolve_group_ids")
+    @patch("openwebui_chat_client.core.base_client.requests.Session.post")
+    def test_update_model_to_group(self, mock_post, mock_resolve_ids, mock_get_model):
+        """Test updating a model to group permissions."""
+        # Arrange
+        existing_model = {"id": "test-model", "name": "Test Model"}
+        mock_get_model.return_value = existing_model
+        mock_resolve_ids.return_value = ["group-id-1"]
+        
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "test-model", "updated": True}
+        mock_post.return_value = mock_response
+
+        # Act
+        result = self.client.update_model(
+            model_id="test-model",
+            permission_type="group",
+            group_identifiers=["admin"]
+        )
+
+        # Assert
+        self.assertIsNotNone(result)
+        payload = mock_post.call_args.kwargs["json"]
+        expected_permissions = {
+            "read": {"group_ids": ["group-id-1"], "user_ids": []},
+            "write": {"group_ids": ["group-id-1"], "user_ids": []}
         }
-        
-        with patch.object(self.client, 'get_model', return_value=existing_model):
-            mock_response = Mock()
-            mock_response.json.return_value = {"id": "test-model", "updated": True}
-            mock_response.raise_for_status.return_value = None
-            mock_post.return_value = mock_response
-
-            # Test without access_control parameter - should preserve existing
-            result = self.client.update_model("test-model", name="New Name")
-
-            self.assertIsNotNone(result)
-            self.assertEqual(result["id"], "test-model")
-            
-            # Verify the payload preserved existing access_control
-            call_args = mock_post.call_args
-            payload = call_args[1]["json"]
-            self.assertEqual(payload["access_control"], {"read": {"group_ids": ["existing"], "user_ids": []}})
-
-    @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.post")
-    def test_update_model_with_access_control(self, mock_post):
-        """Test updating model with access control."""
-        # Mock get_model to return existing model
-        existing_model = {
-            "id": "test-model",
-            "name": "Test Model",
-            "base_model_id": "base-model",
-            "params": {},
-            "meta": {"capabilities": {}}
-        }
-        
-        with patch.object(self.client, 'get_model', return_value=existing_model):
-            mock_response = Mock()
-            mock_response.json.return_value = {"id": "test-model", "updated": True}
-            mock_response.raise_for_status.return_value = None
-            mock_post.return_value = mock_response
-
-            access_control = {
-                "read": {"group_ids": ["group1"], "user_ids": []},
-                "write": {"group_ids": ["group1"], "user_ids": []}
-            }
-
-            result = self.client.update_model("test-model", access_control=access_control)
-
-            self.assertIsNotNone(result)
-            self.assertEqual(result["id"], "test-model")
-            
-            # Verify the payload included access_control
-            call_args = mock_post.call_args
-            payload = call_args[1]["json"]
-            self.assertEqual(payload["access_control"], access_control)
+        self.assertEqual(payload["access_control"], expected_permissions)
 
     def test_build_access_control_public(self):
         """Test building public access control."""
@@ -309,6 +294,64 @@ class TestModelPermissions(unittest.TestCase):
             
             self.assertEqual(len(result["success"]), 0)
             self.assertEqual(len(result["failed"]), 0)
+
+    @patch("openwebui_chat_client.core.base_client.requests.Session.post")
+    def test_create_model_success_with_full_metadata(self, mock_post):
+        """
+        Test create_model sends the correct payload with full metadata,
+        matching the structure from the user's curl command.
+        """
+        # --- Arrange ---
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "success", "id": "new-test-model"}
+        mock_post.return_value = mock_response
+
+        # Define full metadata for the call
+        model_id = "new-test-model"
+        name = "New Test Model"
+        base_model_id = "base-model-id"
+        description = "A detailed description."
+        tags = ["tag1", "tag2"]
+        suggestion_prompts = ["Prompt 1", "Prompt 2"]
+        capabilities = {"vision": True, "code_interpreter": True}
+        is_active = True
+
+        # --- Act ---
+        result = self.client.create_model(
+            model_id=model_id,
+            name=name,
+            base_model_id=base_model_id,
+            description=description,
+            tags=tags,
+            suggestion_prompts=suggestion_prompts,
+            capabilities=capabilities,
+            is_active=is_active
+        )
+
+        # --- Assert ---
+        self.assertIsNotNone(result)
+        self.assertEqual(result["id"], model_id)
+
+        # Verify the call payload
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        payload = call_args.kwargs["json"]
+
+        # Top-level fields
+        self.assertEqual(payload["id"], model_id)
+        self.assertEqual(payload["name"], name)
+        self.assertEqual(payload["base_model_id"], base_model_id)
+        self.assertEqual(payload["is_active"], is_active)
+        self.assertIsNone(payload["access_control"]) # Default is public (None)
+
+        # Meta object fields
+        self.assertIn("meta", payload)
+        meta = payload["meta"]
+        self.assertEqual(meta["description"], description)
+        self.assertEqual(meta["tags"], tags)
+        self.assertEqual(meta["suggestion_prompts"], suggestion_prompts)
+        self.assertEqual(meta["capabilities"], capabilities)
 
 
 if __name__ == "__main__":

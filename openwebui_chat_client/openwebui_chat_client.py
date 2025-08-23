@@ -152,7 +152,7 @@ class OpenWebUIClient:
         """
         Destructor: Automatically cleans up placeholder messages and syncs with remote server when instance is destroyed
         """
-        if self._auto_cleanup_enabled and self.chat_id and self.chat_object_from_server:
+        if hasattr(self, '_base_client') and self._base_client and self._base_client._auto_cleanup_enabled and self.chat_id and self.chat_object_from_server:
             try:
                 logger.info(
                     "🧹 Client cleanup: Removing unused placeholder messages..."
@@ -314,6 +314,112 @@ class OpenWebUIClient:
             image_paths, tags, rag_files, rag_collections, tool_ids,
             enable_auto_tagging, enable_auto_titling
         )
+
+    def deep_research(
+        self,
+        topic: str,
+        chat_title: Optional[str] = None,
+        num_steps: int = 3,
+        general_models: Optional[List[str]] = None,
+        search_models: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Performs an advanced, autonomous, multi-step research process on a given topic
+        using intelligent model routing.
+
+        The agent will iteratively plan questions and decide which type of model to use
+        (general vs. search-capable), with the entire process being visible as a
+        multi-turn chat in the UI.
+
+        Args:
+            topic: The topic to be researched.
+            chat_title: Optional title for the research chat. If not provided,
+                        it will be generated from the topic.
+            num_steps: The number of research steps (plan -> execute cycles).
+            general_models: A list of model IDs for general reasoning and summarization.
+                            If not provided, the client's default model will be used.
+            search_models: A list of model IDs with search capabilities. If not provided,
+                           the agent will not have the option to use a search model.
+
+        Returns:
+            A dictionary containing the research results and chat information, or None if it fails.
+        """
+        logger.info("=" * 80)
+        logger.info(f"🚀 Starting Deep Research on topic: '{topic}' for {num_steps} steps.")
+        logger.info("=" * 80)
+
+        # If no chat title is provided, create one from the topic
+        final_chat_title = chat_title or f"Deep Dive: {topic}"
+
+        # Ensure there's at least one general model to use
+        if not general_models:
+            general_models = [self._base_client.default_model_id]
+            logger.warning(f"No general_models provided. Falling back to default model: {general_models[0]}")
+
+        if not search_models:
+            search_models = [] # Ensure it's a list
+
+        research_history = []
+
+        for i in range(1, num_steps + 1):
+            step_result = self._chat_manager._perform_research_step(
+                topic=topic,
+                chat_title=final_chat_title,
+                research_history=research_history,
+                step_num=i,
+                total_steps=num_steps,
+                general_models=general_models,
+                search_models=search_models,
+            )
+
+            if step_result:
+                question, answer, model_used = step_result
+                # Append a formatted summary of the step to the history
+                research_history.append(f"Step {i}: Asked '{question}' (using {model_used}) and received a detailed answer.")
+            else:
+                logger.error(f"Research step {i} failed. Halting the research process.")
+                return None
+
+        # --- Final Report Generation ---
+        logger.info("=" * 80)
+        logger.info("✍️ All research steps completed. Generating final report...")
+
+        # Format the research history for the final prompt
+        formatted_history = "\n\n".join(research_history)
+
+        summary_prompt = (
+            f"You are a research analyst. Your task is to synthesize the following research findings "
+            f"into a comprehensive and well-structured report on the topic: '{topic}'.\n\n"
+            f"## Research Log:\n{formatted_history}\n\n"
+            f"Based on the information gathered, please generate the final report. "
+            f"The report should be clear, concise, and cover the key findings from the research steps."
+        )
+
+        # Use the first general model for the final summarization
+        summary_model = general_models[0]
+        logger.info(f"Using model '{summary_model}' for final report generation.")
+
+        final_report_result = self._chat_manager.chat(
+            question=summary_prompt,
+            chat_title=final_chat_title,
+            model_id=summary_model,
+        )
+
+        if not final_report_result or not final_report_result.get("response"):
+            logger.error("❌ Failed to generate the final report.")
+            final_report = "Error: Could not generate the final report."
+        else:
+            final_report = final_report_result["response"]
+            logger.info("✅ Final report generated successfully.")
+
+        return {
+            "topic": topic,
+            "chat_id": self._base_client.chat_id,
+            "chat_title": final_chat_title,
+            "research_log": research_history,
+            "final_report": final_report,
+            "total_steps_completed": len(research_history),
+        }
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """Set tags for a chat conversation."""
@@ -506,138 +612,74 @@ class OpenWebUIClient:
     def create_model(
         self,
         model_id: str,
-        name: Optional[str] = None,
+        name: str,
         base_model_id: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-        temperature: Optional[float] = None,
-        stream_response: bool = True,
-        other_params: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
-        profile_image_url: str = "/static/favicon.png",
-        capabilities: Optional[Dict[str, bool]] = None,
-        suggestion_prompts: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        is_active: bool = True,
-        # New modular parameters for backward compatibility
         params: Optional[Dict[str, Any]] = None,
         permission_type: str = "public",
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
+        profile_image_url: str = "/static/favicon.png",
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
-        Creates a new model configuration - delegates to ModelManager.
-        Maintains backward compatibility with original signature.
+        Creates a new model configuration with detailed metadata. This method
+        delegates directly to the ModelManager.
         """
-        # Ensure we have required fields
-        if not name or not base_model_id:
-            raise ValueError("name and base_model_id are required parameters")
-        
-        # Build params dict from individual parameters if provided
-        if params is None:
-            params = {}
-        
-        if system_prompt is not None:
-            params["system_prompt"] = system_prompt
-        if temperature is not None:
-            params["temperature"] = temperature
-        if stream_response is not None:
-            params["stream_response"] = stream_response
-        if other_params:
-            params.update(other_params)
-        if profile_image_url != "/static/favicon.png":
-            params["profile_image_url"] = profile_image_url
-        if capabilities is not None:
-            params["capabilities"] = capabilities
-        if suggestion_prompts is not None:
-            params["suggestion_prompts"] = suggestion_prompts
-        if tags is not None:
-            params["tags"] = tags
-        if is_active is not None:
-            params["is_active"] = is_active
-            
         return self._model_manager.create_model(
             model_id=model_id,
-            base_model_id=base_model_id,
             name=name,
-            description=description or "",
+            base_model_id=base_model_id,
+            description=description,
             params=params,
             permission_type=permission_type,
             group_identifiers=group_identifiers,
             user_ids=user_ids,
+            profile_image_url=profile_image_url,
+            suggestion_prompts=suggestion_prompts,
+            tags=tags,
+            capabilities=capabilities,
+            is_active=is_active,
         )
 
     def update_model(
         self,
         model_id: str,
         name: Optional[str] = None,
+        base_model_id: Optional[str] = None,
         description: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         permission_type: Optional[str] = None,
         group_identifiers: Optional[List[str]] = None,
         user_ids: Optional[List[str]] = None,
-        access_control: Optional[Dict[str, Any]] = ...,
+        profile_image_url: Optional[str] = None,
+        suggestion_prompts: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        capabilities: Optional[Dict[str, bool]] = None,
+        is_active: Optional[bool] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Updates an existing model configuration."""
-        # If access_control is provided directly (including None), or if we need to handle
-        # special cases for backward compatibility, handle it specially
-        if access_control is not ... or any(param is not None for param in [name, description, params]):
-            # Get current model data
-            current_model = self.get_model(model_id)
-            if not current_model:
-                logger.error(f"Model '{model_id}' not found. Cannot update.")
-                return None
-
-            # Build update data with only provided fields
-            update_data = {"id": model_id}
-            
-            if name is not None:
-                update_data["name"] = name
-            else:
-                update_data["name"] = current_model.get("name", "")
-                
-            if description is not None:
-                update_data["description"] = description
-            else:
-                update_data["description"] = current_model.get("description", "")
-                
-            if params is not None:
-                update_data["params"] = params
-            else:
-                update_data["params"] = current_model.get("params", {})
-                
-            # Handle metadata
-            update_data["meta"] = current_model.get("meta", {"capabilities": {}})
-            
-            # Handle access_control
-            if access_control is not ...:
-                # access_control was explicitly provided (including None)
-                update_data["access_control"] = access_control
-            else:
-                # access_control was not provided, preserve existing
-                update_data["access_control"] = current_model.get("access_control")
-            
-            try:
-                response = self.session.post(
-                    f"{self.base_url}/api/v1/models/model/update", 
-                    params={"id": model_id},
-                    json=update_data, 
-                    headers=self.json_headers
-                )
-                response.raise_for_status()
-                updated_model = response.json()
-                logger.info(f"Successfully updated model '{model_id}'.")
-                return updated_model
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Failed to update model '{model_id}'. Request error: {e}")
-                if e.response is not None:
-                    logger.error(f"Response content: {e.response.text}")
-                return None
-        else:
-            # Use the normal model manager path only if no parameters are provided
-            return self._model_manager.update_model(
-                model_id, name, description, params,
-                permission_type, group_identifiers, user_ids
-            )
+        """
+        Updates an existing model configuration with detailed metadata. This method
+        delegates directly to the ModelManager.
+        """
+        return self._model_manager.update_model(
+            model_id=model_id,
+            name=name,
+            base_model_id=base_model_id,
+            description=description,
+            params=params,
+            permission_type=permission_type,
+            group_identifiers=group_identifiers,
+            user_ids=user_ids,
+            profile_image_url=profile_image_url,
+            suggestion_prompts=suggestion_prompts,
+            tags=tags,
+            capabilities=capabilities,
+            is_active=is_active,
+        )
 
     def delete_model(self, model_id: str) -> bool:
         """Deletes a model configuration."""
