@@ -6,6 +6,7 @@ Handles all chat operations including creation, messaging, management, and strea
 import json
 import logging
 import os
+import random
 import re
 import requests
 import time
@@ -2251,7 +2252,7 @@ class ChatManager:
         Returns:
             Dictionary containing all conversation rounds, chat_id, and metadata
         """
-        import random
+        import 
         
         if num_questions < 1:
             logger.error("num_questions must be at least 1")
@@ -2351,8 +2352,8 @@ class ChatManager:
             # Prepare next question if not the last round
             if round_num < num_questions:
                 if follow_ups:
-                    # Randomly select a follow-up question
-                    current_question = random.choice(follow_ups)
+                    # ly select a follow-up question
+                    current_question = .choice(follow_ups)
                     logger.info(f"🎲 Selected follow-up: {current_question}")
                 else:
                     logger.warning(f"No follow-up suggestions available for round {round_num}")
@@ -2364,7 +2365,7 @@ class ChatManager:
                         "How does this relate to real-world applications?",
                         "What are the potential challenges with this approach?"
                     ]
-                    current_question = random.choice(generic_follow_ups)
+                    current_question = .choice(generic_follow_ups)
                     logger.info(f"🔄 Using generic follow-up: {current_question}")
         
         # Create final result
@@ -2417,7 +2418,6 @@ class ChatManager:
         Returns:
             Dictionary containing all conversation rounds, chat_id, and metadata
         """
-        import random
         
         if num_questions < 1:
             logger.error("num_questions must be at least 1")
@@ -2616,7 +2616,6 @@ class ChatManager:
         Returns:
             Final conversation summary when streaming completes
         """
-        import random
         
         if num_questions < 1:
             logger.error("num_questions must be at least 1")
