@@ -4,6 +4,7 @@ Example of using the AsyncOpenWebUIClient for a basic asynchronous chat.
 
 import asyncio
 import logging
+import sys
 from openwebui_chat_client import AsyncOpenWebUIClient
 
 # Configure logging
@@ -45,21 +46,24 @@ async def main():
                 chat_title=chat_title
             )
 
-            if result:
+            if result and result.get('response'):
                 logging.info("--- Response Received ---")
                 logging.info(f"Response: {result.get('response')}")
                 logging.info(f"Chat ID: {result.get('chat_id')}")
                 logging.info(f"Message ID: {result.get('message_id')}")
                 logging.info("-------------------------")
+                logging.info("✅ Async chat test successful!")
             else:
-                logging.error("Failed to get a response from the server.")
+                logging.error("❌ Failed to get a valid response from the server.")
+                sys.exit(1)
 
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"❌ An error occurred during the async chat test: {e}")
         logging.error(
             "Please ensure your OpenWebUI server is running at the specified BASE_URL "
-            "and that your TOKEN is correct."
+            "and that your OUI_AUTH_TOKEN is correct."
         )
+        sys.exit(1)
 
 
 if __name__ == "__main__":
