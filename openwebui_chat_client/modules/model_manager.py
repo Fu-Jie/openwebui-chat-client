@@ -220,9 +220,7 @@ class ModelManager:
                 )
                 created_model = self.create_model(
                     model_id=model_id,
-                    base_model_id=model_id,
-                    name=f"Auto-created model for {model_id}",
-                    description=f"Automatically created model configuration for {model_id}",
+                    name=f"{model_id}",
                 )
                 if not created_model:
                     logger.error(
@@ -396,7 +394,9 @@ class ModelManager:
         if description is not None: meta_update['description'] = description
         if profile_image_url is not None: meta_update['profile_image_url'] = profile_image_url
         if suggestion_prompts is not None: meta_update['suggestion_prompts'] = suggestion_prompts
-        if tags is not None: meta_update['tags'] = tags
+        if tags is not None: 
+            # [{"name": "tag1"}, {"name": "tag2"}] -> ["tag1", "tag2"]
+            meta_update['tags'] = [{"name": tag} for tag in tags]
         if capabilities is not None: meta_update['capabilities'] = capabilities
 
         if meta_update:
