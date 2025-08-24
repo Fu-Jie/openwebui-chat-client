@@ -49,6 +49,44 @@ if result:
     print(f"Chat ID: {result['chat_id']}")
 ```
 
+### ⚡ Async Quick Start
+
+For modern, high-performance applications, an asynchronous version of the client is available. It uses `httpx` and `asyncio` for non-blocking I/O.
+
+First, ensure you have the required libraries installed:
+```bash
+pip install openwebui-chat-client httpx aiofiles
+```
+
+Here's how to use the `AsyncOpenWebUIClient`:
+```python
+import asyncio
+from openwebui_chat_client.async_openwebui_chat_client import AsyncOpenWebUIClient
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+async def main():
+    # Use the async client as a context manager for clean session handling
+    async with await AsyncOpenWebUIClient.create(
+        base_url="http://localhost:3000",
+        token="your-bearer-token",
+        default_model_id="gpt-4.1"
+    ) as client:
+
+        result = await client.chat.chat(
+            question="Hello from the async world!",
+            chat_title="My First Async Chat"
+        )
+
+        if result:
+            print(f"Async Response: {result['response']}")
+            print(f"Chat ID: {result['chat_id']}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
 
 ## ✨ Features
@@ -120,15 +158,15 @@ if result and result.get("responses"):
 
 After running the above Python code, you can view the conversation and model comparison results in the Open WebUI web interface:
 
-- **Single Model** (`gpt-4.1`):  
-  The chat history will display your input question and the GPT-4.1 model's response in the conversational timeline.  
+- **Single Model** (`gpt-4.1`):
+  The chat history will display your input question and the GPT-4.1 model's response in the conversational timeline.
   ![Single Model Chat Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/single-model-chat.png)
 
-- **Parallel Models** (`gpt-4.1` & `gemini-2.5-flash`):  
-  The chat will show a side-by-side (or grouped) comparison of the responses from both models to the same input, often tagged or color-coded by model.  
+- **Parallel Models** (`gpt-4.1` & `gemini-2.5-flash`):
+  The chat will show a side-by-side (or grouped) comparison of the responses from both models to the same input, often tagged or color-coded by model.
   ![Parallel Model Comparison Example](https://cdn.jsdelivr.net/gh/Fu-Jie/openwebui-chat-client@main/examples/images/parallel-model-chat.png)
 
-> **Tip:**  
+> **Tip:**
 > The web UI visually distinguishes responses using the model name. You can expand, collapse, or copy each answer, and also tag, organize, and search your chats directly in the interface.
 
 ---
@@ -498,14 +536,14 @@ print(f"Summary: {result['response']}")
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome!  
+Contributions, issues, and feature requests are welcome!
 Feel free to check the [issues page](https://github.com/Fu-Jie/openwebui-chat-client/issues) or submit a pull request.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **GNU General Public License v3.0 (GPLv3)**.  
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**.
 See the [LICENSE](https://www.gnu.org/licenses/gpl-3.0.html) file for more details.
 
 ---

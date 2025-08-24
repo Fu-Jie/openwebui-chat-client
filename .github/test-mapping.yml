@@ -53,6 +53,11 @@ test_categories:
     command: "python examples/advanced_features/deep_research_example.py"
     description: "Tests the autonomous deep research agent with intelligent model routing"
 
+  async_chat:
+    name: "Async Chat Integration Test"
+    command: "python examples/async/basic_async_chat.py"
+    description: "Tests basic asynchronous chat functionality"
+
 # File patterns mapped to test categories
 # When files matching these patterns change, the corresponding tests will run
 file_mappings:
@@ -62,6 +67,19 @@ file_mappings:
 
   - pattern: "openwebui_chat_client/core/base_client.py"
     categories: ["connectivity", "basic_chat"]
+
+  # Async client functionality
+  - pattern: "openwebui_chat_client/async_*.py"
+    categories: ["async_chat"]
+
+  - pattern: "openwebui_chat_client/core/async_*.py"
+    categories: ["async_chat"]
+
+  - pattern: "openwebui_chat_client/modules/async_*.py"
+    categories: ["async_chat"]
+
+  - pattern: "examples/async/**"
+    categories: ["async_chat"]
     
   # Chat-related functionality - be more specific to avoid prompts conflicts
   - pattern: "openwebui_chat_client/**/*chat*.py"
