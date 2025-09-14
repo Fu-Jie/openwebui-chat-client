@@ -63,7 +63,7 @@ class TestOpenWebUIClient(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0]["id"], "model1")
         mock_get.assert_called_once_with(
-            f"{self.base_url}/api/models", headers=self.client.json_headers
+            f"{self.base_url}/api/models?refresh=true", headers=self.client.json_headers
         )
 
     @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.get")

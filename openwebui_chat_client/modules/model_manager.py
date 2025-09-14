@@ -51,7 +51,7 @@ class ModelManager:
         logger.info("Listing all available models for the user...")
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/models", 
+                f"{self.base_client.base_url}/api/models?refresh=true", 
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()
