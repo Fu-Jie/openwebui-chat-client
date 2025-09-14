@@ -1,3 +1,22 @@
+<SYSTEM>
+You are an AI programming assistant that is specialized in applying code changes to an existing document.
+Follow Microsoft content policies.
+Avoid content that violates copyrights.
+If you are asked to generate content that is harmful, hateful, racist, sexist, lewd, violent, or completely irrelevant to software engineering, only respond with "Sorry, I can't assist with that."
+Keep your answers short and impersonal.
+The user has a code block that represents a suggestion for a code change and a instructions file opened in a code editor.
+Rewrite the existing document to fully incorporate the code changes in the provided code block.
+For the response, always follow these instructions:
+1. Analyse the code block and the existing document to decide if the code block should replace existing code or should be inserted.
+2. If necessary, break up the code block in multiple parts and insert each part at the appropriate location.
+3. Preserve whitespace and newlines right after the parts of the file that you modify.
+4. The final result must be syntactically valid, properly formatted, and correctly indented. It should not contain any ...existing code... comments.
+5. Finally, provide the fully rewritten file. You must output the complete file.
+</SYSTEM>
+
+
+I have the following code open in the editor, starting from line 1 to line 1193.
+````instructions
 # OpenWebUI Chat Client - Copilot开发指南
 
 ## 项目概述
@@ -19,7 +38,54 @@
 
 ---
 
-## 开发规范
+## 🏗️ 架构模式 (立即上手的关键)
+
+### 1. 模块化架构模式
+```python
+# 主要架构模式 - 理解这个就能立即上手
+from openwebui_chat_client import OpenWebUIClient
+
+# 客户端使用专门的管理器处理不同功能
+client = OpenWebUIClient(base_url, token, default_model)
+
+# 聊天功能 → ChatManager
+result = client.chat(question="Hello", chat_title="Test")
+
+# 模型管理 → ModelManager
+models = client.list_models()
+
+# 知识库 → KnowledgeBaseManager
+client.create_knowledge_base("my_kb", files=["doc.pdf"])
+```
+
+**关键理解**: 所有功能都通过专门的管理器类处理，但API保持向后兼容。
+
+### 2. 状态同步模式
+```python
+# 客户端维护状态并自动同步到后端
+client.chat_id  # 当前活跃聊天ID
+client.chat_object_from_server  # 后端聊天对象
+
+# 状态变更自动同步
+result = client.chat(question="Hi", chat_title="New Chat")
+# ↑ 这会自动创建新聊天并更新 client.chat_id
+```
+
+### 3. 选择性集成测试系统
+```yaml
+# .github/test-mapping.yml - 文件变更到测试的智能映射
+file_mappings:
+  - pattern: "openwebui_chat_client/**/*chat*.py"
+    categories: ["basic_chat", "model_switching"]
+  - pattern: "examples/notes_api/**"
+    categories: ["notes_api"]
+```
+
+**工作流**: 文件变更 → 自动检测 → 只运行相关测试 → 显著提升CI效率
+
+---
+
+## 📝 开发规范
 
 ### 1. 代码风格与结构
 
@@ -34,7 +100,7 @@
 - **使用**: `typing`模块中的`Optional`, `List`, `Dict`, `Tuple`, `Union`, `Generator`等
 - **示例**:
 ```python
-def chat(self, question: str, chat_title: Optional[str] = None, 
+def chat(self, question: str, chat_title: Optional[str] = None,
          model_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     pass
 ```
@@ -73,13 +139,13 @@ def chat(self, question: str, chat_title: Optional[str] = None,
 
 ---
 
-## 开发工作流
+## 🚀 开发工作流
 
-### 1. 功能开发流程
+### 1. 新功能开发流程
 
-#### 新功能开发
+#### 功能开发
 1. **需求分析**: 确保新功能符合项目核心目标
-2. **API设计**: 在`openwebui_chat_client/openwebui_chat_client.py`中添加新方法
+2. **API设计**: 在相应管理器中添加新方法
 3. **编码规范**: 严格遵循上述编码规范
 4. **示例代码**: 在`examples/`目录下添加相应示例
 5. **单元测试**: 在`tests/`目录下添加对应测试
@@ -87,7 +153,8 @@ def chat(self, question: str, chat_title: Optional[str] = None,
 
 #### 代码结构
 - **主要代码**: `openwebui_chat_client/openwebui_chat_client.py`
-- **初始化文件**: `openwebui_chat_client/__init__.py`
+- **核心模块**: `openwebui_chat_client/core/base_client.py`
+- **功能管理器**: `openwebui_chat_client/modules/` 目录
 - **测试代码**: `tests/test_*.py`
 - **示例代码**: `examples/` 目录下按功能分类组织
 
@@ -703,7 +770,7 @@ test_categories:
 ### 3. 模型管理
 
 #### 功能覆盖
-- **列表操作**: `list_models()`, `list_base_models()`
+- **列表操作**: `list_models()`, `get_model()`, `create_model()`, `update_model()`, `delete_model()`
 - **详情获取**: `get_model()`带自动重试
 - **创建更新**: `create_model()`, `update_model()` 
 - **删除操作**: `delete_model()`
@@ -754,26 +821,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 ---
 
-## 未来发展方向
-
-### 1. API同步
-- 持续关注OpenWebUI官方更新
-- 新API优先适配
-- 向后兼容性维护
-
-### 2. 效率提升
-- 开发更多自动化功能
-- 优化批量操作性能
-- 增强并发处理能力
-
-### 3. 功能扩展
-- 更多RAG集成选项
-- 增强的聊天组织功能
-- 高级分析和监控功能
-
----
-
-## Copilot使用指南
+## 📚 Copilot使用指南
 
 ### 1. 代码生成原则
 - 严格遵循现有代码风格
@@ -782,7 +830,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 - 包含异常处理
 
 ### 2. 功能扩展建议
-- 基于现有方法模式实现新功能
+- 基于现有管理器模式实现新功能
 - 优先考虑用户体验和API一致性
 - 充分测试边界情况
 - 更新相关文档
