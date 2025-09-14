@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.18] - 2025-09-14
+
+### Fixed
+- **Model Update: tags Field Handling**: Fixed `ModelManager.update_model` to properly handle the `meta.tags` field when updating models, correctly converting tag string lists to the API-expected [{"name": tag}] format to avoid accidentally overwriting existing tags.
+- **Model Update: base_model_id Handling**: Fixed `ModelManager.update_model` to properly handle `base_model_id`, ensuring it's updated when provided and preserved when not provided, preventing accidental clearing or incorrect assignment.
+- **Model List: Force Refresh**: Fixed `ModelManager.list_models` to include `refresh=true` parameter in the API request to force refresh the model list from the server, ensuring the latest available models are retrieved.
+
 ## [0.1.17] - 2025-08-23
 
 ### Added

@@ -2,7 +2,7 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-[![PyPI 版本](https://img.shields.io/pypi/v/openwebui-chat-client/0.1.15?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
+[![PyPI 版本](https://img.shields.io/pypi/v/openwebui-chat-client/0.1.18?style=flat-square&color=brightgreen)](https://pypi.org/project/openwebui-chat-client/)
 [![更新日志](https://img.shields.io/badge/更新日志-v0.1.12-blue.svg)](./CHANGELOG.zh-CN.md)
 [![许可证: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![支持的 Python 版本](https://img.shields.io/pypi/pyversions/openwebui-chat-client.svg)](https://pypi.org/project/openwebui-chat-client/)
