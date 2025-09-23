@@ -1800,7 +1800,7 @@ class ChatManager:
                 
             if tool_ids:
                 logger.info(f"   Adding {len(tool_ids)} tools")
-                payload["tools"] = [{"type": "function", "function": {"name": tool_id}} for tool_id in tool_ids]
+                payload["tool_ids"] = tool_ids
             
             logger.info(f"✅ Payload built successfully: {len(str(payload))} chars")
             logger.info(f"🌐 Making POST request to: {self.base_client.base_url}/api/chat/completions")

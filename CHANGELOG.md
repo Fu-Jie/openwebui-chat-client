@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.19] - 2025-09-23
+
+### Fixed
+- **Tool IDs Parameter Format**: Fixed `ChatManager._get_model_completion` to correctly pass `tool_ids` as a direct list instead of converting to OpenAI-style `tools` format, ensuring proper tool integration with the Open WebUI API.
+
 ## [0.1.18] - 2025-09-14
 
 ### Fixed
