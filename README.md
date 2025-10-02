@@ -397,8 +397,9 @@ print(f"Summary: {result['response']}")
 
 | Method | Description | Parameters |
 |--------|-------------|------------|
-| `list_models()` | List all available model entries with improved reliability | None |
-| `list_base_models()` | List all available base models with improved reliability | None |
+| `list_models()` | List all available models for the user, including base models and user-created custom models. Excludes disabled base models. Corresponds to the model list shown in the top left of the chat page. | None |
+| `list_base_models()` | List all base models that can be used to create variants. Includes disabled base models. Corresponds to the model list in the admin settings page, including PIPE type models. | None |
+| `list_custom_models()` | List custom models that users can use or have created (not base models). | None |
 | `list_groups()` | List all available groups for permission management | None |
 | `get_model()` | Retrieve details for a specific model with auto-retry on creation | `model_id` |
 | `create_model()` | Create a detailed, custom model variant with full metadata | `model_id, name, base_model_id, description, params, capabilities, ...` |
