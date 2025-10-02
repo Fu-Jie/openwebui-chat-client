@@ -46,7 +46,7 @@ class ModelManager:
     
     def list_models(self) -> Optional[List[Dict[str, Any]]]:
         """
-        Lists all available models for the user, including base models and user-created custom models.
+        Lists all available models for the user, including base models and user-created custom models. Excludes disabled base models. This corresponds to the model list shown in the top left of the chat page.
         """
         logger.info("Listing all available models for the user...")
         try:
@@ -80,8 +80,11 @@ class ModelManager:
             return None
 
     def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
-        """Lists all available base models that can be used to create variants."""
-        logger.info("Listing all available base models...")
+        """
+        Lists all base models that can be used to create variants. Includes disabled base models.
+        Corresponds to the model list in the admin settings page, including PIPE type models.
+        """
+        logger.info("Listing all  base models...")
         try:
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/models/base", 
@@ -114,15 +117,13 @@ class ModelManager:
 
     def list_custom_models(self) -> Optional[List[Dict[str, Any]]]:
         """
-        Lists custom models that can be created by users.
-        
-        Returns:
-            A list of custom models, or None if the request fails.
+        Lists custom models that users can use or have created (not base models).
+        A list of custom models available in the user's workspace, or None if the request fails.
         """
         logger.info("Listing all custom models...")
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/v1/models/custom", 
+                f"{self.base_client.base_url}/api/v1/models", 
                 headers=self.base_client.json_headers
             )
             response.raise_for_status()

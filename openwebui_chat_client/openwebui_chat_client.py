@@ -529,15 +529,23 @@ class OpenWebUIClient:
     # =============================================================================
 
     def list_models(self) -> Optional[List[Dict[str, Any]]]:
-        """Lists all available models for the user."""
+        """
+        Lists all available models for the user, including base models and user-created custom models. Excludes disabled base models. This corresponds to the model list shown in the top left of the chat page.
+        """
         return self._model_manager.list_models()
 
     def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
-        """Lists all available base models that can be used to create variants."""
+        """
+        Lists all base models that can be used to create variants. Includes disabled base models.
+        Corresponds to the model list in the admin settings page, including PIPE type models.
+        """
         return self._model_manager.list_base_models()
 
     def list_custom_models(self) -> Optional[List[Dict[str, Any]]]:
-        """Lists custom models that can be created by users."""
+        """
+        Lists custom models that users can use or have created (not base models).
+        A list of custom models available in the user's workspace.
+        """
         return self._model_manager.list_custom_models()
 
     def list_groups(self) -> Optional[List[Dict[str, Any]]]:

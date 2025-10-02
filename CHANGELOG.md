@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.20] - 2025-10-02
+
+### Fixed
+- **Model List Methods Documentation and API Endpoints**: Improved documentation for `list_models`, `list_base_models`, and `list_custom_models` methods to clarify their behavior and corresponding UI elements. Updated `list_custom_models` API endpoint from `/api/v1/models/custom` to `/api/v1/models` for better consistency.
+
 ## [0.1.19] - 2025-09-23
 
 ### Fixed

@@ -2,6 +2,12 @@
 
 本项目的所有显著更改都将记录在此文件中。
 
+## [0.1.20] - 2025-10-02
+
+### 修复
+
+- **模型列表方法文档和API端点**：改进了 `list_models`、`list_base_models` 和 `list_custom_models` 方法的文档，以澄清其行为和对应的UI元素。将 `list_custom_models` API端点从 `/api/v1/models/custom` 更新为 `/api/v1/models`，以提高一致性。
+
 ## [0.1.19] - 2025-09-23
 
 ### 修复
