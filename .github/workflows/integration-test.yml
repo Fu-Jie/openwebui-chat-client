@@ -71,7 +71,7 @@ jobs:
         # Determine if we should run all tests
         if [ "${{ github.event.inputs.run_all_tests }}" = "true" ]; then
           echo "run-all=true" >> $GITHUB_OUTPUT
-          echo "tests=[\"notes_api\",\"basic_chat\",\"rag_integration\",\"model_management\",\"model_switching\",\"comprehensive_demos\",\"connectivity\",\"continuous_conversation\"]" >> $GITHUB_OUTPUT
+          echo "tests=[\"notes_api\",\"prompts_api\",\"basic_chat\",\"rag_integration\",\"model_management\",\"model_switching\",\"comprehensive_demos\",\"connectivity\",\"continuous_conversation\",\"deep_research\"]" >> $GITHUB_OUTPUT
           echo "✅ Manual override: Running all integration tests"
         else
           echo "run-all=false" >> $GITHUB_OUTPUT

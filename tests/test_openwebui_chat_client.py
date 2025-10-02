@@ -16,7 +16,7 @@ class TestOpenWebUIClient(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        
+
         # Create client with skip_model_refresh to prevent HTTP requests during initialization
         self.client = OpenWebUIClient(
             base_url=self.base_url,
@@ -114,17 +114,17 @@ class TestOpenWebUIClient(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 2)
         mock_get.assert_called_once_with(
-            f"{self.base_url}/api/v1/models/custom", headers=self.client.json_headers
+            f"{self.base_url}/api/v1/models", headers=self.client.json_headers
         )
 
     @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.get")
     def test_get_model_success(self, mock_get):
         """Test successful model retrieval."""
         model_id = "test-model:latest"
-        
+
         # Add the model to available_model_ids so it passes the initial check
         self.client.available_model_ids = [model_id]
-        
+
         mock_response = Mock()
         mock_response.json.return_value = {
             "id": model_id,
@@ -179,7 +179,7 @@ class TestOpenWebUIClient(unittest.TestCase):
             params={
                 "system_prompt": "Test prompt",
                 "temperature": 0.7,
-            }
+            },
         )
 
         self.assertIsNotNone(result)

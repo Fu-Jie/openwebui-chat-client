@@ -58,7 +58,7 @@ test_categories:
 file_mappings:
   # Core client functionality - triggers multiple tests
   - pattern: "openwebui_chat_client/openwebui_chat_client.py"
-    categories: ["connectivity", "basic_chat", "deep_research"]
+    categories: ["connectivity", "basic_chat", "model_management", "deep_research"]
 
   - pattern: "openwebui_chat_client/core/base_client.py"
     categories: ["connectivity", "basic_chat"]
@@ -130,6 +130,10 @@ file_mappings:
   # Test files - run basic connectivity to ensure changes don't break core functionality
   - pattern: "tests/**"
     categories: ["connectivity"]
+
+  # When core client unit tests change, also run model management integration tests
+  - pattern: "tests/test_openwebui_chat_client.py"
+    categories: ["connectivity", "model_management"]
     
   # Configuration and workflow changes - run connectivity test
   - pattern: ".github/**"
