@@ -1,5 +1,11 @@
 # Configuration file mapping source code files/directories to integration test categories
 # This is used by GitHub Actions to run only relevant integration tests for changed files
+#
+# 📋 使用说明:
+# 1. 添加新功能时，在 file_mappings 中添加对应的文件模式和测试类别
+# 2. 文件模式支持 glob 语法 (**, *, ?)
+# 3. 一个文件模式可以映射到多个测试类别
+# 4. 测试类别必须在 test_categories 中预先定义
 
 # Integration test categories and their corresponding test commands
 test_categories:

@@ -270,6 +270,7 @@ for chat in results['failed_chats']:
 ```
 
 **Archive Logic:**
+
 - **Without folder filter**: Archives only chats that are NOT in any folder
 - **With folder filter**: Archives only chats that are IN the specified folder
 - **Time filter**: Only archives chats not updated for the specified number of days
@@ -351,6 +352,7 @@ print(f"Summary: {result['response']}")
 ```
 
 **Prompt Features:**
+
 - **Variable Types**: Support for text, select, date, number, checkbox, and more
 - **System Variables**: Auto-populated CURRENT_DATE, CURRENT_TIME, etc.
 - **Batch Operations**: Create/delete multiple prompts efficiently
@@ -450,6 +452,7 @@ print(f"Summary: {result['response']}")
 ### 📊 Return Value Examples
 
 **Chat Operations Return:**
+
 ```python
 {
     "response": "Generated response text",
@@ -460,6 +463,7 @@ print(f"Summary: {result['response']}")
 ```
 
 **Parallel Chat Returns:**
+
 ```python
 {
     "responses": {
@@ -475,6 +479,7 @@ print(f"Summary: {result['response']}")
 ```
 
 **Knowledge Base/Notes Return:**
+
 ```python
 {
     "id": "resource-uuid",
