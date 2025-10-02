@@ -2,6 +2,14 @@
 
 本项目的所有显著更改都将记录在此文件中。
 
+## [0.1.21] - 2025-10-03
+
+### 修复
+
+- 单元测试：更新 `list_custom_models` 测试，使端点改为 `/api/v1/models`。
+- CI 选择性测试：改进 `.github/test-mapping.yml`，将核心客户端变更映射到 `model_management`，并确保 `tests/test_openwebui_chat_client.py` 会触发相应测试类别。
+- CI 工作流：在 `integration-test.yml` 的手动全量运行覆盖中补全 `prompts_api` 与 `deep_research`，与测试映射保持一致。
+
 ## [0.1.20] - 2025-10-02
 
 ### 修复

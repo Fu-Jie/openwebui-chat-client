@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.21] - 2025-10-03
+
+### Fixed
+
+- Unit tests: Updated `list_custom_models` test to reflect endpoint change to `/api/v1/models`.
+- CI selective testing: Improved `.github/test-mapping.yml` to map core client changes to `model_management` and ensure `tests/test_openwebui_chat_client.py` triggers appropriate categories.
+- CI workflow: Included missing categories (`prompts_api`, `deep_research`) in the manual run-all override of `integration-test.yml` to keep parity with test mapping.
+
 ## [0.1.20] - 2025-10-02
 
 ### Fixed
