@@ -2995,21 +2995,25 @@ class ChatManager:
                 "total_iterations": max_iterations
             }
 
-            full_content = ""
-            for chunk in self._stream_process_task_step(
+            step_generator = self._stream_process_task_step(
                 question=question,
                 model_id=model_id,
                 tool_server_ids=tool_ids,
                 knowledge_base_name=knowledge_base_name,
                 conversation_history=conversation_history,
                 chat_title=chat_title,
-            ):
-                yield chunk
-                if chunk["type"] == "content":
-                    full_content += chunk["content"]
+            )
+
+            full_content = ""
+            # Yield from the step generator and capture the full content
+            for chunk in step_generator:
+                yield {"type": "content", "content": chunk}
+                full_content += chunk
 
             if not full_content:
                 logger.error("Task processing step failed. Halting the process.")
+                # Yield an error event before stopping
+                yield {"type": "error", "message": "Step failed to produce content."}
                 return
 
             conversation_history.append({"role": "assistant", "content": full_content})
@@ -3038,9 +3042,10 @@ class ChatManager:
         knowledge_base_name: Optional[str],
         conversation_history: List[Dict[str, Any]],
         chat_title: str,
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[str, None, str]:
         """
-        Performs a single streaming step of the task processing.
+        Performs a single streaming step of the task processing, yielding content chunks.
+        Returns the full content of the step.
         """
         logger.info("  - 🧠 Streaming Planning: Asking for the next action...")
         history_summary = "\n".join(f"{msg['role']}: {msg['content']}" for msg in conversation_history)
@@ -3052,16 +3057,15 @@ class ChatManager:
         )
         rag_collections = [knowledge_base_name] if knowledge_base_name else None
 
-        stream = self.stream_chat(
+        # stream_chat is a generator that we need to yield from
+        full_content = yield from self.stream_chat(
             question=planning_prompt,
             chat_title=chat_title,
             model_id=model_id,
             rag_collections=rag_collections,
             tool_ids=tool_server_ids,
         )
-
-        for chunk in stream:
-            yield {"type": "content", "content": chunk}
+        return full_content
 
 
     def _perform_research_step(
