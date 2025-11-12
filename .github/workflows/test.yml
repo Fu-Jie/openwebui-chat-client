@@ -98,7 +98,7 @@ jobs:
       run: |
         TEST_PATTERN="${{ needs.detect-test-scope.outputs.test-patterns }}"
         echo "Running tests matching pattern: $TEST_PATTERN"
-        python -m unittest discover -s tests -p "$TEST_PATTERN" -v
+        python -m unittest discover -s tests -p $TEST_PATTERN -v
 
   test-summary:
     runs-on: ubuntu-latest

@@ -166,12 +166,9 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
         return {"should_run": True, "patterns": "test_openwebui_chat_client.py"}
     
     # Build pattern for unittest discover
-    # Convert test names to patterns: ["notes", "prompts"] -> "test_{notes,prompts}*.py"
-    if len(required_tests) == 1:
-        pattern = f"test_{list(required_tests)[0]}*.py"
-    else:
-        test_list = ",".join(sorted(required_tests))
-        pattern = f"test_{{{test_list}}}*.py"
+    # Convert test names to patterns: ["notes", "prompts"] -> "test_notes*.py test_prompts*.py"
+    patterns = [f"test_{name}*.py" for name in sorted(required_tests)]
+    pattern = " ".join(patterns)
     
     print(f"Final test pattern: {pattern}", file=sys.stderr)
     print(f"Required tests: {sorted(required_tests)}", file=sys.stderr)
