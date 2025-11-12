@@ -54,6 +54,11 @@ TRIGGER_ALL_TESTS = [
     ".github/workflows/test.yml",
 ]
 
+# Tests to exclude from the "run all" scope in CI
+EXCLUDE_FROM_ALL_TESTS = [
+    "integration_openwebui_chat_client",
+]
+
 # Files that don't require any tests
 SKIP_TEST_PATTERNS = [
     "*.md",
@@ -133,8 +138,19 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
     # Check if any file triggers all tests
     for filepath in changed_files:
         if should_run_all_tests(filepath):
-            print(f"  {filepath} -> triggers ALL tests", file=sys.stderr)
-            return {"should_run": True, "patterns": "test_*.py"}
+            print(f"  {filepath} -> triggers ALL unit tests (excluding integration)", file=sys.stderr)
+            all_tests = set()
+            for f in Path("tests").rglob("test_*.py"):
+                test_name = f.stem
+                if test_name.startswith("test_"):
+                    test_name = test_name[5:]
+
+                if test_name not in EXCLUDE_FROM_ALL_TESTS:
+                    all_tests.add(test_name)
+
+            test_modules = [f"tests.test_{name}" for name in sorted(all_tests)]
+            module_string = " ".join(test_modules)
+            return {"should_run": True, "patterns": module_string}
     
     # Collect required test files
     required_tests = set()
