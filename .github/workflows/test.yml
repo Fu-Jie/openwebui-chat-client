@@ -98,6 +98,7 @@ jobs:
       run: |
         TEST_MODULES="${{ needs.detect-test-scope.outputs.test-patterns }}"
         echo "Running tests for modules: $TEST_MODULES"
+        export PYTHONPATH=.
         python -m unittest $TEST_MODULES -v
 
   test-summary:
