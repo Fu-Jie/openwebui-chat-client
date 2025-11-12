@@ -28,7 +28,7 @@ from typing import List, Set, Dict
 SOURCE_TO_TEST_MAPPING = {
     # Core client files
     "openwebui_chat_client/openwebui_chat_client.py": ["openwebui_chat_client"],
-    "openwebui_chat_client/core/base_client.py": ["openwebui_chat_client", "core/base_client_retry"],
+    "openwebui_chat_client/core/base_client.py": ["openwebui_chat_client", "core.base_client_retry"],
     
     # Module-specific mappings
     "openwebui_chat_client/modules/chat_manager.py": ["chat_functionality", "continuous_conversation"],
@@ -148,7 +148,7 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
                 if test_name not in EXCLUDE_FROM_ALL_TESTS:
                     all_tests.add(test_name)
 
-            test_modules = [f"tests.test_{name}" for name in sorted(all_tests)]
+            test_modules = [f"tests.{name}" if '.' in name else f"tests.test_{name}" for name in sorted(all_tests)]
             module_string = " ".join(test_modules)
             return {"should_run": True, "patterns": module_string}
     
@@ -183,7 +183,7 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
     
     # Build a space-separated list of test module names
     # e.g., "tests.test_notes_functionality tests.test_prompts_functionality"
-    test_modules = [f"tests.test_{name}" for name in sorted(required_tests)]
+    test_modules = [f"tests.{name}" if '.' in name else f"tests.test_{name}" for name in sorted(required_tests)]
     module_string = " ".join(test_modules)
     
     print(f"Final test modules: {module_string}", file=sys.stderr)
