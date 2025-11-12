@@ -165,15 +165,15 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
         print("No specific tests identified, running core tests", file=sys.stderr)
         return {"should_run": True, "patterns": "test_openwebui_chat_client.py"}
     
-    # Build pattern for unittest discover
-    # Convert test names to patterns: ["notes", "prompts"] -> "test_notes*.py test_prompts*.py"
-    patterns = [f"test_{name}*.py" for name in sorted(required_tests)]
-    pattern = " ".join(patterns)
+    # Build a space-separated list of test module names
+    # e.g., "tests.test_notes_functionality tests.test_prompts_functionality"
+    test_modules = [f"tests.test_{name}" for name in sorted(required_tests)]
+    module_string = " ".join(test_modules)
     
-    print(f"Final test pattern: {pattern}", file=sys.stderr)
+    print(f"Final test modules: {module_string}", file=sys.stderr)
     print(f"Required tests: {sorted(required_tests)}", file=sys.stderr)
     
-    return {"should_run": True, "patterns": pattern}
+    return {"should_run": True, "patterns": module_string}
 
 
 def main():
