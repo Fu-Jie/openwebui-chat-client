@@ -119,10 +119,12 @@ def map_source_to_tests(filepath: str) -> Set[str]:
     
     # If it's already a test file, include it
     if filepath.startswith("tests/") and filepath.endswith(".py"):
-        # Extract test name without test_ prefix and .py suffix
-        test_name = Path(filepath).stem
-        if test_name.startswith("test_"):
-            test_name = test_name[5:]
+        # Convert path to module name part, e.g., tests/core/test_xyz.py -> core.xyz
+        p = Path(filepath)
+        module_parts = list(p.relative_to("tests").with_suffix("").parts)
+        if module_parts[-1].startswith("test_"):
+            module_parts[-1] = module_parts[-1][5:]
+        test_name = ".".join(module_parts)
         test_files.add(test_name)
     
     return test_files
@@ -141,11 +143,16 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
             print(f"  {filepath} -> triggers ALL unit tests (excluding integration)", file=sys.stderr)
             all_tests = set()
             for f in Path("tests").rglob("test_*.py"):
-                test_name = f.stem
-                if test_name.startswith("test_"):
-                    test_name = test_name[5:]
+                # Convert path to module name part, e.g., tests/core/test_xyz.py -> core.xyz
+                p = Path(f)
+                module_parts = list(p.relative_to("tests").with_suffix("").parts)
+                if module_parts[-1].startswith("test_"):
+                    module_parts[-1] = module_parts[-1][5:]
+                test_name = ".".join(module_parts)
 
-                if test_name not in EXCLUDE_FROM_ALL_TESTS:
+                # Check against exclusion list (short name only)
+                short_test_name = test_name.split('.')[-1]
+                if short_test_name not in EXCLUDE_FROM_ALL_TESTS:
                     all_tests.add(test_name)
 
             test_modules = [f"tests.{name}" if '.' in name else f"tests.test_{name}" for name in sorted(all_tests)]
