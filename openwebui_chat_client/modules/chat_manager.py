@@ -2866,6 +2866,208 @@ class ChatManager:
         if parent_client and hasattr(parent_client, '_stream_delta_update'):
             parent_client._stream_delta_update(chat_id, message_id, delta_content)
 
+    def process_task(
+        self,
+        question: str,
+        model_id: str,
+        tool_server_ids: Union[str, List[str]],
+        knowledge_base_name: Optional[str] = None,
+        max_iterations: int = 25,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Processes a task using an AI model and a tool server in a multi-step process.
+        """
+        logger.info("=" * 80)
+        logger.info(f"🚀 Starting to process task: '{question}' with max {max_iterations} iterations.")
+        logger.info("=" * 80)
+
+        chat_title = f"Task Processing: {question[:50]}"
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.base_client.chat_id:
+            logger.error("Failed to create or find a chat for task processing.")
+            return None
+
+        conversation_history = []
+        tool_ids = [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+
+        for i in range(max_iterations):
+            logger.info(f"--- Iteration {i + 1}/{max_iterations} ---")
+
+            response_content = self._process_task_step(
+                question=question,
+                model_id=model_id,
+                tool_server_ids=tool_ids,
+                knowledge_base_name=knowledge_base_name,
+                conversation_history=conversation_history,
+                chat_title=chat_title,
+            )
+
+            if response_content is None:
+                logger.error("Task processing step failed. Halting the process.")
+                return None
+
+            conversation_history.append({"role": "assistant", "content": response_content})
+
+            if response_content.strip().startswith("Final Answer:"):
+                logger.info("✅ Task complete!")
+                return {
+                    "solution": response_content,
+                    "conversation_history": conversation_history,
+                }
+
+        logger.warning("Reached maximum iterations without a final answer.")
+        return {
+            "solution": "Max iterations reached.",
+            "conversation_history": conversation_history,
+        }
+
+    def _process_task_step(
+        self,
+        question: str,
+        model_id: str,
+        tool_server_ids: List[str],
+        knowledge_base_name: Optional[str],
+        conversation_history: List[Dict[str, Any]],
+        chat_title: str,
+    ) -> Optional[str]:
+        """
+        Performs a single step of the task processing.
+        """
+        logger.info("  - 🧠 Planning: Asking for the next action...")
+
+        history_summary = "\n".join(f"{msg['role']}: {msg['content']}" for msg in conversation_history)
+
+        planning_prompt = (
+            f"You are a task processing agent. Your goal is to complete the following task: '{question}'.\n\n"
+            f"This is the conversation history so far:\n{history_summary}\n\n"
+            f"Based on the history, take the next step. You can use the available tools. "
+            f"If you have the final answer, state it clearly and begin your response with 'Final Answer:'."
+        )
+
+        rag_collections = [knowledge_base_name] if knowledge_base_name else None
+
+        response_data = self.chat(
+            question=planning_prompt,
+            chat_title=chat_title,
+            model_id=model_id,
+            rag_collections=rag_collections,
+            tool_ids=tool_server_ids,
+        )
+
+        if not response_data or not response_data.get("response"):
+            logger.error("  - ❌ Step failed: Did not receive a response for planning.")
+            return None
+
+        return response_data["response"]
+
+    def stream_process_task(
+        self,
+        question: str,
+        model_id: str,
+        tool_server_ids: Union[str, List[str]],
+        knowledge_base_name: Optional[str] = None,
+        max_iterations: int = 25,
+    ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
+        """
+        Processes a task in a streaming fashion.
+        """
+        logger.info("=" * 80)
+        logger.info(f"🚀 Starting to stream process task: '{question}' with max {max_iterations} iterations.")
+        logger.info("=" * 80)
+
+        chat_title = f"Task Processing: {question[:50]}"
+        self._find_or_create_chat_by_title(chat_title)
+
+        if not self.base_client.chat_id:
+            logger.error("Failed to create or find a chat for task processing.")
+            return
+
+        conversation_history = []
+        tool_ids = [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+
+        for i in range(max_iterations):
+            logger.info(f"--- Stream Iteration {i + 1}/{max_iterations} ---")
+
+            yield {
+                "type": "iteration_start",
+                "iteration": i + 1,
+                "total_iterations": max_iterations
+            }
+
+            step_generator = self._stream_process_task_step(
+                question=question,
+                model_id=model_id,
+                tool_server_ids=tool_ids,
+                knowledge_base_name=knowledge_base_name,
+                conversation_history=conversation_history,
+                chat_title=chat_title,
+            )
+
+            full_content = ""
+            # Yield from the step generator and capture the full content
+            for chunk in step_generator:
+                yield {"type": "content", "content": chunk}
+                full_content += chunk
+
+            if not full_content:
+                logger.error("Task processing step failed. Halting the process.")
+                # Yield an error event before stopping
+                yield {"type": "error", "message": "Step failed to produce content."}
+                return
+
+            conversation_history.append({"role": "assistant", "content": full_content})
+
+            if full_content.strip().startswith("Final Answer:"):
+                logger.info("✅ Task complete!")
+                final_result = {
+                    "solution": full_content,
+                    "conversation_history": conversation_history,
+                }
+                yield {"type": "complete", "result": final_result}
+                return final_result
+
+        final_result = {
+            "solution": "Max iterations reached.",
+            "conversation_history": conversation_history,
+        }
+        yield {"type": "complete", "result": final_result}
+        return final_result
+
+    def _stream_process_task_step(
+        self,
+        question: str,
+        model_id: str,
+        tool_server_ids: List[str],
+        knowledge_base_name: Optional[str],
+        conversation_history: List[Dict[str, Any]],
+        chat_title: str,
+    ) -> Generator[str, None, str]:
+        """
+        Performs a single streaming step of the task processing, yielding content chunks.
+        Returns the full content of the step.
+        """
+        logger.info("  - 🧠 Streaming Planning: Asking for the next action...")
+        history_summary = "\n".join(f"{msg['role']}: {msg['content']}" for msg in conversation_history)
+        planning_prompt = (
+            f"You are a task processing agent. Your goal is to complete the following task: '{question}'.\n\n"
+            f"This is the conversation history so far:\n{history_summary}\n\n"
+            f"Based on the history, take the next step. You can use the available tools. "
+            f"If you have the final answer, state it clearly and begin your response with 'Final Answer:'."
+        )
+        rag_collections = [knowledge_base_name] if knowledge_base_name else None
+
+        # stream_chat is a generator that we need to yield from
+        full_content = yield from self.stream_chat(
+            question=planning_prompt,
+            chat_title=chat_title,
+            model_id=model_id,
+            rag_collections=rag_collections,
+            tool_ids=tool_server_ids,
+        )
+        return full_content
+
+
     def _perform_research_step(
         self,
         topic: str,
