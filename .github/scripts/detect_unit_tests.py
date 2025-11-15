@@ -31,7 +31,7 @@ SOURCE_TO_TEST_MAPPING = {
     "openwebui_chat_client/core/base_client.py": ["openwebui_chat_client", "core.base_client_retry"],
     
     # Module-specific mappings
-    "openwebui_chat_client/modules/chat_manager.py": ["chat_functionality", "continuous_conversation"],
+    "openwebui_chat_client/modules/chat_manager.py": ["chat_functionality", "continuous_conversation", "task_processing"],
     "openwebui_chat_client/modules/model_manager.py": ["openwebui_chat_client", "model_permissions"],
     "openwebui_chat_client/modules/notes_manager.py": ["notes_functionality"],
     "openwebui_chat_client/modules/prompts_manager.py": ["prompts_functionality"],
