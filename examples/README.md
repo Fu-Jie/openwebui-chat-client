@@ -38,6 +38,11 @@ examples/
 │   ├── advanced_prompts.py      # Advanced prompts with variables
 │   └── README.md                # Detailed prompts usage guide
 ├── advanced_features/            # Advanced functionality
+│   ├── continuous_conversation.py # Multi-turn conversations with follow-ups
+│   ├── deep_research_example.py # Autonomous research agent
+│   ├── process_task_example.py  # Multi-step task processing agent
+│   ├── stream_process_task_example.py # Streaming task processing
+│   ├── archive_chats.py         # Chat archiving functionality
 │   ├── real_time_streaming.py   # Real-time streaming with updates
 │   ├── concurrent_operations.py # Concurrent/parallel operations
 │   ├── error_handling.py        # Error handling patterns
@@ -105,6 +110,15 @@ Model configuration and management:
 Structured note management:
 - **`basic_notes.py`**: Note CRUD operations with metadata
 - **`advanced_notes.py`**: Advanced note management patterns
+
+### 🔬 Advanced Features (`advanced_features/`)
+Advanced autonomous agents and multi-step processing:
+- **`continuous_conversation.py`**: Multi-turn conversations with automatic follow-up suggestions
+- **`deep_research_example.py`**: Autonomous research agent with intelligent model routing
+- **`process_task_example.py`**: Multi-step task processing with agentic loop (tool use)
+- **`stream_process_task_example.py`**: Streaming version of task processing with real-time updates
+- **`archive_chats.py`**: Automated chat archiving by age and folder
+- **Key Features**: Autonomous reasoning, tool integration, iterative problem-solving, streaming updates
 
 ### 🚀 Getting Started (`getting_started/`)
 Entry-level examples for new users:
@@ -224,6 +238,7 @@ if __name__ == "__main__":
 - `OUI_BASE_URL`: OpenWebUI server URL (default: http://localhost:3000)
 - `OUI_AUTH_TOKEN`: Your OpenWebUI API token
 - `OUI_DEFAULT_MODEL`: Default model ID (default: gpt-4.1)
+- `OUI_TOOL_SERVER_ID`: Tool server ID for process_task examples (optional)
 - `OUI_PARALLEL_MODELS`: Comma-separated model IDs for parallel examples
 - `OUI_RAG_MODEL`: Model ID for RAG examples
 
