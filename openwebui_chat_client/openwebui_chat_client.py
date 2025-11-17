@@ -421,6 +421,54 @@ class OpenWebUIClient:
             "total_steps_completed": len(research_history),
         }
 
+    def process_task(
+        self,
+        question: str,
+        model_id: str,
+        tool_server_ids: Union[str, List[str]],
+        knowledge_base_name: Optional[str] = None,
+        max_iterations: int = 25,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Processes a task using an AI model and a tool server in a multi-step process.
+
+        Args:
+            question: The task to process.
+            model_id: The ID of the model to use.
+            tool_server_ids: The ID(s) of the tool server(s) to use.
+            knowledge_base_name: The name of the knowledge base to use.
+            max_iterations: The maximum number of iterations to attempt.
+
+        Returns:
+            A dictionary containing the final solution and conversation history, or None if it fails.
+        """
+        return self._chat_manager.process_task(
+            question=question,
+            model_id=model_id,
+            tool_server_ids=tool_server_ids,
+            knowledge_base_name=knowledge_base_name,
+            max_iterations=max_iterations,
+        )
+
+    def stream_process_task(
+        self,
+        question: str,
+        model_id: str,
+        tool_server_ids: Union[str, List[str]],
+        knowledge_base_name: Optional[str] = None,
+        max_iterations: int = 25,
+    ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
+        """
+        Processes a task in a streaming fashion, yielding results for each step.
+        """
+        return self._chat_manager.stream_process_task(
+            question=question,
+            model_id=model_id,
+            tool_server_ids=tool_server_ids,
+            knowledge_base_name=knowledge_base_name,
+            max_iterations=max_iterations,
+        )
+
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """Set tags for a chat conversation."""
         return self._chat_manager.set_chat_tags(chat_id, tags)

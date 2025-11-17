@@ -59,6 +59,16 @@ test_categories:
     command: "python examples/advanced_features/deep_research_example.py"
     description: "Tests the autonomous deep research agent with intelligent model routing"
 
+  process_task:
+    name: "Process Task Agent Integration Test"
+    command: "python examples/advanced_features/process_task_example.py"
+    description: "Tests the autonomous task processing agent with multi-step agentic loop"
+
+  stream_process_task:
+    name: "Stream Process Task Integration Test"
+    command: "python examples/advanced_features/stream_process_task_example.py"
+    description: "Tests the streaming version of the task processing agent"
+
 # File patterns mapped to test categories
 # When files matching these patterns change, the corresponding tests will run
 file_mappings:
@@ -72,10 +82,18 @@ file_mappings:
   # Chat-related functionality - be more specific to avoid prompts conflicts
   - pattern: "openwebui_chat_client/**/*chat*.py"
     categories: ["basic_chat", "model_switching", "comprehensive_demos", "deep_research"]
+  
+  # Chat manager changes should trigger process_task tests
+  - pattern: "openwebui_chat_client/modules/chat_manager.py"
+    categories: ["basic_chat", "model_switching", "process_task", "stream_process_task"]
     
   # Continuous conversation functionality
   - pattern: "**/*continuous*"
     categories: ["continuous_conversation", "comprehensive_demos"]
+  
+  # Task processing functionality
+  - pattern: "**/*task*.py"
+    categories: ["process_task", "stream_process_task"]
     
   # Notes API functionality - specific patterns only  
   - pattern: "openwebui_chat_client/modules/notes_manager.py"
@@ -130,8 +148,17 @@ file_mappings:
   - pattern: "examples/advanced_features/deep_research_example.py"
     categories: ["deep_research"]
 
+  - pattern: "examples/advanced_features/process_task_example.py"
+    categories: ["process_task"]
+
+  - pattern: "examples/advanced_features/stream_process_task_example.py"
+    categories: ["stream_process_task"]
+
   - pattern: "tests/test_deep_research.py"
     categories: ["deep_research"]
+
+  - pattern: "tests/test_task_processing.py"
+    categories: ["process_task", "stream_process_task"]
 
   # Test files - run basic connectivity to ensure changes don't break core functionality
   - pattern: "tests/**"

@@ -28,10 +28,10 @@ from typing import List, Set, Dict
 SOURCE_TO_TEST_MAPPING = {
     # Core client files
     "openwebui_chat_client/openwebui_chat_client.py": ["openwebui_chat_client"],
-    "openwebui_chat_client/core/base_client.py": ["openwebui_chat_client", "core/base_client_retry"],
+    "openwebui_chat_client/core/base_client.py": ["openwebui_chat_client", "core.base_client_retry"],
     
     # Module-specific mappings
-    "openwebui_chat_client/modules/chat_manager.py": ["chat_functionality", "continuous_conversation"],
+    "openwebui_chat_client/modules/chat_manager.py": ["chat_functionality", "continuous_conversation", "task_processing"],
     "openwebui_chat_client/modules/model_manager.py": ["openwebui_chat_client", "model_permissions"],
     "openwebui_chat_client/modules/notes_manager.py": ["notes_functionality"],
     "openwebui_chat_client/modules/prompts_manager.py": ["prompts_functionality"],
@@ -52,6 +52,11 @@ TRIGGER_ALL_TESTS = [
     "pyproject.toml",
     "openwebui_chat_client/__init__.py",
     ".github/workflows/test.yml",
+]
+
+# Tests to exclude from the "run all" scope in CI
+EXCLUDE_FROM_ALL_TESTS = [
+    "integration_openwebui_chat_client",
 ]
 
 # Files that don't require any tests
@@ -114,10 +119,12 @@ def map_source_to_tests(filepath: str) -> Set[str]:
     
     # If it's already a test file, include it
     if filepath.startswith("tests/") and filepath.endswith(".py"):
-        # Extract test name without test_ prefix and .py suffix
-        test_name = Path(filepath).stem
-        if test_name.startswith("test_"):
-            test_name = test_name[5:]
+        # Convert path to module name part, e.g., tests/core/test_xyz.py -> core.xyz
+        p = Path(filepath)
+        module_parts = list(p.relative_to("tests").with_suffix("").parts)
+        if module_parts[-1].startswith("test_"):
+            module_parts[-1] = module_parts[-1][5:]
+        test_name = ".".join(module_parts)
         test_files.add(test_name)
     
     return test_files
@@ -133,8 +140,24 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
     # Check if any file triggers all tests
     for filepath in changed_files:
         if should_run_all_tests(filepath):
-            print(f"  {filepath} -> triggers ALL tests", file=sys.stderr)
-            return {"should_run": True, "patterns": "test_*.py"}
+            print(f"  {filepath} -> triggers ALL unit tests (excluding integration)", file=sys.stderr)
+            all_tests = set()
+            for f in Path("tests").rglob("test_*.py"):
+                # Convert path to module name part, e.g., tests/core/test_xyz.py -> core.xyz
+                p = Path(f)
+                module_parts = list(p.relative_to("tests").with_suffix("").parts)
+                if module_parts[-1].startswith("test_"):
+                    module_parts[-1] = module_parts[-1][5:]
+                test_name = ".".join(module_parts)
+
+                # Check against exclusion list (short name only)
+                short_test_name = test_name.split('.')[-1]
+                if short_test_name not in EXCLUDE_FROM_ALL_TESTS:
+                    all_tests.add(test_name)
+
+            test_modules = [f"tests.{name}" if '.' in name else f"tests.test_{name}" for name in sorted(all_tests)]
+            module_string = " ".join(test_modules)
+            return {"should_run": True, "patterns": module_string}
     
     # Collect required test files
     required_tests = set()
@@ -165,18 +188,15 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
         print("No specific tests identified, running core tests", file=sys.stderr)
         return {"should_run": True, "patterns": "test_openwebui_chat_client.py"}
     
-    # Build pattern for unittest discover
-    # Convert test names to patterns: ["notes", "prompts"] -> "test_{notes,prompts}*.py"
-    if len(required_tests) == 1:
-        pattern = f"test_{list(required_tests)[0]}*.py"
-    else:
-        test_list = ",".join(sorted(required_tests))
-        pattern = f"test_{{{test_list}}}*.py"
+    # Build a space-separated list of test module names
+    # e.g., "tests.test_notes_functionality tests.test_prompts_functionality"
+    test_modules = [f"tests.{name}" if '.' in name else f"tests.test_{name}" for name in sorted(required_tests)]
+    module_string = " ".join(test_modules)
     
-    print(f"Final test pattern: {pattern}", file=sys.stderr)
+    print(f"Final test modules: {module_string}", file=sys.stderr)
     print(f"Required tests: {sorted(required_tests)}", file=sys.stderr)
     
-    return {"should_run": True, "patterns": pattern}
+    return {"should_run": True, "patterns": module_string}
 
 
 def main():
