@@ -53,6 +53,7 @@ if result:
 
 ## ✨ Features
 
+- **Autonomous Task Processing**: Multi-step iterative problem-solving with `process_task` and `stream_process_task` methods, supporting tool and knowledge base integration.
 - **Automatic Metadata Generation**: Automatically generate tags and titles for your conversations.
 - **Manual Metadata Updates**: Regenerate tags and titles for existing chats on demand.
 - **Real-time Streaming Chat Updates**: Experience typewriter-effect real-time content updates during streaming chats.
@@ -380,6 +381,8 @@ print(f"Summary: {result['response']}")
 | `chat()` | Start/continue a single-model conversation with support for follow-up generation options | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `stream_chat()` | Start/continue a single-model streaming conversation with real-time updates | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `parallel_chat()` | Start/continue a multi-model conversation with parallel processing | `question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+| `process_task()` | Execute autonomous multi-step task processing with iterative problem-solving | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
+| `stream_process_task()` | Stream autonomous multi-step task processing with real-time updates | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
 
 ### 🛠️ Chat Management
 

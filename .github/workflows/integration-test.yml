@@ -71,23 +71,26 @@ jobs:
         # Determine if we should run all tests
         if [ "${{ github.event.inputs.run_all_tests }}" = "true" ]; then
           echo "run-all=true" >> $GITHUB_OUTPUT
-          echo "tests=[\"notes_api\",\"prompts_api\",\"basic_chat\",\"rag_integration\",\"model_management\",\"model_switching\",\"comprehensive_demos\",\"connectivity\",\"continuous_conversation\",\"deep_research\"]" >> $GITHUB_OUTPUT
+          
+          # 从 test-mapping.yml 动态读取所有测试类别
+          python .github/scripts/get_all_test_categories.py > /tmp/all_categories.json
+          ALL_CATEGORIES=$(cat /tmp/all_categories.json)
+          echo "tests=$ALL_CATEGORIES" >> $GITHUB_OUTPUT
           echo "✅ Manual override: Running all integration tests"
         else
           echo "run-all=false" >> $GITHUB_OUTPUT
           
           # Debug information for workflow_run events
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "🔍 Workflow run context:"
-            echo "  - Head SHA: ${{ github.event.workflow_run.head_sha }}"
-            echo "  - Head Branch: ${{ github.event.workflow_run.head_branch }}" 
-            echo "  - Event: ${{ github.event.workflow_run.event }}"
+            echo "Workflow run context:"
+            echo "  Head SHA: ${{ github.event.workflow_run.head_sha }}"
+            echo "  Head Branch: ${{ github.event.workflow_run.head_branch }}"
           fi
           
           # Use our detection script to determine required tests
           required_tests=$(python .github/scripts/detect_required_tests.py)
           echo "tests=$required_tests" >> $GITHUB_OUTPUT
-          echo "🔍 Detected required tests: $required_tests"
+          echo "Detected required tests: $required_tests"
         fi
 
   integration-test:

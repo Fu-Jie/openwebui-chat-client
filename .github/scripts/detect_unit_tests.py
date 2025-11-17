@@ -7,7 +7,7 @@ It creates a mapping between source code files and their corresponding test file
 
 Usage:
     python .github/scripts/detect_unit_tests.py [base_ref] [head_ref]
-    
+
 Output:
     JSON file at /tmp/test-detection.json with structure:
     {
@@ -21,23 +21,31 @@ import sys
 import json
 import subprocess
 from pathlib import Path
-from typing import List, Set, Dict
+from typing import List, Set, Dict, Any
 
 # Mapping of source files to their test files
 # Format: source_pattern -> test_file_name (without test_ prefix and .py suffix)
 SOURCE_TO_TEST_MAPPING = {
     # Core client files
     "openwebui_chat_client/openwebui_chat_client.py": ["openwebui_chat_client"],
-    "openwebui_chat_client/core/base_client.py": ["openwebui_chat_client", "core.base_client_retry"],
-    
+    "openwebui_chat_client/core/base_client.py": [
+        "openwebui_chat_client",
+        "core.base_client_retry",
+    ],
     # Module-specific mappings
-    "openwebui_chat_client/modules/chat_manager.py": ["chat_functionality", "continuous_conversation", "task_processing"],
-    "openwebui_chat_client/modules/model_manager.py": ["openwebui_chat_client", "model_permissions"],
+    "openwebui_chat_client/modules/chat_manager.py": [
+        "chat_functionality",
+        "continuous_conversation",
+        "task_processing",
+    ],
+    "openwebui_chat_client/modules/model_manager.py": [
+        "openwebui_chat_client",
+        "model_permissions",
+    ],
     "openwebui_chat_client/modules/notes_manager.py": ["notes_functionality"],
     "openwebui_chat_client/modules/prompts_manager.py": ["prompts_functionality"],
     "openwebui_chat_client/modules/knowledge_base_manager.py": ["knowledge_base"],
     "openwebui_chat_client/modules/file_manager.py": ["openwebui_chat_client"],
-    
     # Feature-specific test mappings
     "**/archive*.py": ["archive_functionality"],
     "**/continuous*.py": ["continuous_conversation"],
@@ -78,13 +86,13 @@ def get_changed_files(base_ref: str = "HEAD~1", head_ref: str = "HEAD") -> List[
     try:
         cmd = ["git", "diff", "--name-only", f"{base_ref}...{head_ref}"]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
-        
+        files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+
         if not files:
             cmd = ["git", "diff", "--name-only", "HEAD~1", "HEAD"]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
-            
+            files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+
         return files
     except subprocess.CalledProcessError as e:
         print(f"Warning: Failed to get changed files: {e}", file=sys.stderr)
@@ -94,7 +102,7 @@ def get_changed_files(base_ref: str = "HEAD~1", head_ref: str = "HEAD") -> List[
 def should_skip_tests(filepath: str) -> bool:
     """Check if a file should skip tests entirely."""
     from fnmatch import fnmatch
-    
+
     for pattern in SKIP_TEST_PATTERNS:
         if fnmatch(filepath, pattern):
             return True
@@ -109,14 +117,14 @@ def should_run_all_tests(filepath: str) -> bool:
 def map_source_to_tests(filepath: str) -> Set[str]:
     """Map a source file to its corresponding test files."""
     from fnmatch import fnmatch
-    
+
     test_files = set()
-    
+
     # Check direct mappings
     for pattern, tests in SOURCE_TO_TEST_MAPPING.items():
         if fnmatch(filepath, pattern) or filepath == pattern:
             test_files.update(tests)
-    
+
     # If it's already a test file, include it
     if filepath.startswith("tests/") and filepath.endswith(".py"):
         # Convert path to module name part, e.g., tests/core/test_xyz.py -> core.xyz
@@ -126,21 +134,24 @@ def map_source_to_tests(filepath: str) -> Set[str]:
             module_parts[-1] = module_parts[-1][5:]
         test_name = ".".join(module_parts)
         test_files.add(test_name)
-    
+
     return test_files
 
 
-def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
+def determine_test_scope(changed_files: List[str]) -> Dict[str, Any]:
     """Determine which tests should be run based on changed files."""
     if not changed_files:
         return {"should_run": False, "patterns": "test_*.py"}
-    
+
     print(f"Analyzing {len(changed_files)} changed files...", file=sys.stderr)
-    
+
     # Check if any file triggers all tests
     for filepath in changed_files:
         if should_run_all_tests(filepath):
-            print(f"  {filepath} -> triggers ALL unit tests (excluding integration)", file=sys.stderr)
+            print(
+                f"  {filepath} -> triggers ALL unit tests (excluding integration)",
+                file=sys.stderr,
+            )
             all_tests = set()
             for f in Path("tests").rglob("test_*.py"):
                 # Convert path to module name part, e.g., tests/core/test_xyz.py -> core.xyz
@@ -151,51 +162,60 @@ def determine_test_scope(changed_files: List[str]) -> Dict[str, any]:
                 test_name = ".".join(module_parts)
 
                 # Check against exclusion list (short name only)
-                short_test_name = test_name.split('.')[-1]
+                short_test_name = test_name.split(".")[-1]
                 if short_test_name not in EXCLUDE_FROM_ALL_TESTS:
                     all_tests.add(test_name)
 
-            test_modules = [f"tests.{name}" if '.' in name else f"tests.test_{name}" for name in sorted(all_tests)]
+            test_modules = [
+                f"tests.{name}" if "." in name else f"tests.test_{name}"
+                for name in sorted(all_tests)
+            ]
             module_string = " ".join(test_modules)
             return {"should_run": True, "patterns": module_string}
-    
+
     # Collect required test files
     required_tests = set()
     has_non_skippable_changes = False
-    
+
     for filepath in changed_files:
         if should_skip_tests(filepath):
             print(f"  {filepath} -> skip (documentation/config only)", file=sys.stderr)
             continue
-        
+
         has_non_skippable_changes = True
         tests = map_source_to_tests(filepath)
-        
+
         if tests:
             print(f"  {filepath} -> tests: {', '.join(tests)}", file=sys.stderr)
             required_tests.update(tests)
         else:
-            print(f"  {filepath} -> no specific test mapping (will run connectivity test)", file=sys.stderr)
+            print(
+                f"  {filepath} -> no specific test mapping (will run connectivity test)",
+                file=sys.stderr,
+            )
             required_tests.add("openwebui_chat_client")  # Default fallback
-    
+
     # If no code changes, don't run tests
     if not has_non_skippable_changes:
         print("No code changes detected, skipping tests", file=sys.stderr)
         return {"should_run": False, "patterns": "test_*.py"}
-    
+
     # If no specific tests identified, run core tests
     if not required_tests:
         print("No specific tests identified, running core tests", file=sys.stderr)
         return {"should_run": True, "patterns": "test_openwebui_chat_client.py"}
-    
+
     # Build a space-separated list of test module names
     # e.g., "tests.test_notes_functionality tests.test_prompts_functionality"
-    test_modules = [f"tests.{name}" if '.' in name else f"tests.test_{name}" for name in sorted(required_tests)]
+    test_modules = [
+        f"tests.{name}" if "." in name else f"tests.test_{name}"
+        for name in sorted(required_tests)
+    ]
     module_string = " ".join(test_modules)
-    
+
     print(f"Final test modules: {module_string}", file=sys.stderr)
     print(f"Required tests: {sorted(required_tests)}", file=sys.stderr)
-    
+
     return {"should_run": True, "patterns": module_string}
 
 
@@ -203,23 +223,23 @@ def main():
     """Main function to detect and output required unit tests."""
     base_ref = sys.argv[1] if len(sys.argv) > 1 else "HEAD~1"
     head_ref = sys.argv[2] if len(sys.argv) > 2 else "HEAD"
-    
+
     print(f"Detecting unit test scope for {base_ref}...{head_ref}", file=sys.stderr)
-    
+
     changed_files = get_changed_files(base_ref, head_ref)
     print(f"Changed files: {changed_files}", file=sys.stderr)
-    
+
     result = determine_test_scope(changed_files)
-    
+
     # Write output to file for GitHub Actions to consume
     output_file = "/tmp/test-detection.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(result, f, indent=2)
-    
+
     print(f"\nTest detection result:", file=sys.stderr)
     print(f"  Should run: {result['should_run']}", file=sys.stderr)
     print(f"  Patterns: {result['patterns']}", file=sys.stderr)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.22] - 2025-11-18
+
 ### Added
 
 - **Autonomous Task Processing**: Introduced `process_task` and `stream_process_task` methods, enabling the client to perform multi-step, iterative problem-solving with tool and knowledge base support.

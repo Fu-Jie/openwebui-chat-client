@@ -47,6 +47,7 @@ if result:
 
 ## ✨ 主要功能
 
+- **自主任务处理**: 使用 `process_task` 和 `stream_process_task` 方法进行多步骤迭代式问题解决，支持工具和知识库集成。
 - **自动元数据生成**: 为您的对话自动生成标签和标题。
 - **手动元数据更新**: 按需为现有对话重新生成标签和标题。
 - **实时流式聊天更新**: 在流式聊天期间体验打字机效果的实时内容更新。
@@ -372,6 +373,8 @@ print(f"摘要: {result['response']}")
 | `chat()` | 启动/继续单模型对话，支持追问生成选项 | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `stream_chat()` | 启动/继续单模型流式对话，支持实时更新 | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `parallel_chat()` | 启动/继续多模型并行对话 | `question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
+| `process_task()` | 执行自主多步骤任务处理和迭代式问题解决 | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
+| `stream_process_task()` | 流式自主多步骤任务处理，支持实时更新 | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
 
 ### 🛠️ 聊天管理
 

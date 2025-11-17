@@ -95,47 +95,26 @@ file_mappings:
   - pattern: "**/*task*.py"
     categories: ["process_task", "stream_process_task"]
     
-  # Notes API functionality - specific patterns only  
-  - pattern: "openwebui_chat_client/modules/notes_manager.py"
+  # Core client and module changes
+  - pattern: "openwebui_chat_client/**/*.py"
+    categories: ["connectivity", "basic_chat", "model_management"]
+  
+  # Notes API functionality
+  - pattern: "**/*notes*.py"
     categories: ["notes_api"]
-    
-  - pattern: "examples/notes_api/**"
-    categories: ["notes_api"]
-    
-  - pattern: "tests/**/test_notes*"
-    categories: ["notes_api"]
-    
-  # Prompts API functionality - specific patterns only
-  - pattern: "openwebui_chat_client/modules/prompts_manager.py"
+  
+  # Prompts API functionality
+  - pattern: "**/*prompts*.py"
     categories: ["prompts_api"]
-    
-  - pattern: "examples/prompts_api/**"
-    categories: ["prompts_api"]
-    
-  - pattern: "tests/**/test_prompts*"
-    categories: ["prompts_api"]
-    
-  # RAG and knowledge base functionality - more specific patterns
-  - pattern: "openwebui_chat_client/**/*rag*.py"
+  
+  # RAG and knowledge base functionality
+  - pattern: "**/*rag*.py"
     categories: ["rag_integration", "comprehensive_demos"]
     
-  - pattern: "openwebui_chat_client/**/*knowledge*.py"
+  - pattern: "**/*knowledge*.py"
     categories: ["rag_integration", "comprehensive_demos"]
-    
-  - pattern: "examples/rag_knowledge/**"
-    categories: ["rag_integration"]
-    
-  # Model management functionality - more specific patterns
-  - pattern: "openwebui_chat_client/modules/model_manager.py"
-    categories: ["model_management", "connectivity"]
-    
-  - pattern: "examples/model_management/**"
-    categories: ["model_management"]
-    
-  - pattern: "examples/chat_features/model_switching.py"
-    categories: ["model_switching"]
-    
-  # Examples - run corresponding integration tests
+  
+  # Examples - categorize by directory
   - pattern: "examples/getting_started/**"
     categories: ["basic_chat", "comprehensive_demos", "connectivity"]
     
@@ -145,40 +124,30 @@ file_mappings:
   - pattern: "examples/advanced_features/**"
     categories: ["continuous_conversation", "comprehensive_demos"]
     
-  - pattern: "examples/advanced_features/deep_research_example.py"
-    categories: ["deep_research"]
-
-  - pattern: "examples/advanced_features/process_task_example.py"
-    categories: ["process_task"]
-
-  - pattern: "examples/advanced_features/stream_process_task_example.py"
-    categories: ["stream_process_task"]
-
+  - pattern: "examples/notes_api/**"
+    categories: ["notes_api"]
+    
+  - pattern: "examples/prompts_api/**"
+    categories: ["prompts_api"]
+    
+  - pattern: "examples/rag_knowledge/**"
+    categories: ["rag_integration"]
+    
+  - pattern: "examples/model_management/**"
+    categories: ["model_management"]
+  
+  # Test files - categorize by name
+  - pattern: "tests/**/test_notes*"
+    categories: ["notes_api"]
+    
+  - pattern: "tests/**/test_prompts*"
+    categories: ["prompts_api"]
+  
   - pattern: "tests/test_deep_research.py"
     categories: ["deep_research"]
 
   - pattern: "tests/test_task_processing.py"
-    categories: ["process_task", "stream_process_task"]
-
-  # Test files - run basic connectivity to ensure changes don't break core functionality
-  - pattern: "tests/**"
-    categories: ["connectivity"]
-
-  # When core client unit tests change, also run model management integration tests
-  - pattern: "tests/test_openwebui_chat_client.py"
-    categories: ["connectivity", "model_management"]
-    
-  # Configuration and workflow changes - run connectivity test
-  - pattern: ".github/**"
-    categories: ["connectivity"]
-    
-  - pattern: "pyproject.toml"
-    categories: ["connectivity"]
-    
-  - pattern: "setup.py"
-    categories: ["connectivity"]
-
-# Default categories to run when no specific mapping is found
+    categories: ["process_task", "stream_process_task"]# Default categories to run when no specific mapping is found
 # This ensures that at least basic functionality is tested for any changes
 default_categories:
   - "connectivity"

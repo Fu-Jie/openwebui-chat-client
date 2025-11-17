@@ -72,7 +72,13 @@ jobs:
     if: needs.detect-test-scope.outputs.should-run-tests == 'true'
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version:
+          - '3.8'   # End of life: October 2024, consider deprecating
+          - '3.9'   # End of life: October 2025
+          - '3.10'  # End of life: October 2026 (LTS)
+          - '3.11'  # End of life: October 2027
+          - '3.12'  # End of life: October 2028 (LTS)
+          - '3.13'  # Current stable
       fail-fast: false
 
     steps:
@@ -88,18 +94,37 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[test]"
 
-    - name: Set environment variables for integration tests
+    - name: Set environment variables for unit tests (mock data)
       run: |
         echo "OPENWEBUI_BASE_URL=http://localhost:3000" >> $GITHUB_ENV
         echo "OPENWEBUI_TOKEN=test-token-for-ci" >> $GITHUB_ENV
         echo "OPENWEBUI_DEFAULT_MODEL=test-model" >> $GITHUB_ENV
 
     - name: Run selected tests
+      id: test-run
       run: |
         TEST_MODULES="${{ needs.detect-test-scope.outputs.test-patterns }}"
+        
+        # 检查是否有测试要运行
+        if [ -z "$TEST_MODULES" ]; then
+          echo "❌ No test modules specified"
+          exit 1
+        fi
+        
         echo "Running tests for modules: $TEST_MODULES"
         export PYTHONPATH=.
-        python -m unittest $TEST_MODULES -v
+        
+        # 运行测试并保存输出到日志文件
+        python -m unittest ${TEST_MODULES} -v 2>&1 | tee test_output.log
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+    - name: Upload test logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-logs-python-${{ matrix.python-version }}
+        path: test_output.log
+        retention-days: 7
 
   test-summary:
     runs-on: ubuntu-latest
@@ -121,5 +146,8 @@ jobs:
           echo "❌ Some tests failed"
           echo ""
           echo "Test pattern used: ${{ needs.detect-test-scope.outputs.test-patterns }}"
+          echo ""
+          echo "📋 Test logs have been saved as artifacts for debugging."
+          echo "Check the Artifacts section above to download test logs."
           exit 1
         fi
