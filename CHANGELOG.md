@@ -2,13 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.999] - 2025-11-12
+## [Unreleased]
 
 ### Added
+
 - **Autonomous Task Processing**: Introduced `process_task` and `stream_process_task` methods, enabling the client to perform multi-step, iterative problem-solving with tool and knowledge base support.
 - **Unit Tests**: Added a comprehensive test suite for the new autonomous task processing feature.
 
 ### Fixed
+
 - **CI Test Execution**: Resolved multiple CI failures by refining the test execution strategy. The fix ensures that only unit tests are run in CI (excluding integration tests) and correctly handles test module discovery for all Python versions.
 
 ## [0.1.21] - 2025-10-03
@@ -22,16 +24,19 @@ All notable changes to this project will be documented in this file.
 ## [0.1.20] - 2025-10-02
 
 ### Fixed
+
 - **Model List Methods Documentation and API Endpoints**: Improved documentation for `list_models`, `list_base_models`, and `list_custom_models` methods to clarify their behavior and corresponding UI elements. Updated `list_custom_models` API endpoint from `/api/v1/models/custom` to `/api/v1/models` for better consistency.
 
 ## [0.1.19] - 2025-09-23
 
 ### Fixed
+
 - **Tool IDs Parameter Format**: Fixed `ChatManager._get_model_completion` to correctly pass `tool_ids` as a direct list instead of converting to OpenAI-style `tools` format, ensuring proper tool integration with the Open WebUI API.
 
 ## [0.1.18] - 2025-09-14
 
 ### Fixed
+
 - **Model Update: tags Field Handling**: Fixed `ModelManager.update_model` to properly handle the `meta.tags` field when updating models, correctly converting tag string lists to the API-expected [{"name": tag}] format to avoid accidentally overwriting existing tags.
 - **Model Update: base_model_id Handling**: Fixed `ModelManager.update_model` to properly handle `base_model_id`, ensuring it's updated when provided and preserved when not provided, preventing accidental clearing or incorrect assignment.
 - **Model List: Force Refresh**: Fixed `ModelManager.list_models` to include `refresh=true` parameter in the API request to force refresh the model list from the server, ensuring the latest available models are retrieved.
@@ -39,15 +44,18 @@ All notable changes to this project will be documented in this file.
 ## [0.1.17] - 2025-08-23
 
 ### Added
+
 - **Deep Research Agent**: Introduced the `deep_research` method, an autonomous agent that performs multi-step research on a topic using intelligent model routing between general and search-capable models.
 - **HTTP Retry Mechanism**: Implemented a robust retry strategy in the base client for API calls, automatically retrying on transient server errors (5xx) to improve stability.
 
 ### Fixed
+
 - **`create_model` Payload Fix**: Corrected the `create_model` method to send the full, accurate payload, including the `meta` object with capabilities, tags, etc., and fixed the endpoint URL to `/api/v1/models/create`.
 
 ## [0.1.16] - 2025-08-10
 
 ### Added
+
 - **Prompts Management System**: Complete implementation of prompts functionality
   - `PromptsManager` module for managing custom prompts with variable substitution
   - Full CRUD operations: `get_prompts()`, `create_prompt()`, `update_prompt_by_command()`, `delete_prompt_by_command()`
@@ -57,12 +65,13 @@ All notable changes to this project will be documented in this file.
   - Search functionality: `search_prompts()` with filtering by command, title, or content
   - Batch operations: `batch_create_prompts()` and `batch_delete_prompts()` for efficient bulk management
   - Comprehensive examples in `examples/prompts_api/` with basic and advanced usage patterns
-  - Full test coverage in `tests/test_prompts_functionality.py` 
+  - Full test coverage in `tests/test_prompts_functionality.py`
   - Integration with CI test mapping for automated testing
 
 ## [0.1.15] - 2025-08-04
 
 ### Added
+
 - **Continuous Conversation Feature**: New high-level conversation automation functionality
   - `continuous_chat()`: Automated multi-turn conversations with single models using follow-up suggestions
   - `continuous_parallel_chat()`: Automated multi-turn conversations across multiple models in parallel
@@ -77,6 +86,7 @@ All notable changes to this project will be documented in this file.
 ## [0.1.14] - 2025-08-02
 
 ### Added in 0.1.14
+
 - **Modular Architecture Refactor**: Complete restructuring of the codebase into modular components:
   - `openwebui_chat_client/core/base_client.py`: Core client functionality base class
   - `openwebui_chat_client/modules/chat_manager.py`: Dedicated chat management module
@@ -99,6 +109,7 @@ All notable changes to this project will be documented in this file.
 - **Batch Model Permissions Update**: Implemented batch model permissions update functionality.
 
 ### Changed in 0.1.14
+
 - **Code Organization**: Migrated from monolithic structure to modular architecture while maintaining backward compatibility.
 - **API Response Validation**: Fixed critical issues with API response validation and data format mismatches.
 - **State Synchronization**: Resolved state synchronization issues between client and server.
@@ -108,6 +119,7 @@ All notable changes to this project will be documented in this file.
 - **List Chats Page Parameter**: Reverted `page` parameter to optional for `list_chats` method.
 
 ### Fixed in 0.1.14
+
 - **Critical Test Failures**: Resolved multiple test failures related to modular refactor, API endpoints, response validation, chat object synchronization, and method delegation for mocking.
 - **API Data Format Issues**: Fixed data format mismatches in API responses.
 - **State Management**: Corrected state synchronization problems.
@@ -123,6 +135,7 @@ All notable changes to this project will be documented in this file.
 ## [0.1.13] - 2025-07-28
 
 ### Added in 0.1.13
+
 - **Notes Management API**: Complete implementation of notes management functionality with full CRUD operations:
   - `get_notes()`: Retrieve all notes for the current user with detailed information
   - `get_notes_list()`: Get a simplified list of notes with only id, title, and timestamps
@@ -134,6 +147,7 @@ All notable changes to this project will be documented in this file.
 - **Notes Unit Tests**: Added complete test coverage in `tests/test_notes_functionality.py` with 118 test cases
 
 ### Changed in 0.1.13
+
 - **Streamlined Release Process**: Simplified and optimized the release workflow documentation, removing redundant steps and improving clarity.
 - **Enhanced Development Infrastructure**: Improved GitHub workflows, CI/CD setup, and development tooling for better maintainability.
 - **Updated Project Organization**: Refined project structure and documentation organization for better developer experience.
@@ -141,6 +155,7 @@ All notable changes to this project will be documented in this file.
 ## [0.1.12] - 2025-07-27
 
 ### Added in 0.1.12
+
 - **Automatic Metadata Generation**: Added `enable_auto_tagging` and `enable_auto_titling` parameters to `chat`, `parallel_chat`, and `stream_chat` methods to automatically generate and apply tags and titles to conversations.
 - **Manual Metadata Update**: Introduced a new public method `update_chat_metadata` that allows users to regenerate and update the tags and/or title for an existing chat by providing its `chat_id`.
 - **Enhanced Return Values**: The `chat`, `parallel_chat`, and `stream_chat` methods now return `suggested_tags` and `suggested_title` in their response dictionaries when the corresponding features are enabled.
@@ -149,6 +164,7 @@ All notable changes to this project will be documented in this file.
 ## [0.1.11] - 2025-07-26
 
 ### Added in 0.1.11
+
 - **Streaming Chat Real-time Update Optimization**: Added real-time incremental content push functionality to the `stream_chat` method. By calling the `/api/v1/chats/{chat_id}/messages/{message_id}/event` interface, each content block is pushed to the Open WebUI frontend in real-time while streaming content is being generated, achieving a typewriter effect for real-time update experience.
 - Added `_stream_delta_update` private method for real-time delta content updates during streaming chat.
 - Added `examples/stream_chat_demo.py` demonstration script for the enhanced streaming functionality.
@@ -157,6 +173,7 @@ All notable changes to this project will be documented in this file.
 - Enhanced `get_model` method to automatically attempt model creation and retry fetching if the model does not exist and API returns 401.
 
 ### Changed in 0.1.11
+
 - Added checks for empty `model_id` and local available model list in `get_model` method.
 - Enhanced `_ask_stream` method to include real-time delta updates while maintaining backward compatibility.
 
