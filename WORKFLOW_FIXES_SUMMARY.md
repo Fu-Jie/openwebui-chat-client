@@ -205,13 +205,10 @@ strategy:
 **改动**:
 
 ```yaml
-- name: Upload test logs on failure
-  if: failure()
-  uses: actions/upload-artifact@v3
-  with:
-    name: test-logs-python-${{ matrix.python-version }}
-    path: test_output.log
-    retention-days: 7
+    uses: actions/upload-artifact@v4
+    with:
+      name: test-logs-python-${{ matrix.python-version }}
+      path: test_output.log
 
 - name: Test Summary
   run: |

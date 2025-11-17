@@ -441,7 +441,7 @@ test-summary:
   if: always()
   
   steps:
-  - uses: actions/upload-artifact@v3
+  - uses: actions/upload-artifact@v4
     if: failure()  # 只在测试失败时上传日志
     with:
       name: test-logs
