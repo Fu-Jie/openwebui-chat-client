@@ -32,6 +32,11 @@ dependencies = [
     "python-dotenv"
 ]
 
+[project.optional-dependencies]
+test = [
+    "responses"
+]
+
 [project.urls]
 Homepage = "https://github.com/Fu-Jie/openwebui-chat-client"
 "Bug Tracker" = "https://github.com/Fu-Jie/openwebui-chat-client/issues"
