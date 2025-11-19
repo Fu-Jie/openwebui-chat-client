@@ -81,12 +81,13 @@ if __name__ == "__main__":
         logger.info(f"   Tool Server: {tool_id}")
         logger.info(f"   Max Iterations: {max_iterations}")
         
-        # 2. Call the process_task method
+        # 2. Call the process_task method with history summarization enabled
         result = client.process_task(
             question=task_question,
             model_id=selected_model,
             tool_server_ids=tool_id,
-            max_iterations=max_iterations
+            max_iterations=max_iterations,
+            summarize_history=True  # New: Enable history summarization
         )
 
         if result:
@@ -95,23 +96,25 @@ if __name__ == "__main__":
             print("="*80)
             print(f"Task: {task_question}")
             
+            # Display the final to-do list
+            print("\n--- Final To-Do List ---")
+            todo_list = result.get('todo_list', [])
+            if todo_list:
+                for item in todo_list:
+                    status_icon = "✅" if item['status'] == 'completed' else "⏳" if item['status'] == 'in_progress' else "📋"
+                    print(f"{status_icon} {item['task']}")
+            else:
+                print("No to-do list available.")
+
             # Display the solution
             print("\n--- Solution ---")
             solution = result.get('solution', 'No solution found.')
             print(solution)
             
-            # Display conversation history
-            print("\n--- Conversation History ---")
-            history = result.get('conversation_history', [])
-            if history:
-                for i, turn in enumerate(history, 1):
-                    role = turn.get('role', 'unknown')
-                    content = turn.get('content', '')
-                    # Truncate long content for readability
-                    display_content = content[:200] + "..." if len(content) > 200 else content
-                    print(f"{i}. [{role.upper()}] {display_content}")
-            else:
-                print("No conversation history available.")
+            # Display summarized conversation history
+            print("\n--- Summarized Conversation History ---")
+            summary = result.get('conversation_history', 'No summary available.')
+            print(summary)
             
             print("\n" + "="*80)
             print(f"👉 You can view the full task processing conversation in OpenWebUI")

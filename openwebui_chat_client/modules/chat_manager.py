@@ -2866,6 +2866,53 @@ class ChatManager:
         if parent_client and hasattr(parent_client, '_stream_delta_update'):
             parent_client._stream_delta_update(chat_id, message_id, delta_content)
 
+    def _update_chat_with_history(self, api_messages: List[Dict[str, Any]]):
+        """
+        Updates the server-side chat object with a given API message history.
+        This is a helper for agentic loops that manage history manually.
+        """
+        if not self.base_client.chat_object_from_server:
+            logger.error("Cannot update chat history, chat object not loaded.")
+            return
+
+        chat_core = self.base_client.chat_object_from_server["chat"]
+        history = {"messages": {}, "currentId": None}
+
+        last_message_id = None
+
+        # Skip the system message if it exists
+        start_index = 1 if api_messages and api_messages[0]['role'] == 'system' else 0
+
+        for msg in api_messages[start_index:]:
+            msg_id = str(uuid.uuid4())
+            storage_msg = {
+                "id": msg_id,
+                "parentId": last_message_id,
+                "childrenIds": [],
+                "role": msg["role"],
+                "content": msg["content"],
+                "timestamp": int(time.time()),
+            }
+            history["messages"][msg_id] = storage_msg
+
+            if last_message_id:
+                if "childrenIds" not in history["messages"][last_message_id]:
+                    history["messages"][last_message_id]["childrenIds"] = []
+                history["messages"][last_message_id]["childrenIds"].append(msg_id)
+
+            last_message_id = msg_id
+
+        history["currentId"] = last_message_id
+        chat_core["history"] = history
+        chat_core["messages"] = self._build_linear_history_for_storage(chat_core, last_message_id)
+
+        # Use parent client's method if available (for test mocking)
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        if parent_client and hasattr(parent_client, '_update_remote_chat'):
+            parent_client._update_remote_chat()
+        else:
+            self._update_remote_chat()
+
     def process_task(
         self,
         question: str,
@@ -2873,12 +2920,16 @@ class ChatManager:
         tool_server_ids: Union[str, List[str]],
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
+        summarize_history: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
-        Processes a task using an AI model and a tool server in a multi-step process.
+        Processes a task using a structured "Thought -> Action -> Observation" loop.
+        This enhances task-solving capability and provides better observability.
         """
         logger.info("=" * 80)
-        logger.info(f"🚀 Starting to process task: '{question}' with max {max_iterations} iterations.")
+        logger.info(f"🚀 Starting ENHANCED task processing: '{question}'")
+        logger.info(f"   Max iterations: {max_iterations}")
+        logger.info(f"   Summarize history: {summarize_history}")
         logger.info("=" * 80)
 
         chat_title = f"Task Processing: {question[:50]}"
@@ -2888,78 +2939,84 @@ class ChatManager:
             logger.error("Failed to create or find a chat for task processing.")
             return None
 
-        conversation_history = []
+        api_messages = []
+        last_todo_list = []
+
+        system_prompt = self._get_task_processing_prompt()
+        api_messages.append({"role": "system", "content": system_prompt})
+        api_messages.append({"role": "user", "content": f"Here is the task: {question}"})
+
         tool_ids = [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+        rag_collections = [knowledge_base_name] if knowledge_base_name else []
+        api_rag_payload, _ = self._handle_rag_references(None, rag_collections)
 
         for i in range(max_iterations):
             logger.info(f"--- Iteration {i + 1}/{max_iterations} ---")
 
-            response_content = self._process_task_step(
-                question=question,
+            model_response_text, _ = self._get_model_completion(
+                chat_id=self.base_client.chat_id,
+                messages=api_messages,
+                rag_payload=api_rag_payload,
                 model_id=model_id,
-                tool_server_ids=tool_ids,
-                knowledge_base_name=knowledge_base_name,
-                conversation_history=conversation_history,
-                chat_title=chat_title,
+                tool_ids=tool_ids,
             )
 
-            if response_content is None:
-                logger.error("Task processing step failed. Halting the process.")
-                return None
-
-            conversation_history.append({"role": "assistant", "content": response_content})
-
-            if response_content.strip().startswith("Final Answer:"):
-                logger.info("✅ Task complete!")
+            if not model_response_text:
+                logger.error("Task processing step failed: Model returned an empty response.")
+                history = self._summarize_history(api_messages) if summarize_history else api_messages
                 return {
-                    "solution": response_content,
-                    "conversation_history": conversation_history,
+                    "solution": "Error: Model returned an empty response.",
+                    "conversation_history": history,
+                    "todo_list": last_todo_list,
                 }
 
+            api_messages.append({"role": "assistant", "content": model_response_text})
+            logger.info(f"🤖 Assistant:\n{model_response_text}")
+
+            thought_match = re.search(r"Thought:(.*?)(?=Action:)", model_response_text, re.DOTALL)
+            if thought_match:
+                thought_content = thought_match.group(1).strip()
+                parsed_todo = self._parse_todo_list(thought_content)
+                if parsed_todo:
+                    last_todo_list = parsed_todo
+
+            action_json = self._extract_json_from_content(model_response_text)
+            observation = ""
+
+            if not action_json:
+                observation = "Observation: Your last response did not contain a valid JSON action. Please reflect on the task instructions and provide your response in the correct 'Thought' and 'Action' format."
+            elif "final_answer" in action_json:
+                final_answer = action_json["final_answer"]
+                logger.info(f"✅ Task complete! Final Answer: {final_answer}")
+                self._update_chat_with_history(api_messages)
+                history = self._summarize_history(api_messages) if summarize_history else api_messages
+                return {
+                    "solution": final_answer,
+                    "conversation_history": history,
+                    "todo_list": last_todo_list,
+                }
+            elif "tool" in action_json:
+                tool_execution_response, _ = self._get_model_completion(
+                    chat_id=self.base_client.chat_id,
+                    messages=api_messages,
+                    rag_payload=api_rag_payload,
+                    model_id=model_id,
+                    tool_ids=tool_ids,
+                )
+                observation = f"Observation: {tool_execution_response or 'Tool execution returned no output.'}"
+            else:
+                observation = "Observation: Your action JSON is missing either a 'tool' or 'final_answer' key. Please correct your action."
+
+            api_messages.append({"role": "user", "content": observation})
+
         logger.warning("Reached maximum iterations without a final answer.")
+        self._update_chat_with_history(api_messages)
+        history = self._summarize_history(api_messages) if summarize_history else api_messages
         return {
             "solution": "Max iterations reached.",
-            "conversation_history": conversation_history,
+            "conversation_history": history,
+            "todo_list": last_todo_list,
         }
-
-    def _process_task_step(
-        self,
-        question: str,
-        model_id: str,
-        tool_server_ids: List[str],
-        knowledge_base_name: Optional[str],
-        conversation_history: List[Dict[str, Any]],
-        chat_title: str,
-    ) -> Optional[str]:
-        """
-        Performs a single step of the task processing.
-        """
-        logger.info("  - 🧠 Planning: Asking for the next action...")
-
-        history_summary = "\n".join(f"{msg['role']}: {msg['content']}" for msg in conversation_history)
-
-        planning_prompt = (
-            f"You are a task processing agent. Your goal is to complete the following task: '{question}'.\n\n"
-            f"This is the conversation history so far:\n{history_summary}\n\n"
-            f"Based on the history, take the next step. You can use the available tools. "
-            f"If you have the final answer, state it clearly and begin your response with 'Final Answer:'."
-        )
-
-        rag_collections = [knowledge_base_name] if knowledge_base_name else None
-
-        response_data = self.chat(
-            question=planning_prompt,
-            chat_title=chat_title,
-            model_id=model_id,
-            rag_collections=rag_collections,
-            tool_ids=tool_server_ids,
-        )
-
-        if not response_data or not response_data.get("response"):
-            logger.error("  - ❌ Step failed: Did not receive a response for planning.")
-            return None
-
-        return response_data["response"]
 
     def stream_process_task(
         self,
@@ -2968,12 +3025,14 @@ class ChatManager:
         tool_server_ids: Union[str, List[str]],
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
+        summarize_history: bool = False,
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """
-        Processes a task in a streaming fashion.
+        Processes a task in a streaming fashion, yielding structured events for observability.
         """
         logger.info("=" * 80)
-        logger.info(f"🚀 Starting to stream process task: '{question}' with max {max_iterations} iterations.")
+        logger.info(f"🚀 Starting ENHANCED stream processing for task: '{question}'")
+        logger.info(f"   Summarize history: {summarize_history}")
         logger.info("=" * 80)
 
         chat_title = f"Task Processing: {question[:50]}"
@@ -2981,92 +3040,183 @@ class ChatManager:
 
         if not self.base_client.chat_id:
             logger.error("Failed to create or find a chat for task processing.")
+            yield {"type": "error", "content": "Chat initialization failed."}
             return
 
-        conversation_history = []
+        api_messages = []
+        last_todo_list = []
+        system_prompt = self._get_task_processing_prompt()
+        api_messages.append({"role": "system", "content": system_prompt})
+        api_messages.append({"role": "user", "content": f"Here is the task: {question}"})
+
         tool_ids = [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+        rag_collections = [knowledge_base_name] if knowledge_base_name else []
+        api_rag_payload, _ = self._handle_rag_references(None, rag_collections)
 
         for i in range(max_iterations):
-            logger.info(f"--- Stream Iteration {i + 1}/{max_iterations} ---")
-
-            yield {
-                "type": "iteration_start",
-                "iteration": i + 1,
-                "total_iterations": max_iterations
-            }
-
-            step_generator = self._stream_process_task_step(
-                question=question,
-                model_id=model_id,
-                tool_server_ids=tool_ids,
-                knowledge_base_name=knowledge_base_name,
-                conversation_history=conversation_history,
-                chat_title=chat_title,
-            )
-
-            full_content = ""
-            # Yield from the step generator and capture the full content
-            for chunk in step_generator:
-                yield {"type": "content", "content": chunk}
-                full_content += chunk
-
-            if not full_content:
-                logger.error("Task processing step failed. Halting the process.")
-                # Yield an error event before stopping
-                yield {"type": "error", "message": "Step failed to produce content."}
+            yield {"type": "iteration_start", "iteration": i + 1}
+            full_model_response = ""
+            try:
+                assistant_response_generator = self._stream_process_task_step(
+                    api_messages=api_messages,
+                    model_id=model_id,
+                    tool_ids=tool_ids,
+                    api_rag_payload=api_rag_payload,
+                )
+                for event in assistant_response_generator:
+                    if event["type"] == "thought":
+                        thought_content = event["content"]
+                        parsed_todo = self._parse_todo_list(thought_content)
+                        if parsed_todo:
+                            last_todo_list = parsed_todo
+                            yield {"type": "todo_list_update", "content": last_todo_list}
+                    yield event
+                    if event["type"] == "thought":
+                        full_model_response += f"Thought:\n{event['content']}\n\n"
+                    elif event["type"] == "action":
+                        full_model_response += f"Action:\n```json\n{json.dumps(event['content'], indent=2)}\n```"
+            except Exception as e:
+                logger.error(f"Error during stream processing step: {e}")
+                yield {"type": "error", "content": str(e)}
                 return
 
-            conversation_history.append({"role": "assistant", "content": full_content})
+            api_messages.append({"role": "assistant", "content": full_model_response})
+            action_json = self._extract_json_from_content(full_model_response)
+            observation = ""
 
-            if full_content.strip().startswith("Final Answer:"):
-                logger.info("✅ Task complete!")
-                final_result = {
-                    "solution": full_content,
-                    "conversation_history": conversation_history,
+            if not action_json:
+                observation = "Observation: Your last response did not contain a valid JSON action. Please reflect on the task instructions and provide your response in the correct 'Thought' and 'Action' format."
+            elif "final_answer" in action_json:
+                final_answer = action_json["final_answer"]
+                yield {"type": "final_answer", "content": final_answer}
+                self._update_chat_with_history(api_messages)
+                history = self._summarize_history(api_messages) if summarize_history else api_messages
+                return {
+                    "solution": final_answer,
+                    "conversation_history": history,
+                    "todo_list": last_todo_list,
                 }
-                yield {"type": "complete", "result": final_result}
-                return final_result
+            elif "tool" in action_json:
+                yield {"type": "tool_call", "content": action_json}
+                tool_execution_response, _ = self._get_model_completion(
+                    chat_id=self.base_client.chat_id,
+                    messages=api_messages,
+                    rag_payload=api_rag_payload,
+                    model_id=model_id,
+                    tool_ids=tool_ids,
+                )
+                observation = f"Observation: {tool_execution_response or 'Tool execution returned no output.'}"
+            else:
+                observation = "Observation: Your action JSON is missing either a 'tool' or 'final_answer' key. Please correct your action."
 
-        final_result = {
+            api_messages.append({"role": "user", "content": observation})
+            yield {"type": "observation", "content": observation}
+
+        yield {"type": "error", "content": "Max iterations reached."}
+        self._update_chat_with_history(api_messages)
+        history = self._summarize_history(api_messages) if summarize_history else api_messages
+        return {
             "solution": "Max iterations reached.",
-            "conversation_history": conversation_history,
+            "conversation_history": history,
+            "todo_list": last_todo_list,
         }
-        yield {"type": "complete", "result": final_result}
-        return final_result
 
     def _stream_process_task_step(
         self,
-        question: str,
+        api_messages: List[Dict[str, Any]],
         model_id: str,
-        tool_server_ids: List[str],
-        knowledge_base_name: Optional[str],
-        conversation_history: List[Dict[str, Any]],
-        chat_title: str,
-    ) -> Generator[str, None, str]:
+        tool_ids: List[str],
+        api_rag_payload: Optional[Dict[str, Any]],
+    ) -> Generator[Dict[str, Any], None, None]:
         """
-        Performs a single streaming step of the task processing, yielding content chunks.
-        Returns the full content of the step.
+        Streams a single step of the task, parsing 'Thought' and 'Action' sections
+        and yielding structured events.
         """
-        logger.info("  - 🧠 Streaming Planning: Asking for the next action...")
-        history_summary = "\n".join(f"{msg['role']}: {msg['content']}" for msg in conversation_history)
-        planning_prompt = (
-            f"You are a task processing agent. Your goal is to complete the following task: '{question}'.\n\n"
-            f"This is the conversation history so far:\n{history_summary}\n\n"
-            f"Based on the history, take the next step. You can use the available tools. "
-            f"If you have the final answer, state it clearly and begin your response with 'Final Answer:'."
-        )
-        rag_collections = [knowledge_base_name] if knowledge_base_name else None
+        logger.info("  - 🧠 Streaming assistant's turn...")
 
-        # stream_chat is a generator that we need to yield from
-        full_content = yield from self.stream_chat(
-            question=planning_prompt,
-            chat_title=chat_title,
+        # Use parent client's _get_model_completion_stream if available for mocking
+        parent_client = getattr(self.base_client, '_parent_client', None)
+        stream_method = None
+        if parent_client and hasattr(parent_client, '_get_model_completion_stream'):
+             stream_method = parent_client._get_model_completion_stream
+        elif hasattr(self.base_client, '_get_model_completion_stream'):
+            stream_method = self.base_client._get_model_completion_stream
+
+        if not stream_method:
+            logger.error("Could not find _get_model_completion_stream method.")
+            return
+
+        content_stream = stream_method(
+            chat_id=self.base_client.chat_id,
+            messages=api_messages,
+            api_rag_payload=api_rag_payload,
             model_id=model_id,
-            rag_collections=rag_collections,
-            tool_ids=tool_server_ids,
+            tool_ids=tool_ids,
         )
-        return full_content
 
+        buffer = ""
+        parsing_state = "thought"  # Start by looking for thought
+
+        try:
+            for chunk in content_stream:
+                buffer += chunk
+
+                if parsing_state == "thought":
+                    thought_match = re.search(r"Thought:(.*?)(?=Action:)", buffer, re.DOTALL)
+                    if thought_match:
+                        thought_content = thought_match.group(1).strip()
+                        yield {"type": "thought", "content": thought_content}
+
+                        # Try to parse todo list from the thought
+                        todo_list = self._parse_todo_list(thought_content)
+                        if todo_list:
+                            yield {"type": "todo_list_update", "content": todo_list}
+
+                        buffer = buffer[thought_match.end():]
+                        parsing_state = "action"
+
+                if parsing_state == "action":
+                    action_match = re.search(r"Action:\s*```json\n(.*?)\n```", buffer, re.DOTALL)
+                    if action_match:
+                        action_str = action_match.group(1).strip()
+                        try:
+                            action_json = json.loads(action_str)
+                            yield {"type": "action", "content": action_json}
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse action JSON: {action_str}")
+                        # We are done with this step's stream
+                        return
+
+            # If the stream ends, process any remaining buffer content
+            if parsing_state == "thought" and buffer.strip():
+                # Handle case where only a thought is present at the end
+                thought_content = buffer.replace("Thought:", "").strip()
+                yield {"type": "thought", "content": thought_content}
+
+        except StopIteration:
+            # Handle the end of the generator from _get_model_completion_stream
+            pass
+        except Exception as e:
+            logger.error(f"Error while processing stream step: {e}")
+            yield {"type": "error", "content": str(e)}
+
+    def _parse_todo_list(self, thought_content: str) -> Optional[List[Dict[str, str]]]:
+        """
+        Parses a markdown todo list from the thought content.
+        """
+        todo_match = re.search(r"Todo List:\s*\n(.*?)(?=\n\n|\Z)", thought_content, re.DOTALL)
+        if not todo_match:
+            return None
+
+        todo_list_str = todo_match.group(1)
+        items = re.findall(r"-\s*\[(x|@| )\]\s*(.*)", todo_list_str)
+
+        parsed_list = []
+        for status_char, task in items:
+            status = "completed" if status_char == 'x' else "in_progress" if status_char == '@' else "pending"
+            parsed_list.append({"task": task.strip(), "status": status})
+
+        return parsed_list if parsed_list else None
 
     def _perform_research_step(
         self,
@@ -3179,3 +3329,91 @@ class ChatManager:
         logger.info(f"  - ✅ Answer received: {len(answer)} characters.")
 
         return next_question, answer, execution_model
+
+    def _summarize_history(self, api_messages: List[Dict[str, Any]]) -> Union[str, List[Dict[str, Any]]]:
+        """
+        Summarizes the conversation history using a model if it's long,
+        otherwise returns the original history.
+        """
+        if len(api_messages) < 3:  # No need to summarize very short histories
+            return api_messages
+
+        try:
+            summarization_prompt = (
+                "Please summarize the following conversation history, "
+                "focusing on the key decisions, actions, and observations. "
+                "Provide a concise overview of the task-solving process."
+            )
+
+            # Create a temporary list of messages for the summarization task
+            summarization_messages = [{"role": "system", "content": summarization_prompt}]
+            summarization_messages.extend(api_messages)
+
+            # Use a suitable model for the summarization task
+            task_model = self.base_client._get_task_model()
+            if not task_model:
+                logger.warning("Could not find a suitable model for summarization. Returning full history.")
+                return api_messages
+
+            summary, _ = self._get_model_completion(
+                chat_id=self.base_client.chat_id,  # Use the same chat context
+                messages=summarization_messages,
+                rag_payload={},
+                model_id=task_model,
+                tool_ids=[],
+            )
+
+            return summary if summary else api_messages
+        except Exception as e:
+            logger.error(f"Failed to summarize history: {e}")
+            return api_messages  # Fallback to returning the full history
+
+    def _get_task_processing_prompt(self) -> str:
+        """
+        Generates a system prompt to guide the model in a structured task-solving process.
+        This prompt enforces the 'Thought -> Action -> Observation' cycle with a to-do list.
+        """
+        return """You are a highly intelligent agent designed to solve tasks by creating and managing a todo list. You must operate in a loop of Thought, Action, Observation.
+
+**1. Todo List Management:**
+- On your first turn, you MUST create a todo list based on the user's request.
+- In every subsequent "Thought" process, you MUST include the updated todo list.
+- Use markdown for the list items. Mark completed tasks with `[x]`, current tasks with `[@]`, and pending tasks with `[ ]`.
+
+**2. Thought Process:**
+- Analyze the task, review the history, and consult your todo list to decide on the next action.
+- Your thoughts should be detailed and clearly articulated, including the updated todo list.
+
+**3. Action:**
+- Your action must be one of two types, provided as a JSON object:
+    1.  **Call a tool**: `{"tool": "tool_name", "args": {...}}`
+    2.  **Provide a Final Answer**: `{"final_answer": "your final answer"}`
+
+**Response Format:**
+
+Thought:
+My plan is to first do X, then Y.
+**Todo List:**
+- [x] Step 1: Finished task.
+- [@] Step 2: Currently working on this.
+- [ ] Step 3: Next task.
+
+I will now perform the action for Step 2.
+
+Action:
+```json
+{
+  "tool": "tool_name",
+  "args": {
+    "arg1": "value1"
+  }
+}
+```
+
+After your action, the system will provide an **Observation**. Continue this loop until all tasks on your todo list are complete and you can provide a final answer.
+
+**Important**:
+- You MUST include the updated **Todo List** in every "Thought" section.
+- You MUST output the "Action" part as a valid JSON object enclosed in triple backticks.
+- Do not add any text after the JSON object.
+"""

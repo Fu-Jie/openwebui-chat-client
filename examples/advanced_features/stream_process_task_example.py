@@ -84,56 +84,60 @@ if __name__ == "__main__":
         print("="*80)
         print(f"Task: {task_question}\n")
         
-        # 2. Call the stream_process_task method
-        result = None
-        current_iteration = 0
+        # 2. Call the stream_process_task method with history summarization
+        final_result = None
         
-        for chunk in client.stream_process_task(
+        # This generator yields real-time events and returns the final result
+        stream_generator = client.stream_process_task(
             question=task_question,
             model_id=selected_model,
             tool_server_ids=tool_id,
-            max_iterations=max_iterations
-        ):
-            # Handle different chunk types
-            chunk_type = chunk.get("type")
-            
-            if chunk_type == "iteration_start":
-                current_iteration = chunk.get("iteration", 0)
-                total = chunk.get("total_iterations", max_iterations)
-                print(f"\n--- Iteration {current_iteration}/{total} ---")
+            max_iterations=max_iterations,
+            summarize_history=True  # New: Enable history summarization
+        )
+
+        try:
+            while True:
+                chunk = next(stream_generator)
                 
-            elif chunk_type == "content":
-                # Stream content as it arrives
-                content = chunk.get("content", "")
-                print(content, end="", flush=True)
-                
-            elif chunk_type == "iteration_complete":
-                iteration_num = chunk.get("iteration", 0)
-                is_final = chunk.get("is_final", False)
-                if is_final:
-                    print("\n\n✅ Final answer reached!")
-                else:
-                    print(f"\n[Iteration {iteration_num} complete]")
-                    
-            elif chunk_type == "complete":
-                result = chunk.get("result")
-                print("\n\n" + "="*80)
-                print("Task Processing Complete!")
-                print("="*80)
-                
-            elif chunk_type == "error":
-                error_msg = chunk.get("message", "Unknown error")
-                print(f"\n❌ Error: {error_msg}")
+                # Handle different event types from the stream
+                chunk_type = chunk.get("type")
+                content = chunk.get("content")
+
+                if chunk_type == "iteration_start":
+                    print(f"\n--- Iteration {chunk.get('iteration')} ---")
+                elif chunk_type == "thought":
+                    print(f"🤔 Thought: {content}")
+                elif chunk_type == "todo_list_update":
+                    print("\n📋 To-Do List Updated:")
+                    for item in content:
+                        status_icon = "✅" if item['status'] == 'completed' else "⏳" if item['status'] == 'in_progress' else "📋"
+                        print(f"   {status_icon} {item['task']}")
+                elif chunk_type == "tool_call":
+                    print(f"   🛠️  Calling Tool: {content.get('tool')} with args: {content.get('args')}")
+                elif chunk_type == "observation":
+                    print(f"   👀 Observation: {content}")
+                elif chunk_type == "final_answer":
+                    print(f"\n✅ Final Answer: {content}")
+                elif chunk_type == "error":
+                    print(f"\n❌ Error: {content}")
+
+        except StopIteration as e:
+            # The generator is exhausted, and the return value is in e.value
+            final_result = e.value
+            print("\n\n" + "="*80)
+            print("Task Processing Complete!")
+            print("="*80)
 
         # Display final result
-        if result:
+        if final_result:
             print(f"\n--- Final Solution ---")
-            solution = result.get('solution', 'No solution found.')
+            solution = final_result.get('solution', 'No solution found.')
             print(solution)
             
-            print(f"\n--- Statistics ---")
-            print(f"Total Iterations: {result.get('total_iterations', 0)}")
-            print(f"Conversation Turns: {len(result.get('conversation_history', []))}")
+            print(f"\n--- Summarized History ---")
+            summary = final_result.get('conversation_history', 'No summary available.')
+            print(summary)
             
             print("\n" + "="*80)
             print(f"👉 You can view the full task processing conversation in OpenWebUI")
