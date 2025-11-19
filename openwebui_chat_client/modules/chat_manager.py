@@ -3029,6 +3029,45 @@ class ChatManager:
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """
         Processes a task in a streaming fashion, yielding structured events for observability.
+
+        Yields structured event dictionaries of the following types:
+
+        Event types:
+
+        - iteration_start:
+            {"type": "iteration_start", "iteration": int}
+            Emitted at the start of each reasoning iteration.
+
+        - thought:
+            {"type": "thought", "content": str, "iteration": int}
+            Emitted when the model produces a new thought or reasoning step.
+
+        - action:
+            {"type": "action", "content": str, "iteration": int}
+            Emitted when the model decides on an action to take.
+
+        - todo_list_update:
+            {"type": "todo_list_update", "todo_list": List[str], "iteration": int}
+            Emitted when the model updates its internal todo list.
+
+        - tool_call:
+            {"type": "tool_call", "tool_name": str, "tool_input": Any, "iteration": int}
+            Emitted when the model calls an external tool.
+
+        - observation:
+            {"type": "observation", "content": str, "iteration": int}
+            Emitted when the model receives an observation/result from a tool call.
+
+        - final_answer:
+            {"type": "final_answer", "content": str, "iteration": int}
+            Emitted when the model produces the final answer to the task.
+
+        - error:
+            {"type": "error", "content": str}
+            Emitted if an error occurs during processing.
+
+        Yields:
+            Dict[str, Any]: Structured event as described above.
         """
         logger.info("=" * 80)
         logger.info(f"🚀 Starting ENHANCED stream processing for task: '{question}'")
@@ -3144,6 +3183,7 @@ class ChatManager:
 
         if not stream_method:
             logger.error("Could not find _get_model_completion_stream method.")
+            yield {"type": "error", "content": "Could not find _get_model_completion_stream method."}
             return
 
         content_stream = stream_method(
@@ -3204,7 +3244,8 @@ class ChatManager:
         """
         Parses a markdown todo list from the thought content.
         """
-        todo_match = re.search(r"Todo List:\s*\n(.*?)(?=\n\n|\Z)", thought_content, re.DOTALL)
+        # Improved regex: match all consecutive todo item lines after "Todo List:"
+        todo_match = re.search(r"Todo List:\s*\n((?:-\s*\[.*?\].*(?:\n|$))*)", thought_content)
         if not todo_match:
             return None
 
