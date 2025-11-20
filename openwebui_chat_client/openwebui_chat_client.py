@@ -428,6 +428,7 @@ class OpenWebUIClient:
         tool_server_ids: Union[str, List[str]],
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
+        summarize_history: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """
         Processes a task using an AI model and a tool server in a multi-step process.
@@ -438,9 +439,14 @@ class OpenWebUIClient:
             tool_server_ids: The ID(s) of the tool server(s) to use.
             knowledge_base_name: The name of the knowledge base to use.
             max_iterations: The maximum number of iterations to attempt.
+            summarize_history: If True, the conversation history will be summarized.
 
         Returns:
-            A dictionary containing the final solution and conversation history, or None if it fails.
+            A dictionary containing:
+                - solution: The final answer or error message
+                - conversation_history: Either the full message list or a summarized string (if summarize_history=True)
+                - todo_list: The last parsed to-do list from the agent's thought process
+            Returns None if initialization fails.
         """
         return self._chat_manager.process_task(
             question=question,
@@ -448,6 +454,7 @@ class OpenWebUIClient:
             tool_server_ids=tool_server_ids,
             knowledge_base_name=knowledge_base_name,
             max_iterations=max_iterations,
+            summarize_history=summarize_history,
         )
 
     def stream_process_task(
@@ -457,6 +464,7 @@ class OpenWebUIClient:
         tool_server_ids: Union[str, List[str]],
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
+        summarize_history: bool = False,
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """
         Processes a task in a streaming fashion, yielding results for each step.
@@ -467,6 +475,7 @@ class OpenWebUIClient:
             tool_server_ids=tool_server_ids,
             knowledge_base_name=knowledge_base_name,
             max_iterations=max_iterations,
+            summarize_history=summarize_history,
         )
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):
