@@ -918,7 +918,29 @@ git push origin main
 - 知识库状态监控
 - 错误重试机制
 
-### 3. 模型管理
+### 4. 用户管理
+
+#### 功能范围
+- **用户查询**: 分页列出用户，获取单个用户详情
+- **角色管理**: 修改用户角色（Admin/User）
+- **用户删除**: 删除用户账号
+
+#### 设计要点
+- **权限检查**: 这些操作通常需要 Admin 权限 token
+- **安全性**: 不处理密码等敏感信息（除非 API 要求）
+
+### 5. 异步客户端支持
+
+#### 设计目标
+- **高并发**: 支持 Python 异步应用（FastAPI, etc.）
+- **非阻塞**: 所有 I/O 操作必须 awaitable
+
+#### 实现架构
+- **`AsyncOpenWebUIClient`**: 异步客户端主类
+- **`AsyncBaseClient`**: 基于 `httpx.AsyncClient` 的核心网络层
+- **异步管理器**: 所有同步管理器（ChatManager 等）都有对应的 Async 版本
+
+### 6. 模型管理
 
 #### 功能覆盖
 - **列表操作**: `list_models()`, `get_model()`, `create_model()`, `update_model()`, `delete_model()`

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Async Client**: Introduced `AsyncOpenWebUIClient` using `httpx` for high-performance asynchronous applications.
+- **User Management**: Added `UserManager` and `AsyncUserManager` for programmatic user administration (list, get details, update role, delete).
+
 ## [0.1.22] - 2025-11-18
 
 ### Added

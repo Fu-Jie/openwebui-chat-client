@@ -26,6 +26,7 @@ from .modules.knowledge_base_manager import KnowledgeBaseManager
 from .modules.file_manager import FileManager
 from .modules.chat_manager import ChatManager
 from .modules.prompts_manager import PromptsManager
+from .modules.user_manager import UserManager
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class OpenWebUIClient:
         self._file_manager = FileManager(self._base_client)
         self._chat_manager = ChatManager(self._base_client)
         self._prompts_manager = PromptsManager(self._base_client)
+        self._user_manager = UserManager(self._base_client)
         
         # Set up available model IDs from model manager
         self._base_client.available_model_ids = self._model_manager.available_model_ids
@@ -1035,6 +1037,26 @@ class OpenWebUIClient:
     ) -> Dict[str, Any]:
         """Delete multiple prompts by their commands."""
         return self._prompts_manager.batch_delete_prompts(commands, continue_on_error)
+
+    # =============================================================================
+    # USER MANAGEMENT - Delegate to UserManager
+    # =============================================================================
+
+    def get_users(self, skip: int = 0, limit: int = 50) -> Optional[List[Dict[str, Any]]]:
+        """Get a list of all users."""
+        return self._user_manager.get_users(skip, limit)
+
+    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific user by their ID."""
+        return self._user_manager.get_user_by_id(user_id)
+
+    def update_user_role(self, user_id: str, role: str) -> bool:
+        """Update a user's role (admin/user)."""
+        return self._user_manager.update_user_role(user_id, role)
+
+    def delete_user(self, user_id: str) -> bool:
+        """Delete a user."""
+        return self._user_manager.delete_user(user_id)
 
     # =============================================================================
     # FILE OPERATIONS - Delegate to FileManager

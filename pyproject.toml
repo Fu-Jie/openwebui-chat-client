@@ -29,7 +29,8 @@ classifiers = [
 ]
 dependencies = [
     "requests",
-    "python-dotenv"
+    "python-dotenv",
+    "httpx"
 ]
 
 [project.optional-dependencies]

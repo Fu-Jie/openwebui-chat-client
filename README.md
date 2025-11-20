@@ -49,6 +49,35 @@ if result:
     print(f"Chat ID: {result['chat_id']}")
 ```
 
+### ⚡ Async Client
+
+For asynchronous applications (e.g., FastAPI, Sanic), use the `AsyncOpenWebUIClient`:
+
+```python
+import asyncio
+from openwebui_chat_client import AsyncOpenWebUIClient
+
+async def main():
+    client = AsyncOpenWebUIClient(
+        base_url="http://localhost:3000",
+        token="your-bearer-token",
+        default_model_id="gpt-4.1"
+    )
+
+    result = await client.chat(
+        question="Hello from async!",
+        chat_title="Async Chat"
+    )
+
+    if result:
+        print(f"Response: {result['response']}")
+
+    await client.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ---
 
 ## ✨ Features
@@ -66,8 +95,10 @@ if result:
 - **Notes Management**: Create, retrieve, update, and delete notes with structured data and metadata.
 - **Prompts Management**: Create, manage, and use custom prompts with variable substitution and interactive forms.
 - **Model Management**: List, create, update, and delete custom model entries, with enhanced auto-creation/retry for `get_model`.
+- **User Management**: Manage users, update roles, and delete users programmatically.
 - **Chat Organization**: Rename chats, use folders, tags, and search functionality.
 - **Concurrent Processing**: Parallel model querying for fast multi-model responses.
+- **Async Support**: Full async client support for high-performance applications.
 
 ---
 
@@ -277,11 +308,28 @@ for chat in results['failed_chats']:
 - **Time filter**: Only archives chats not updated for the specified number of days
 - **Parallel processing**: Uses concurrent processing for efficient bulk operations
 
-### 6. Using Prompts with Variable Substitution
+### 6. User Management
+
+Manage users on your Open WebUI instance (requires admin privileges).
+
+```python
+# List users
+users = client.get_users(limit=10)
+if users:
+    for user in users:
+        print(f"User: {user['name']} ({user['role']})")
+
+# Update user role
+success = client.update_user_role("user-id-123", "admin")
+if success:
+    print("User role updated to admin")
+```
+
+### 7. Using Prompts with Variable Substitution
 
 Create and use interactive prompts with dynamic variable substitution for reusable AI interactions.
 
-### 7. Deep Research Agent
+### 8. Deep Research Agent
 
 Initiate an autonomous research agent to perform a multi-step investigation on a topic. The agent will plan and execute research steps, with the entire process visible as a multi-turn chat in the UI, culminating in a final summary report.
 
@@ -411,6 +459,15 @@ print(f"Summary: {result['response']}")
 | `update_model()` | Update an existing model entry with granular changes | `model_id, access_control, **kwargs` |
 | `delete_model()` | Delete a model entry from the server | `model_id` |
 | `batch_update_model_permissions()` | Batch update access control permissions for multiple models | `model_identifiers, model_keyword, permission_type, group_identifiers, user_ids, max_workers` |
+
+### 👥 User Management
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `get_users()` | List all users with pagination | `skip, limit` |
+| `get_user_by_id()` | Get details of a specific user | `user_id` |
+| `update_user_role()` | Update a user's role (admin/user) | `user_id, role` |
+| `delete_user()` | Delete a user | `user_id` |
 
 ### 📚 Knowledge Base Operations
 
