@@ -3,7 +3,10 @@ Async OpenWebUI Client - Async version of the client.
 """
 
 import logging
-from typing import Optional, List, Dict, Any, AsyncGenerator
+from typing import Optional, AsyncGenerator, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 from .core.async_base_client import AsyncBaseClient
 from .modules.async_chat_manager import AsyncChatManager
@@ -48,7 +51,7 @@ class AsyncOpenWebUIClient:
     async def chat(self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs):
         return await self._chat_manager.chat(question, chat_title, model_id, **kwargs)
 
-    async def stream_chat(self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs):
+    async def stream_chat(self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
         async for item in self._chat_manager.stream_chat(question, chat_title, model_id, **kwargs):
             yield item
 

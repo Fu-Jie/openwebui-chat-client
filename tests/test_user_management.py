@@ -4,9 +4,8 @@ Tests the UserManager class and related functionality.
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import requests
-import json
 
 # Import the classes to test
 from openwebui_chat_client import OpenWebUIClient

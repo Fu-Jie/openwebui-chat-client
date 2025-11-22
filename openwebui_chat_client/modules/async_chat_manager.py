@@ -4,10 +4,10 @@ Async Chat management module for OpenWebUI Chat Client.
 
 import logging
 import json
+from typing import Optional, List, Dict, Any, AsyncGenerator, TYPE_CHECKING
 
-import time
-import asyncio
-from typing import Optional, List, Dict, Any, AsyncGenerator, Tuple, Union
+if TYPE_CHECKING:
+    from ..core.async_base_client import AsyncBaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class AsyncChatManager:
     Handles async chat operations.
     """
 
-    def __init__(self, base_client):
+    def __init__(self, base_client: "AsyncBaseClient") -> None:
         self.base_client = base_client
 
     async def list_chats(self, page: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
@@ -30,11 +30,25 @@ class AsyncChatManager:
         question: str,
         chat_title: str,
         model_id: Optional[str] = None,
-        # ... other params ...
         image_paths: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
+        **kwargs: Any
     ) -> Optional[Dict[str, Any]]:
-        """Send a chat message."""
+        """
+        Send a chat message asynchronously.
+        
+        Args:
+            question: The question or prompt to send
+            chat_title: Title of the chat session
+            model_id: Model identifier to use (optional, uses default if not provided)
+            image_paths: List of image file paths for multimodal input (optional)
+            tool_ids: List of tool IDs to enable for this chat (optional)
+            **kwargs: Additional keyword arguments reserved for future extensions
+                (e.g., folder_name, tags, rag_files, rag_collections, etc.)
+        
+        Returns:
+            Dictionary containing the response and metadata, or None if failed
+        """
         self.base_client.model_id = model_id or self.base_client.default_model_id
 
         # Find or create chat
@@ -51,9 +65,25 @@ class AsyncChatManager:
         question: str,
         chat_title: str,
         model_id: Optional[str] = None,
-        # ...
+        image_paths: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        **kwargs: Any
     ) -> AsyncGenerator[str, None]:
-        """Stream chat response."""
+        """
+        Stream chat response asynchronously with real-time updates.
+        
+        Args:
+            question: The question or prompt to send
+            chat_title: Title of the chat session
+            model_id: Model identifier to use (optional, uses default if not provided)
+            image_paths: List of image file paths for multimodal input (optional)
+            tool_ids: List of tool IDs to enable for this chat (optional)
+            **kwargs: Additional keyword arguments reserved for future extensions
+                (e.g., folder_name, tags, rag_files, rag_collections, etc.)
+        
+        Yields:
+            String chunks of the response as they are generated
+        """
         self.base_client.model_id = model_id or self.base_client.default_model_id
 
         await self._find_or_create_chat_by_title(chat_title)
@@ -64,7 +94,7 @@ class AsyncChatManager:
         async for chunk in self._ask_stream(question):
             yield chunk
 
-    async def _find_or_create_chat_by_title(self, title: str):
+    async def _find_or_create_chat_by_title(self, title: str) -> None:
         """Find or create chat."""
         # Search
         response = await self.base_client._make_request(
@@ -87,7 +117,7 @@ class AsyncChatManager:
         else:
             await self._create_new_chat(title)
 
-    async def _create_new_chat(self, title: str):
+    async def _create_new_chat(self, title: str) -> None:
         response = await self.base_client._make_request(
             "POST",
             "/api/v1/chats/new",
@@ -185,8 +215,10 @@ class AsyncChatManager:
                                 delta = data["choices"][0].get("delta", {})
                                 if "content" in delta:
                                     yield delta["content"]
-                        except:
-                            pass
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Failed to decode JSON from stream: {e}. Data: {data_str}")
+                        except Exception as e:
+                            logger.error(f"Unexpected error while processing stream data: {e}", exc_info=True)
 
     def _build_linear_history_for_api(self, chat_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         # Same as sync version

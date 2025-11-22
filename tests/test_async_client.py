@@ -3,8 +3,7 @@ Unit tests for AsyncOpenWebUIClient and async managers.
 """
 
 import unittest
-from unittest.mock import Mock, patch, AsyncMock
-import json
+from unittest.mock import Mock, AsyncMock, patch
 import httpx
 from openwebui_chat_client import AsyncOpenWebUIClient
 
