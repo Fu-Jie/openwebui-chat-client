@@ -16,7 +16,7 @@ class AsyncModelManager:
     Handles async model-related operations for the OpenWebUI client.
     """
 
-    def __init__(self, base_client, skip_initial_refresh: bool = False):
+    def __init__(self, base_client):
         self.base_client = base_client
         self.available_model_ids: List[str] = []
         # Note: Async initialization patterns usually require a factory method or separate init call

@@ -49,7 +49,8 @@ class AsyncOpenWebUIClient:
         return await self._chat_manager.chat(question, chat_title, model_id, **kwargs)
 
     async def stream_chat(self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs):
-        return self._chat_manager.stream_chat(question, chat_title, model_id, **kwargs)
+        async for item in self._chat_manager.stream_chat(question, chat_title, model_id, **kwargs):
+            yield item
 
     async def list_chats(self, page: Optional[int] = None):
         return await self._chat_manager.list_chats(page)

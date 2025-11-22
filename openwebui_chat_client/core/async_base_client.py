@@ -7,7 +7,7 @@ import httpx
 import json
 import logging
 import os
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 

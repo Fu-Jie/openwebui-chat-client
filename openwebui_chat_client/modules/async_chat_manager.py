@@ -4,7 +4,7 @@ Async Chat management module for OpenWebUI Chat Client.
 
 import logging
 import json
-import uuid
+
 import time
 import asyncio
 from typing import Optional, List, Dict, Any, AsyncGenerator, Tuple, Union

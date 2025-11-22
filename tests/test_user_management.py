@@ -176,13 +176,13 @@ class TestOpenWebUIClientUserIntegration(unittest.TestCase):
     def test_get_users_delegation(self):
         """Test get_users method delegation."""
         with patch.object(self.client._user_manager, 'get_users', return_value=[]) as mock_method:
-            result = self.client.get_users(skip=10, limit=20)
+            self.client.get_users(skip=10, limit=20)
             mock_method.assert_called_once_with(10, 20)
 
     def test_update_user_role_delegation(self):
         """Test update_user_role method delegation."""
         with patch.object(self.client._user_manager, 'update_user_role', return_value=True) as mock_method:
-            result = self.client.update_user_role("user1", "admin")
+            self.client.update_user_role("user1", "admin")
             mock_method.assert_called_once_with("user1", "admin")
 
 
