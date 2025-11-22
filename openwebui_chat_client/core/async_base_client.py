@@ -22,7 +22,7 @@ class AsyncBaseClient:
     - Common utility methods
     """
 
-    def __init__(self, base_url: str, token: str, default_model_id: str, timeout: float = 60.0):
+    def __init__(self, base_url: str, token: str, default_model_id: str, timeout: float = 60.0, **kwargs):
         """
         Initialize the async base client.
 
@@ -31,6 +31,7 @@ class AsyncBaseClient:
             token: Authentication token
             default_model_id: Default model identifier
             timeout: Request timeout in seconds
+            **kwargs: Additional arguments to pass to httpx.AsyncClient (e.g., verify, proxies, limits)
         """
         self.base_url = base_url
         self.default_model_id = default_model_id
@@ -38,16 +39,32 @@ class AsyncBaseClient:
         self.token = token
         self.timeout = timeout
 
-        # Session setup with retry logic
-        # httpx.AsyncClient with simple transport retry
-        transport = httpx.AsyncHTTPTransport(retries=3)
-        self.client = httpx.AsyncClient(
-            base_url=base_url.rstrip('/'),
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=timeout,
-            transport=transport,
-            follow_redirects=True
-        )
+        # Prepare client kwargs
+        client_kwargs = {
+            "base_url": base_url.rstrip('/'),
+            "headers": {"Authorization": f"Bearer {token}"},
+            "timeout": timeout,
+            "follow_redirects": True,
+        }
+
+        # Set default transport if not provided in kwargs
+        if "transport" not in kwargs:
+            client_kwargs["transport"] = httpx.AsyncHTTPTransport(retries=3)
+
+        # Handle headers merging
+        if "headers" in kwargs:
+            user_headers = kwargs.pop("headers")
+            if user_headers:
+                client_kwargs["headers"].update(user_headers)
+
+        # Ensure Authorization header is present
+        if "Authorization" not in client_kwargs["headers"]:
+             client_kwargs["headers"]["Authorization"] = f"Bearer {token}"
+
+        # Update with any remaining kwargs (overriding defaults if provided)
+        client_kwargs.update(kwargs)
+
+        self.client = httpx.AsyncClient(**client_kwargs)
 
         # JSON headers for POST requests
         self.json_headers = {

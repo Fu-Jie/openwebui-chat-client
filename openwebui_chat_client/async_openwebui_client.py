@@ -22,8 +22,8 @@ class AsyncOpenWebUIClient:
     Asynchronous Python client for the Open WebUI API.
     """
 
-    def __init__(self, base_url: str, token: str, default_model_id: str, timeout: float = 60.0):
-        self._base_client = AsyncBaseClient(base_url, token, default_model_id, timeout)
+    def __init__(self, base_url: str, token: str, default_model_id: str, timeout: float = 60.0, **kwargs):
+        self._base_client = AsyncBaseClient(base_url, token, default_model_id, timeout, **kwargs)
         self._base_client._parent_client = self
 
         self._chat_manager = AsyncChatManager(self._base_client)

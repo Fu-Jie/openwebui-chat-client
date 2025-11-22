@@ -81,12 +81,6 @@ class TestAsyncOpenWebUIClient(unittest.IsolatedAsyncioTestCase):
         }
 
         # Sequence of calls: search, create, load, completion
-        # We need to set side_effect for different methods/urls but AsyncMock handles side_effect on call
-
-        # Since we are mocking the client.request methods which are called by _make_request
-        # It's easier to mock _make_request or the httpx methods based on call args
-        # But side_effect with list of return values is simpler if call order is deterministic
-
         self.mock_httpx_client.get.side_effect = [
             search_response, # search
             details_response, # load details
@@ -101,6 +95,36 @@ class TestAsyncOpenWebUIClient(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(response)
         self.assertEqual(response["response"], "Hello user!")
+
+class TestAsyncClientInitialization(unittest.TestCase):
+    def test_kwargs_passing(self):
+        """Test that kwargs are passed to httpx.AsyncClient."""
+        base_url = "http://localhost:3000"
+        token = "test_token"
+        default_model = "test-model"
+
+        with patch('httpx.AsyncClient') as mock_client_cls:
+            # Test 1: Custom verify parameter
+            client = AsyncOpenWebUIClient(base_url, token, default_model, verify=False, custom_param="value")
+            call_kwargs = mock_client_cls.call_args[1]
+            self.assertIn("verify", call_kwargs)
+            self.assertEqual(call_kwargs["verify"], False)
+            self.assertIn("custom_param", call_kwargs)
+            self.assertEqual(call_kwargs["custom_param"], "value")
+
+            # Test 2: Headers merging
+            client = AsyncOpenWebUIClient(base_url, token, default_model, headers={"X-Custom": "TestHeader"})
+            call_kwargs = mock_client_cls.call_args[1]
+            headers = call_kwargs["headers"]
+            self.assertIn("X-Custom", headers)
+            self.assertEqual(headers["X-Custom"], "TestHeader")
+            self.assertIn("Authorization", headers) # Auth should persist
+
+            # Test 3: Transport override
+            custom_transport = Mock()
+            client = AsyncOpenWebUIClient(base_url, token, default_model, transport=custom_transport)
+            call_kwargs = mock_client_cls.call_args[1]
+            self.assertEqual(call_kwargs["transport"], custom_transport)
 
 if __name__ == '__main__':
     unittest.main()
