@@ -34,7 +34,21 @@ class AsyncChatManager:
         tool_ids: Optional[List[str]] = None,
         **kwargs: Any
     ) -> Optional[Dict[str, Any]]:
-        """Send a chat message."""
+        """
+        Send a chat message asynchronously.
+        
+        Args:
+            question: The question or prompt to send
+            chat_title: Title of the chat session
+            model_id: Model identifier to use (optional, uses default if not provided)
+            image_paths: List of image file paths for multimodal input (optional)
+            tool_ids: List of tool IDs to enable for this chat (optional)
+            **kwargs: Additional keyword arguments reserved for future extensions
+                (e.g., folder_name, tags, rag_files, rag_collections, etc.)
+        
+        Returns:
+            Dictionary containing the response and metadata, or None if failed
+        """
         self.base_client.model_id = model_id or self.base_client.default_model_id
 
         # Find or create chat
@@ -55,7 +69,21 @@ class AsyncChatManager:
         tool_ids: Optional[List[str]] = None,
         **kwargs: Any
     ) -> AsyncGenerator[str, None]:
-        """Stream chat response."""
+        """
+        Stream chat response asynchronously with real-time updates.
+        
+        Args:
+            question: The question or prompt to send
+            chat_title: Title of the chat session
+            model_id: Model identifier to use (optional, uses default if not provided)
+            image_paths: List of image file paths for multimodal input (optional)
+            tool_ids: List of tool IDs to enable for this chat (optional)
+            **kwargs: Additional keyword arguments reserved for future extensions
+                (e.g., folder_name, tags, rag_files, rag_collections, etc.)
+        
+        Yields:
+            String chunks of the response as they are generated
+        """
         self.base_client.model_id = model_id or self.base_client.default_model_id
 
         await self._find_or_create_chat_by_title(chat_title)
