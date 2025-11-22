@@ -404,6 +404,165 @@ print(f"摘要: {result['response']}")
 | `delete_model()` | 从服务器删除模型条目 | `model_id` |
 | `batch_update_model_permissions()` | 批量更新多个模型的访问控制权限 | `model_identifiers, model_keyword, permission_type, group_identifiers, user_ids, max_workers` |
 
+### 👥 用户管理
+
+| 方法 | 说明 | 参数 |
+|--------|-------------|---------|
+| `get_users()` | 列出所有用户，支持分页 | `skip, limit` |
+| `get_user_by_id()` | 获取特定用户的详细信息 | `user_id` |
+| `update_user_role()` | 更新用户角色（admin/user） | `user_id, role` |
+| `delete_user()` | 删除用户 | `user_id` |
+
+### ⚡ 异步客户端
+
+`AsyncOpenWebUIClient` 为所有操作提供异步接口，适用于高性能异步应用（FastAPI、Sanic 等）。所有方法的签名与同步版本相同，但需要使用 `async`/`await` 前缀。
+
+**主要区别：**
+- 所有方法都是 `async` 的，必须使用 `await` 调用
+- 使用 `httpx.AsyncClient` 进行 HTTP 操作，而不是 `requests`
+- 支持异步上下文管理器（`async with`）
+- 流式方法返回 `AsyncGenerator` 对象
+
+**初始化：**
+
+```python
+from openwebui_chat_client import AsyncOpenWebUIClient
+
+# 基本初始化
+client = AsyncOpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+# 使用自定义 httpx 配置
+client = AsyncOpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1",
+    timeout=120.0,
+    verify=False,  # 禁用 SSL 验证
+    limits=httpx.Limits(max_connections=100)  # 自定义连接限制
+)
+
+# 使用上下文管理器（推荐）
+async with AsyncOpenWebUIClient(base_url, token, model_id) as client:
+    result = await client.chat("你好", "我的对话")
+    # client.close() 会自动调用
+```
+
+**可用的异步方法：**
+
+所有同步方法都有异步等效方法：
+
+| 异步方法 | 同步等效方法 | 返回值 |
+|-------------|----------------|---------|
+| `await client.chat(...)` | `client.chat(...)` | `Optional[Dict[str, Any]]` |
+| `async for chunk in client.stream_chat(...)` | `for chunk in client.stream_chat(...)` | `AsyncGenerator[str, None]` |
+| `await client.list_models()` | `client.list_models()` | `Optional[List[Dict[str, Any]]]` |
+| `await client.get_users(...)` | `client.get_users(...)` | `Optional[List[Dict[str, Any]]]` |
+| `await client.create_knowledge_base(...)` | `client.create_knowledge_base(...)` | `Optional[Dict[str, Any]]` |
+| ... | ... | ... |
+
+**使用示例：**
+
+```python
+import asyncio
+from openwebui_chat_client import AsyncOpenWebUIClient
+
+async def main():
+    async with AsyncOpenWebUIClient(
+        base_url="http://localhost:3000",
+        token="your-token",
+        default_model_id="gpt-4.1"
+    ) as client:
+        # 基本对话
+        result = await client.chat(
+            question="什么是 Python？",
+            chat_title="Python 讨论"
+        )
+        print(result['response'])
+        
+        # 流式对话
+        print("流式响应：")
+        async for chunk in client.stream_chat(
+            question="给我讲个故事",
+            chat_title="故事时间"
+        ):
+            print(chunk, end='', flush=True)
+        
+        # 用户管理
+        users = await client.get_users(skip=0, limit=50)
+        print(f"找到 {len(users)} 个用户")
+        
+        # 模型操作
+        models = await client.list_models()
+        for model in models:
+            print(f"- {model['id']}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**FastAPI 集成示例：**
+
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from openwebui_chat_client import AsyncOpenWebUIClient
+
+app = FastAPI()
+
+# 在启动时初始化客户端一次
+client = AsyncOpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-token",
+    default_model_id="gpt-4.1"
+)
+
+class ChatRequest(BaseModel):
+    question: str
+    chat_title: str
+
+@app.on_event("shutdown")
+async def shutdown():
+    await client.close()
+
+@app.post("/chat")
+async def chat_endpoint(request: ChatRequest):
+    result = await client.chat(
+        question=request.question,
+        chat_title=request.chat_title
+    )
+    if not result:
+        raise HTTPException(status_code=500, detail="对话失败")
+    return result
+
+@app.get("/models")
+async def list_models():
+    models = await client.list_models()
+    return {"models": models}
+```
+
+**性能考虑：**
+
+- **并发性**：异步客户端允许并发处理多个请求
+- **连接池**：使用 httpx 的连接池提高效率
+- **超时配置**：根据用例自定义超时
+- **错误处理**：异步方法与同步方法抛出相同的异常
+
+**文件 I/O 注意事项：**
+
+某些操作（如 `AsyncFileManager` 中的 `encode_image_to_base64()`）是同步的，因为它们是 CPU 密集型的。对于大文件，可以将这些操作包装在 `asyncio.to_thread()` 中：
+
+```python
+# 对于大文件
+encoded = await asyncio.to_thread(
+    client._file_manager.encode_image_to_base64,
+    "large_image.jpg"
+)
+```
+
 ### 📚 知识库操作
 
 | 方法 | 说明 | 参数 |

@@ -469,6 +469,156 @@ print(f"Summary: {result['response']}")
 | `update_user_role()` | Update a user's role (admin/user) | `user_id, role` |
 | `delete_user()` | Delete a user | `user_id` |
 
+### ⚡ Async Client
+
+The `AsyncOpenWebUIClient` provides an asynchronous interface for all operations, suitable for high-performance async applications (FastAPI, Sanic, etc.). All methods have the same signatures as their synchronous counterparts but are prefixed with `async`/`await`.
+
+**Key Differences:**
+- All methods are `async` and must be called with `await`
+- Uses `httpx.AsyncClient` for HTTP operations instead of `requests`
+- Supports async context manager (`async with`)
+- Stream methods return `AsyncGenerator` objects
+
+**Initialization:**
+
+```python
+from openwebui_chat_client import AsyncOpenWebUIClient
+
+# Basic initialization
+client = AsyncOpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+# With custom httpx configuration
+client = AsyncOpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1",
+    timeout=120.0,
+    verify=False,  # Disable SSL verification
+    limits=httpx.Limits(max_connections=100)  # Custom connection limits
+)
+
+# Using context manager (recommended)
+async with AsyncOpenWebUIClient(base_url, token, model_id) as client:
+    result = await client.chat("Hello", "My Chat")
+    # client.close() is called automatically
+```
+
+**Available Async Methods:**
+
+All synchronous methods have async equivalents:
+
+| Async Method | Sync Equivalent | Returns |
+|-------------|----------------|---------|
+| `await client.chat(...)` | `client.chat(...)` | `Optional[Dict[str, Any]]` |
+| `async for chunk in client.stream_chat(...)` | `for chunk in client.stream_chat(...)` | `AsyncGenerator[str, None]` |
+| `await client.list_models()` | `client.list_models()` | `Optional[List[Dict[str, Any]]]` |
+| `await client.get_users(...)` | `client.get_users(...)` | `Optional[List[Dict[str, Any]]]` |
+| `await client.create_knowledge_base(...)` | `client.create_knowledge_base(...)` | `Optional[Dict[str, Any]]` |
+| ... | ... | ... |
+
+**Example Usage:**
+
+```python
+import asyncio
+from openwebui_chat_client import AsyncOpenWebUIClient
+
+async def main():
+    async with AsyncOpenWebUIClient(
+        base_url="http://localhost:3000",
+        token="your-token",
+        default_model_id="gpt-4.1"
+    ) as client:
+        # Basic chat
+        result = await client.chat(
+            question="What is Python?",
+            chat_title="Python Discussion"
+        )
+        print(result['response'])
+        
+        # Streaming chat
+        print("Streaming response:")
+        async for chunk in client.stream_chat(
+            question="Tell me a story",
+            chat_title="Story Time"
+        ):
+            print(chunk, end='', flush=True)
+        
+        # User management
+        users = await client.get_users(skip=0, limit=50)
+        print(f"Found {len(users)} users")
+        
+        # Model operations
+        models = await client.list_models()
+        for model in models:
+            print(f"- {model['id']}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**FastAPI Integration Example:**
+
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from openwebui_chat_client import AsyncOpenWebUIClient
+
+app = FastAPI()
+
+# Initialize client once at startup
+client = AsyncOpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-token",
+    default_model_id="gpt-4.1"
+)
+
+class ChatRequest(BaseModel):
+    question: str
+    chat_title: str
+
+@app.on_event("shutdown")
+async def shutdown():
+    await client.close()
+
+@app.post("/chat")
+async def chat_endpoint(request: ChatRequest):
+    result = await client.chat(
+        question=request.question,
+        chat_title=request.chat_title
+    )
+    if not result:
+        raise HTTPException(status_code=500, detail="Chat failed")
+    return result
+
+@app.get("/models")
+async def list_models():
+    models = await client.list_models()
+    return {"models": models}
+```
+
+**Performance Considerations:**
+
+- **Concurrency**: The async client allows handling multiple requests concurrently
+- **Connection Pooling**: Uses httpx's connection pooling for efficiency
+- **Timeout Configuration**: Customize timeouts based on your use case
+- **Error Handling**: Async methods raise the same exceptions as sync methods
+
+**File I/O Notes:**
+
+Some operations (like `encode_image_to_base64()` in `AsyncFileManager`) are synchronous as they are CPU-bound. For large files, wrap these in `asyncio.to_thread()`:
+
+```python
+# For large files
+encoded = await asyncio.to_thread(
+    client._file_manager.encode_image_to_base64,
+    "large_image.jpg"
+)
+```
+
 ### 📚 Knowledge Base Operations
 
 | Method | Description | Parameters |
