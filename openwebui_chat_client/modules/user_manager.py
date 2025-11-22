@@ -5,7 +5,10 @@ Handles user administration operations including listing, updating roles, and de
 
 import logging
 import requests
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.base_client import BaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,7 @@ class UserManager:
     - Deleting users
     """
 
-    def __init__(self, base_client):
+    def __init__(self, base_client: "BaseClient"):
         """
         Initialize the user manager.
 

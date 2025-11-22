@@ -3,13 +3,16 @@ Async Knowledge Base management module.
 """
 
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.async_base_client import AsyncBaseClient
 
 logger = logging.getLogger(__name__)
 
 
 class AsyncKnowledgeBaseManager:
-    def __init__(self, base_client):
+    def __init__(self, base_client: "AsyncBaseClient") -> None:
         self.base_client = base_client
 
     async def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:

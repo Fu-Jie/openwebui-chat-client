@@ -5,7 +5,10 @@ Async File management module for OpenWebUI Chat Client.
 import logging
 import os
 import base64
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.async_base_client import AsyncBaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +18,7 @@ class AsyncFileManager:
     Handles async file-related operations for the OpenWebUI client.
     """
 
-    def __init__(self, base_client):
+    def __init__(self, base_client: "AsyncBaseClient") -> None:
         self.base_client = base_client
 
     async def upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
@@ -25,7 +28,11 @@ class AsyncFileManager:
     def encode_image_to_base64(self, image_path: str) -> Optional[str]:
         """
         Encode an image file to base64 string.
-        Note: This is CPU bound, so synchronous is fine, or use run_in_executor.
+        
+        Note: This method is synchronous (not async) as it's CPU-bound and the file
+        operations are typically fast for images. For consistency in async contexts,
+        callers can use asyncio.to_thread(self.encode_image_to_base64, image_path)
+        if non-blocking behavior is required for large files.
         """
         if not os.path.exists(image_path):
             logger.error(f"Image file not found: {image_path}")

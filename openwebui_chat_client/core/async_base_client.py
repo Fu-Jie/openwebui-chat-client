@@ -7,7 +7,10 @@ import httpx
 import json
 import logging
 import os
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -191,10 +194,9 @@ class AsyncBaseClient:
         endpoint = "/api/v1/files/"
 
         try:
-            # httpx handles file opening automatically if passed as tuple
-            # but usually better to open and read.
-            # However, async file I/O is tricky without aiofiles.
-            # We will assume the file is small enough to be read synchronously for now or use open().
+            # Note: Using synchronous file I/O in async context. This is acceptable for small files
+            # as httpx internally handles the file reading efficiently. For large files, consider
+            # using asyncio.to_thread() or the aiofiles library to avoid blocking the event loop.
             # httpx files parameter expects opened file objects.
 
             with open(file_path, "rb") as f:

@@ -4,9 +4,11 @@ Async Model management module for OpenWebUI Chat Client.
 
 import logging
 import json
-import httpx
 import asyncio
-from typing import Optional, List, Dict, Any, Union, Tuple
+from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..core.async_base_client import AsyncBaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,7 @@ class AsyncModelManager:
     Handles async model-related operations for the OpenWebUI client.
     """
 
-    def __init__(self, base_client, skip_initial_refresh: bool = False):
+    def __init__(self, base_client: "AsyncBaseClient") -> None:
         self.base_client = base_client
         self.available_model_ids: List[str] = []
         # Note: Async initialization patterns usually require a factory method or separate init call
@@ -46,7 +48,8 @@ class AsyncModelManager:
                 if isinstance(data, dict) and "data" in data:
                     return data["data"]
             except json.JSONDecodeError:
-                pass
+                # Response is not valid JSON, return None
+                logger.warning("Failed to decode JSON response from list_models")
         return None
 
     async def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
@@ -61,7 +64,8 @@ class AsyncModelManager:
                 if isinstance(data, dict) and "data" in data:
                     return data["data"]
             except json.JSONDecodeError:
-                pass
+                # Response is not valid JSON, return None
+                logger.warning("Failed to decode JSON response from list_base_models")
         return None
 
     async def list_custom_models(self) -> Optional[List[Dict[str, Any]]]:
