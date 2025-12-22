@@ -91,12 +91,23 @@ jobs:
           required_tests=$(python .github/scripts/detect_required_tests.py)
           echo "tests=$required_tests" >> $GITHUB_OUTPUT
           echo "Detected required tests: $required_tests"
+          if [ "$required_tests" = "[]" ]; then
+            echo "No matching integration test categories detected; integration job will be skipped."
+          fi
         fi
 
   integration-test:
     runs-on: ubuntu-latest
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.required-tests != '[]' }}
+    env:
+      OUI_BASE_URL: ${{ (github.event.inputs.base_url != '' && github.event.inputs.base_url) || secrets.OUI_BASE_URL }}
+      OUI_AUTH_TOKEN: ${{ (github.event.inputs.auth_token != '' && github.event.inputs.auth_token) || secrets.OUI_AUTH_TOKEN }}
+      OUI_DEFAULT_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+      OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
+      OUI_MULTIMODAL_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+      OUI_RAG_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+      OUI_CLEANUP_BEFORE_TEST: 'true'
     strategy:
       matrix:
         test-category: ${{ fromJson(needs.detect-changes.outputs.required-tests) }}
@@ -118,17 +129,13 @@ jobs:
         pip install pillow python-dotenv PyYAML || echo "Optional dependencies failed to install"
 
     - name: Check Environment Variables
-      env:
-        OUI_BASE_URL: ${{ (github.event.inputs.base_url != '' && github.event.inputs.base_url) || secrets.OUI_BASE_URL }}
-        OUI_AUTH_TOKEN: ${{ (github.event.inputs.auth_token != '' && github.event.inputs.auth_token) || secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
-        OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
       run: |
         echo "Checking integration test environment for category: ${{ matrix.test-category }}"
         echo "Base URL: ${OUI_BASE_URL:-'not set'}"
         echo "Auth Token: ${OUI_AUTH_TOKEN:+'set':-'not set'}"
         echo "Default Model: ${OUI_DEFAULT_MODEL:-'not set'}"
         echo "Parallel Models: ${OUI_PARALLEL_MODELS:-'not set'}"
+        echo "Cleanup Before Test: enabled (OUI_CLEANUP_BEFORE_TEST=${OUI_CLEANUP_BEFORE_TEST})"
         
         if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ]; then
           echo "❌ Missing required repository secrets for integration testing."
@@ -148,13 +155,6 @@ jobs:
         echo "✅ All required environment variables are set."
 
     - name: Run Selected Integration Test
-      env:
-        OUI_BASE_URL: ${{ (github.event.inputs.base_url != '' && github.event.inputs.base_url) || secrets.OUI_BASE_URL }}
-        OUI_AUTH_TOKEN: ${{ (github.event.inputs.auth_token != '' && github.event.inputs.auth_token) || secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
-        OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
-        OUI_MULTIMODAL_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
-        OUI_RAG_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
       run: |
         echo "🧪 Running integration test for category: ${{ matrix.test-category }}"
         python .github/scripts/run_all_integration_tests.py --category ${{ matrix.test-category }} --verbose

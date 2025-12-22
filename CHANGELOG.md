@@ -2,12 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+<!-- markdownlint-disable MD024 -->
+
+## [0.1.23] - 2025-12-23
 
 ### Added
 
 - **Async Client**: Introduced `AsyncOpenWebUIClient` using `httpx` for high-performance asynchronous applications.
 - **User Management**: Added `UserManager` and `AsyncUserManager` for programmatic user administration (list, get details, update role, delete).
+- **Integration Smoke Tests**: Added env-gated sync streaming smoke test and documented integration test suite in `examples/README.md`.
+
+### Fixed
+
+- **Sync Streaming Stability**: Guarded streaming concatenation against `None` and non-string chunks to prevent runtime errors.
+- **CI Mapping**: Updated `.github/test-mapping.yml` to include `sync_live_stream` category and map core sync streaming paths.
 
 ## [0.1.22] - 2025-11-18
 

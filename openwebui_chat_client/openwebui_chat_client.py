@@ -36,15 +36,21 @@ class OpenWebUIClient:
     An intelligent, stateful Python client for the Open WebUI API.
     Supports single/multi-model chats, tagging, and RAG with both
     direct file uploads and knowledge base collections, matching the backend format.
-    
+
     This refactored version uses a modular architecture with specialized managers
     while maintaining 100% backward compatibility with the original API.
     """
 
-    def __init__(self, base_url: str, token: str, default_model_id: str, skip_model_refresh: bool = False):
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        default_model_id: str,
+        skip_model_refresh: bool = False,
+    ):
         """
         Initialize the OpenWebUI client with modular architecture.
-        
+
         Args:
             base_url: The base URL of the OpenWebUI instance
             token: Authentication token
@@ -53,88 +59,90 @@ class OpenWebUIClient:
         """
         # Initialize base client
         self._base_client = BaseClient(base_url, token, default_model_id)
-        
+
         # Set parent reference so managers can access main client methods
         self._base_client._parent_client = self
-        
+
         # Initialize specialized managers
-        self._model_manager = ModelManager(self._base_client, skip_initial_refresh=skip_model_refresh)
+        self._model_manager = ModelManager(
+            self._base_client, skip_initial_refresh=skip_model_refresh
+        )
         self._notes_manager = NotesManager(self._base_client)
         self._knowledge_base_manager = KnowledgeBaseManager(self._base_client)
         self._file_manager = FileManager(self._base_client)
         self._chat_manager = ChatManager(self._base_client)
         self._prompts_manager = PromptsManager(self._base_client)
         self._user_manager = UserManager(self._base_client)
-        
+
         # Set up available model IDs from model manager
         self._base_client.available_model_ids = self._model_manager.available_model_ids
-        
+
         # For backward compatibility, expose base client properties as dynamic properties
-        
-    @property 
+
+    @property
     def base_url(self):
         return self._base_client.base_url
-        
+
     @property
     def default_model_id(self):
         return self._base_client.default_model_id
-        
+
     @property
     def session(self):
         return self._base_client.session
-        
+
     @session.setter
     def session(self, value):
         self._base_client.session = value
-        
+
     @property
     def json_headers(self):
         return self._base_client.json_headers
-        
-    @property 
+
+    @property
     def chat_id(self):
         return self._base_client.chat_id
-        
+
     @chat_id.setter
     def chat_id(self, value):
         self._base_client.chat_id = value
-        
+
     @property
     def chat_object_from_server(self):
         return self._base_client.chat_object_from_server
-        
-    @chat_object_from_server.setter  
+
+    @chat_object_from_server.setter
     def chat_object_from_server(self, value):
         self._base_client.chat_object_from_server = value
-        
+
     @property
     def model_id(self):
         return self._base_client.model_id
-        
+
     @model_id.setter
     def model_id(self, value):
         self._base_client.model_id = value
-        
+
     @property
     def task_model(self):
         return self._base_client.task_model
-        
+
     @task_model.setter
     def task_model(self, value):
         self._base_client.task_model = value
-        
+
     @property
     def _auto_cleanup_enabled(self):
         return self._base_client._auto_cleanup_enabled
-        
+
     @_auto_cleanup_enabled.setter
     def _auto_cleanup_enabled(self, value):
         self._base_client._auto_cleanup_enabled = value
-        
+
     @property
     def _first_stream_request(self):
         return self._base_client._first_stream_request
-        
+
     @_first_stream_request.setter
     def _first_stream_request(self, value):
         self._base_client._first_stream_request = value
@@ -143,7 +151,7 @@ class OpenWebUIClient:
     def available_model_ids(self):
         """Get available model IDs."""
         return self._model_manager.available_model_ids
-    
+
     @available_model_ids.setter
     def available_model_ids(self, value):
         """Set available model IDs and sync with model manager."""
@@ -154,7 +162,13 @@ class OpenWebUIClient:
         """
         Destructor: Automatically cleans up placeholder messages and syncs with remote server when instance is destroyed
         """
-        if hasattr(self, '_base_client') and self._base_client and self._base_client._auto_cleanup_enabled and self.chat_id and self.chat_object_from_server:
+        if (
+            hasattr(self, "_base_client")
+            and self._base_client
+            and self._base_client._auto_cleanup_enabled
+            and self.chat_id
+            and self.chat_object_from_server
+        ):
             try:
                 logger.info(
                     "🧹 Client cleanup: Removing unused placeholder messages..."
@@ -192,9 +206,18 @@ class OpenWebUIClient:
     ) -> Optional[Dict[str, Any]]:
         """Send a chat message with a single model."""
         return self._chat_manager.chat(
-            question, chat_title, model_id, folder_name, image_paths, tags,
-            rag_files, rag_collections, tool_ids, enable_follow_up,
-            enable_auto_tagging, enable_auto_titling
+            question,
+            chat_title,
+            model_id,
+            folder_name,
+            image_paths,
+            tags,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_follow_up,
+            enable_auto_tagging,
+            enable_auto_titling,
         )
 
     def parallel_chat(
@@ -214,9 +237,18 @@ class OpenWebUIClient:
     ) -> Optional[Dict[str, Any]]:
         """Send a chat message to multiple models in parallel."""
         return self._chat_manager.parallel_chat(
-            question, chat_title, model_ids, folder_name, image_paths, tags,
-            rag_files, rag_collections, tool_ids, enable_follow_up,
-            enable_auto_tagging, enable_auto_titling
+            question,
+            chat_title,
+            model_ids,
+            folder_name,
+            image_paths,
+            tags,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_follow_up,
+            enable_auto_tagging,
+            enable_auto_titling,
         )
 
     def stream_chat(
@@ -237,18 +269,28 @@ class OpenWebUIClient:
         wait_before_request: float = 10.0,  # New: Wait time after initializing placeholders (seconds)
         enable_auto_tagging: bool = False,
         enable_auto_titling: bool = False,
-    ) -> Generator[
-        str, None, Optional[Dict[str, Any]]
-    ]:
+    ) -> Generator[str, None, Optional[Dict[str, Any]]]:
         """
         Initiates a streaming chat session. Yields content chunks as they are received.
         At the end of the stream, returns the full response content, sources, and follow-up suggestions.
         """
         return self._chat_manager.stream_chat(
-            question, chat_title, model_id, folder_name, image_paths, tags,
-            rag_files, rag_collections, tool_ids, enable_follow_up,
-            cleanup_placeholder_messages, placeholder_pool_size, min_available_messages,
-            wait_before_request, enable_auto_tagging, enable_auto_titling
+            question,
+            chat_title,
+            model_id,
+            folder_name,
+            image_paths,
+            tags,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_follow_up,
+            cleanup_placeholder_messages,
+            placeholder_pool_size,
+            min_available_messages,
+            wait_before_request,
+            enable_auto_tagging,
+            enable_auto_titling,
         )
 
     def continuous_chat(
@@ -268,9 +310,18 @@ class OpenWebUIClient:
     ) -> Optional[Dict[str, Any]]:
         """Perform continuous conversation with automatic follow-up questions."""
         return self._chat_manager.continuous_chat(
-            initial_question, num_questions, chat_title, model_id, folder_name,
-            image_paths, tags, rag_files, rag_collections, tool_ids,
-            enable_auto_tagging, enable_auto_titling
+            initial_question,
+            num_questions,
+            chat_title,
+            model_id,
+            folder_name,
+            image_paths,
+            tags,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_auto_tagging,
+            enable_auto_titling,
         )
 
     def continuous_parallel_chat(
@@ -290,9 +341,18 @@ class OpenWebUIClient:
     ) -> Optional[Dict[str, Any]]:
         """Perform continuous conversation with multiple models in parallel."""
         return self._chat_manager.continuous_parallel_chat(
-            initial_question, num_questions, chat_title, model_ids, folder_name,
-            image_paths, tags, rag_files, rag_collections, tool_ids,
-            enable_auto_tagging, enable_auto_titling
+            initial_question,
+            num_questions,
+            chat_title,
+            model_ids,
+            folder_name,
+            image_paths,
+            tags,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_auto_tagging,
+            enable_auto_titling,
         )
 
     def continuous_stream_chat(
@@ -312,9 +372,18 @@ class OpenWebUIClient:
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """Perform continuous conversation with streaming responses."""
         return self._chat_manager.continuous_stream_chat(
-            initial_question, num_questions, chat_title, model_id, folder_name,
-            image_paths, tags, rag_files, rag_collections, tool_ids,
-            enable_auto_tagging, enable_auto_titling
+            initial_question,
+            num_questions,
+            chat_title,
+            model_id,
+            folder_name,
+            image_paths,
+            tags,
+            rag_files,
+            rag_collections,
+            tool_ids,
+            enable_auto_tagging,
+            enable_auto_titling,
         )
 
     def deep_research(
@@ -347,7 +416,9 @@ class OpenWebUIClient:
             A dictionary containing the research results and chat information, or None if it fails.
         """
         logger.info("=" * 80)
-        logger.info(f"🚀 Starting Deep Research on topic: '{topic}' for {num_steps} steps.")
+        logger.info(
+            f"🚀 Starting Deep Research on topic: '{topic}' for {num_steps} steps."
+        )
         logger.info("=" * 80)
 
         # If no chat title is provided, create one from the topic
@@ -356,10 +427,12 @@ class OpenWebUIClient:
         # Ensure there's at least one general model to use
         if not general_models:
             general_models = [self._base_client.default_model_id]
-            logger.warning(f"No general_models provided. Falling back to default model: {general_models[0]}")
+            logger.warning(
+                f"No general_models provided. Falling back to default model: {general_models[0]}"
+            )
 
         if not search_models:
-            search_models = [] # Ensure it's a list
+            search_models = []  # Ensure it's a list
 
         research_history = []
 
@@ -377,7 +450,9 @@ class OpenWebUIClient:
             if step_result:
                 question, answer, model_used = step_result
                 # Append a formatted summary of the step to the history
-                research_history.append(f"Step {i}: Asked '{question}' (using {model_used}) and received a detailed answer.")
+                research_history.append(
+                    f"Step {i}: Asked '{question}' (using {model_used}) and received a detailed answer."
+                )
             else:
                 logger.error(f"Research step {i} failed. Halting the research process.")
                 return None
@@ -495,7 +570,7 @@ class OpenWebUIClient:
         regenerate_title: bool = False,
         title: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        folder_name: Optional[str] = None
+        folder_name: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Regenerates and updates the tags and/or title for an existing chat based on its history.
@@ -512,19 +587,29 @@ class OpenWebUIClient:
             A dictionary containing the 'suggested_tags' and/or 'suggested_title' that were updated,
             or None if the chat could not be found or no action was requested.
         """
-        if not regenerate_tags and not regenerate_title and title is None and tags is None and folder_name is None:
-            logger.warning("No action requested for update_chat_metadata. Set regenerate_tags or regenerate_title to True, or provide title/tags/folder_name.")
+        if (
+            not regenerate_tags
+            and not regenerate_title
+            and title is None
+            and tags is None
+            and folder_name is None
+        ):
+            logger.warning(
+                "No action requested for update_chat_metadata. Set regenerate_tags or regenerate_title to True, or provide title/tags/folder_name."
+            )
             return None
 
         logger.info(f"Updating metadata for chat {chat_id[:8]}...")
-        
+
         # For backward compatibility with the regenerate_ parameters, we need to implement the original behavior
         if regenerate_tags or regenerate_title:
             if not self._load_chat_details(chat_id):
                 logger.error(f"Cannot update metadata, failed to load chat: {chat_id}")
                 return None
 
-            api_messages = self._build_linear_history_for_api(self.chat_object_from_server["chat"])
+            api_messages = self._build_linear_history_for_api(
+                self.chat_object_from_server["chat"]
+            )
             return_data = {}
 
             if regenerate_tags:
@@ -550,7 +635,9 @@ class OpenWebUIClient:
             return return_data if return_data else None
         else:
             # Use the new delegation to chat manager for direct values
-            success = self._chat_manager.update_chat_metadata(chat_id, title, tags, folder_name)
+            success = self._chat_manager.update_chat_metadata(
+                chat_id, title, tags, folder_name
+            )
             return {"updated": success} if success else None
 
     def switch_chat_model(self, chat_id: str, model_ids: Union[str, List[str]]) -> bool:
@@ -568,6 +655,30 @@ class OpenWebUIClient:
     def archive_chat(self, chat_id: str) -> bool:
         """Archive a chat conversation."""
         return self._chat_manager.archive_chat(chat_id)
+
+    def delete_all_chats(self) -> bool:
+        """
+        Delete ALL chat conversations for the current user.
+
+        ⚠️ WARNING: This is a DESTRUCTIVE operation!
+        This method will permanently delete ALL chats associated with the current user account.
+        This action CANNOT be undone. Use with extreme caution.
+
+        This method is useful for:
+        - Cleaning up test data after integration tests
+        - Resetting an account to a clean state
+        - Bulk cleanup operations
+
+        Returns:
+            True if deletion was successful, False otherwise
+
+        Example:
+            >>> # ⚠️ WARNING: This will delete ALL your chats!
+            >>> success = client.delete_all_chats()
+            >>> if success:
+            ...     print("All chats have been permanently deleted")
+        """
+        return self._chat_manager.delete_all_chats()
 
     def create_folder(self, name: str) -> Optional[str]:
         """Create a new folder for organizing chats."""
@@ -612,46 +723,48 @@ class OpenWebUIClient:
         return self._model_manager.list_groups()
 
     def _build_access_control(
-        self, 
-        permission_type: str, 
-        group_identifiers: Optional[List[str]] = None, 
-        user_ids: Optional[List[str]] = None
+        self,
+        permission_type: str,
+        group_identifiers: Optional[List[str]] = None,
+        user_ids: Optional[List[str]] = None,
     ) -> Union[Dict[str, Any], None, bool]:
         """Build access control structure for model permissions."""
         if permission_type == "public":
             return None
-        
+
         if permission_type == "private":
             return {
                 "read": {"group_ids": [], "user_ids": user_ids or []},
-                "write": {"group_ids": [], "user_ids": user_ids or []}
+                "write": {"group_ids": [], "user_ids": user_ids or []},
             }
-        
+
         if permission_type == "group":
             if not group_identifiers:
                 logger.error("Group identifiers required for group permission type.")
                 return False
-            
+
             # Resolve group names to IDs if needed
             group_ids = self._resolve_group_ids(group_identifiers)
             if group_ids is False:
                 return False
-            
+
             return {
                 "read": {"group_ids": group_ids, "user_ids": user_ids or []},
-                "write": {"group_ids": group_ids, "user_ids": user_ids or []}
+                "write": {"group_ids": group_ids, "user_ids": user_ids or []},
             }
-        
+
         logger.error(f"Invalid permission type: {permission_type}")
         return False
 
-    def _resolve_group_ids(self, group_identifiers: List[str]) -> Union[List[str], bool]:
+    def _resolve_group_ids(
+        self, group_identifiers: List[str]
+    ) -> Union[List[str], bool]:
         """Resolve group names/identifiers to group IDs."""
         groups = self.list_groups()
         if not groups:
             logger.error("Failed to fetch groups for ID resolution.")
             return False
-        
+
         # Create mapping of both names and IDs to IDs
         id_map = {}
         for group in groups:
@@ -661,7 +774,7 @@ class OpenWebUIClient:
                 id_map[group_id] = group_id  # ID to ID mapping
                 if group_name:
                     id_map[group_name] = group_id  # Name to ID mapping
-        
+
         resolved_ids = []
         for identifier in group_identifiers:
             if identifier in id_map:
@@ -669,7 +782,7 @@ class OpenWebUIClient:
             else:
                 logger.error(f"Group identifier '{identifier}' not found.")
                 return False
-        
+
         return resolved_ids
 
     def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
@@ -764,16 +877,18 @@ class OpenWebUIClient:
     ) -> Dict[str, List[Any]]:
         """Updates permissions for multiple models in parallel."""
         logger.info("Starting batch model permission update...")
-        
+
         # Validate permission type
         if permission_type not in ["public", "private", "group"]:
-            logger.error(f"Invalid permission_type '{permission_type}'. Must be 'public', 'private', or 'group'.")
+            logger.error(
+                f"Invalid permission_type '{permission_type}'. Must be 'public', 'private', or 'group'."
+            )
             return {"success": [], "failed": [], "skipped": []}
-        
+
         # Handle backward compatibility - if model_identifiers or model_keyword provided
         if model_identifiers is not None or model_keyword is not None:
             models_to_update = []
-            
+
             if model_identifiers:
                 # Use specific model IDs
                 for model_id in model_identifiers:
@@ -788,37 +903,46 @@ class OpenWebUIClient:
                 if not all_models:
                     logger.error("Failed to retrieve models list.")
                     return {"success": [], "failed": [], "skipped": []}
-                
+
                 models_to_update = [
-                    model for model in all_models 
+                    model
+                    for model in all_models
                     if model_keyword.lower() in model.get("id", "").lower()
                     or model_keyword.lower() in model.get("name", "").lower()
                 ]
-                logger.info(f"Found {len(models_to_update)} models matching keyword '{model_keyword}'")
+                logger.info(
+                    f"Found {len(models_to_update)} models matching keyword '{model_keyword}'"
+                )
         else:
             # Original signature with models parameter
             if models is None:
-                logger.error("Either models, model_identifiers, or model_keyword must be provided")
+                logger.error(
+                    "Either models, model_identifiers, or model_keyword must be provided"
+                )
                 return {"success": [], "failed": [], "skipped": []}
             models_to_update = models
-        
+
         if not models_to_update:
             logger.warning("No models found to update.")
             return {"success": [], "failed": [], "skipped": []}
-        
+
         # Prepare access control configuration
-        access_control = self._build_access_control(permission_type, group_identifiers, user_ids)
+        access_control = self._build_access_control(
+            permission_type, group_identifiers, user_ids
+        )
         if access_control is False:  # Error occurred
             return {"success": [], "failed": [], "skipped": []}
-        
+
         # Batch update using ThreadPoolExecutor
         results = {"success": [], "failed": [], "skipped": []}
-        
+
         def update_single_model(model: Dict[str, Any]) -> Tuple[str, bool, str]:
             """Update a single model's permissions."""
             model_id = model.get("id", "")
             try:
-                updated_model = self.update_model(model_id, access_control=access_control)
+                updated_model = self.update_model(
+                    model_id, access_control=access_control
+                )
                 if updated_model:
                     return model_id, True, "success"
                 else:
@@ -826,13 +950,13 @@ class OpenWebUIClient:
             except Exception as e:
                 logger.error(f"Exception updating model '{model_id}': {e}")
                 return model_id, False, str(e)
-        
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_model = {
-                executor.submit(update_single_model, model): model 
+                executor.submit(update_single_model, model): model
                 for model in models_to_update
             }
-            
+
             for future in as_completed(future_to_model):
                 model = future_to_model[future]
                 model_id = model.get("id", "unknown")
@@ -840,15 +964,25 @@ class OpenWebUIClient:
                     model_id, success, message = future.result()
                     if success:
                         results["success"].append(model_id)
-                        logger.info(f"✅ Successfully updated permissions for model '{model_id}'")
+                        logger.info(
+                            f"✅ Successfully updated permissions for model '{model_id}'"
+                        )
                     else:
-                        results["failed"].append({"model_id": model_id, "error": message})
-                        logger.error(f"❌ Failed to update permissions for model '{model_id}': {message}")
+                        results["failed"].append(
+                            {"model_id": model_id, "error": message}
+                        )
+                        logger.error(
+                            f"❌ Failed to update permissions for model '{model_id}': {message}"
+                        )
                 except Exception as e:
                     results["failed"].append({"model_id": model_id, "error": str(e)})
-                    logger.error(f"❌ Exception processing result for model '{model_id}': {e}")
-        
-        logger.info(f"Batch update completed: {len(results['success'])} successful, {len(results['failed'])} failed")
+                    logger.error(
+                        f"❌ Exception processing result for model '{model_id}': {e}"
+                    )
+
+        logger.info(
+            f"Batch update completed: {len(results['success'])} successful, {len(results['failed'])} failed"
+        )
         return results
 
     # =============================================================================
@@ -914,7 +1048,7 @@ class OpenWebUIClient:
         title: str,
         data: Optional[Dict[str, Any]] = None,
         meta: Optional[Dict[str, Any]] = None,
-        access_control: Optional[Dict[str, Any]] = None
+        access_control: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Create a new note."""
         return self._notes_manager.create_note(title, data, meta, access_control)
@@ -929,7 +1063,7 @@ class OpenWebUIClient:
         title: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
         meta: Optional[Dict[str, Any]] = None,
-        access_control: Optional[Dict[str, Any]] = None
+        access_control: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Update an existing note by its ID."""
         return self._notes_manager.update_note_by_id(
@@ -957,10 +1091,12 @@ class OpenWebUIClient:
         command: str,
         title: str,
         content: str,
-        access_control: Optional[Dict[str, Any]] = None
+        access_control: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Create a new prompt."""
-        return self._prompts_manager.create_prompt(command, title, content, access_control)
+        return self._prompts_manager.create_prompt(
+            command, title, content, access_control
+        )
 
     def get_prompt_by_command(self, command: str) -> Optional[Dict[str, Any]]:
         """Get a specific prompt by its command."""
@@ -971,7 +1107,7 @@ class OpenWebUIClient:
         command: str,
         title: Optional[str] = None,
         content: Optional[str] = None,
-        access_control: Optional[Dict[str, Any]] = None
+        access_control: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Update an existing prompt by its command (title/content only)."""
         return self._prompts_manager.update_prompt_by_command(
@@ -984,7 +1120,7 @@ class OpenWebUIClient:
         new_command: str,
         title: str,
         content: str,
-        access_control: Optional[Dict[str, Any]] = None
+        access_control: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Replace a prompt completely including command (delete + recreate)."""
         return self._prompts_manager.replace_prompt_by_command(
@@ -996,44 +1132,46 @@ class OpenWebUIClient:
         return self._prompts_manager.delete_prompt_by_command(command)
 
     def search_prompts(
-        self, 
+        self,
         query: Optional[str] = None,
         by_command: bool = False,
         by_title: bool = True,
-        by_content: bool = False
+        by_content: bool = False,
     ) -> List[Dict[str, Any]]:
         """Search prompts by various criteria."""
-        return self._prompts_manager.search_prompts(query, by_command, by_title, by_content)
+        return self._prompts_manager.search_prompts(
+            query, by_command, by_title, by_content
+        )
 
     def extract_variables(self, content: str) -> List[str]:
         """Extract variable names from prompt content."""
         return self._prompts_manager.extract_variables(content)
 
     def substitute_variables(
-        self, 
-        content: str, 
+        self,
+        content: str,
         variables: Dict[str, Any],
-        system_variables: Optional[Dict[str, Any]] = None
+        system_variables: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Substitute variables in prompt content."""
-        return self._prompts_manager.substitute_variables(content, variables, system_variables)
+        return self._prompts_manager.substitute_variables(
+            content, variables, system_variables
+        )
 
     def get_system_variables(self) -> Dict[str, Any]:
         """Get current system variables for substitution."""
         return self._prompts_manager.get_system_variables()
 
     def batch_create_prompts(
-        self, 
-        prompts_data: List[Dict[str, Any]],
-        continue_on_error: bool = True
+        self, prompts_data: List[Dict[str, Any]], continue_on_error: bool = True
     ) -> Dict[str, Any]:
         """Create multiple prompts in batch."""
-        return self._prompts_manager.batch_create_prompts(prompts_data, continue_on_error)
+        return self._prompts_manager.batch_create_prompts(
+            prompts_data, continue_on_error
+        )
 
     def batch_delete_prompts(
-        self, 
-        commands: List[str],
-        continue_on_error: bool = True
+        self, commands: List[str], continue_on_error: bool = True
     ) -> Dict[str, Any]:
         """Delete multiple prompts by their commands."""
         return self._prompts_manager.batch_delete_prompts(commands, continue_on_error)
@@ -1042,7 +1180,9 @@ class OpenWebUIClient:
     # USER MANAGEMENT - Delegate to UserManager
     # =============================================================================
 
-    def get_users(self, skip: int = 0, limit: int = 50) -> Optional[List[Dict[str, Any]]]:
+    def get_users(
+        self, skip: int = 0, limit: int = 50
+    ) -> Optional[List[Dict[str, Any]]]:
         """Get a list of all users."""
         return self._user_manager.get_users(skip, limit)
 
@@ -1071,53 +1211,56 @@ class OpenWebUIClient:
         """Encode an image file to base64 format for use in multimodal chat."""
         # Create a temporary file manager instance for static method compatibility
         from .modules.file_manager import FileManager
+
         temp_manager = FileManager(None)
         return temp_manager.encode_image_to_base64(image_path)
 
     # =============================================================================
     # PLACEHOLDER METHODS - Will be implemented in next phase
     # =============================================================================
-    
+
     def archive_chats_by_age(
         self,
         days_since_update: int = 30,
         folder_name: Optional[str] = None,
-        dry_run: bool = False
+        dry_run: bool = False,
     ) -> Dict[str, Any]:
         """
         Archive chats that haven't been updated for a specified number of days.
-        
+
         Args:
             days_since_update: Number of days since last update (default: 30)
-            folder_name: Optional folder name to filter chats. If None, only archives 
+            folder_name: Optional folder name to filter chats. If None, only archives
                         chats NOT in folders. If provided, only archives chats IN that folder.
             dry_run: If True, only shows what would be archived without actually archiving
-                        
+
         Returns:
             Dictionary with archive results including counts and details
         """
-        logger.info(f"Starting bulk archive operation for chats older than {days_since_update} days")
+        logger.info(
+            f"Starting bulk archive operation for chats older than {days_since_update} days"
+        )
         if folder_name:
             logger.info(f"Filtering to folder: '{folder_name}'")
         else:
             logger.info("Filtering to chats NOT in folders")
-            
+
         current_timestamp = int(time.time())
         cutoff_timestamp = current_timestamp - (days_since_update * 24 * 60 * 60)
-        
+
         results = {
             "total_checked": 0,
             "total_archived": 0,
             "total_failed": 0,
             "archived_chats": [],
             "failed_chats": [],
-            "errors": []
+            "errors": [],
         }
-        
+
         try:
             # Get target chats based on folder filter
             target_chats = []
-            
+
             if folder_name:
                 # Get folder ID by name
                 folder_id = self.get_folder_id_by_name(folder_name)
@@ -1126,7 +1269,7 @@ class OpenWebUIClient:
                     logger.error(error_msg)
                     results["errors"].append(error_msg)
                     return results
-                    
+
                 # Get chats in the specified folder
                 folder_chats = self.get_chats_by_folder(folder_id)
                 if folder_chats is None:
@@ -1139,7 +1282,7 @@ class OpenWebUIClient:
                 # Get all chats and filter to those NOT in folders
                 all_chats = []
                 page = 1
-                
+
                 # Handle pagination
                 while True:
                     page_chats = self.list_chats(page=page)
@@ -1150,22 +1293,22 @@ class OpenWebUIClient:
                     if len(page_chats) < 50:  # Assuming default page size
                         break
                     page += 1
-                
+
                 if not all_chats:
                     error_msg = "Failed to get chat list"
                     logger.error(error_msg)
                     results["errors"].append(error_msg)
                     return results
-                
+
                 # Filter to chats not in folders
                 # We need to get detailed chat info to check folder_id
                 target_chats = []
                 with ThreadPoolExecutor(max_workers=5) as executor:
                     future_to_chat = {
-                        executor.submit(self._get_chat_details, chat["id"]): chat 
+                        executor.submit(self._get_chat_details, chat["id"]): chat
                         for chat in all_chats
                     }
-                    
+
                     for future in as_completed(future_to_chat):
                         chat_basic = future_to_chat[future]
                         try:
@@ -1173,69 +1316,86 @@ class OpenWebUIClient:
                             if chat_details and not chat_details.get("folder_id"):
                                 target_chats.append(chat_details)
                         except Exception as e:
-                            logger.warning(f"Failed to get details for chat {chat_basic['id']}: {e}")
-                            
+                            logger.warning(
+                                f"Failed to get details for chat {chat_basic['id']}: {e}"
+                            )
+
             results["total_checked"] = len(target_chats)
             logger.info(f"Found {len(target_chats)} chats to check for archiving")
-            
+
             # Filter by age and archive
             chats_to_archive = []
             for chat in target_chats:
                 updated_at = chat.get("updated_at", 0)
                 if updated_at < cutoff_timestamp:
                     chats_to_archive.append(chat)
-                    
-            logger.info(f"Found {len(chats_to_archive)} chats older than {days_since_update} days")
-            
+
+            logger.info(
+                f"Found {len(chats_to_archive)} chats older than {days_since_update} days"
+            )
+
             if dry_run:
                 logger.info("Dry run mode: would archive the following chats:")
                 for chat in chats_to_archive:
-                    logger.info(f"  - {chat.get('title', 'Unknown')} (ID: {chat['id']})")
+                    logger.info(
+                        f"  - {chat.get('title', 'Unknown')} (ID: {chat['id']})"
+                    )
                 results["total_archived"] = len(chats_to_archive)
-                results["archived_chats"] = [{
-                    "id": chat["id"],
-                    "title": chat.get("title", "Unknown"),
-                    "updated_at": chat.get("updated_at", 0)
-                } for chat in chats_to_archive]
+                results["archived_chats"] = [
+                    {
+                        "id": chat["id"],
+                        "title": chat.get("title", "Unknown"),
+                        "updated_at": chat.get("updated_at", 0),
+                    }
+                    for chat in chats_to_archive
+                ]
                 return results
-            
+
             # Archive chats in parallel
             with ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_chat = {
-                    executor.submit(self.archive_chat, chat["id"]): chat 
+                    executor.submit(self.archive_chat, chat["id"]): chat
                     for chat in chats_to_archive
                 }
-                
+
                 for future in as_completed(future_to_chat):
                     chat = future_to_chat[future]
                     try:
                         success = future.result()
                         if success:
                             results["total_archived"] += 1
-                            results["archived_chats"].append({
-                                "id": chat["id"],
-                                "title": chat.get("title", "Unknown"),
-                                "updated_at": chat.get("updated_at", 0)
-                            })
+                            results["archived_chats"].append(
+                                {
+                                    "id": chat["id"],
+                                    "title": chat.get("title", "Unknown"),
+                                    "updated_at": chat.get("updated_at", 0),
+                                }
+                            )
                         else:
                             results["total_failed"] += 1
-                            results["failed_chats"].append({
-                                "id": chat["id"],
-                                "title": chat.get("title", "Unknown"),
-                                "error": "Archive request failed"
-                            })
+                            results["failed_chats"].append(
+                                {
+                                    "id": chat["id"],
+                                    "title": chat.get("title", "Unknown"),
+                                    "error": "Archive request failed",
+                                }
+                            )
                     except Exception as e:
                         results["total_failed"] += 1
-                        results["failed_chats"].append({
-                            "id": chat["id"],
-                            "title": chat.get("title", "Unknown"),
-                            "error": str(e)
-                        })
+                        results["failed_chats"].append(
+                            {
+                                "id": chat["id"],
+                                "title": chat.get("title", "Unknown"),
+                                "error": str(e),
+                            }
+                        )
                         logger.error(f"Error archiving chat {chat['id']}: {e}")
-            
-            logger.info(f"Archive operation completed: {results['total_archived']} archived, {results['total_failed']} failed")
+
+            logger.info(
+                f"Archive operation completed: {results['total_archived']} archived, {results['total_failed']} failed"
+            )
             return results
-            
+
         except Exception as e:
             error_msg = f"Bulk archive operation failed: {e}"
             logger.error(error_msg)
@@ -1269,7 +1429,9 @@ class OpenWebUIClient:
         if message_ids_to_delete:
             for msg_id in message_ids_to_delete:
                 del messages[msg_id]
-            cleaned_count = len(message_ids_to_delete) / 2  # Each pair contains user and assistant messages
+            cleaned_count = (
+                len(message_ids_to_delete) / 2
+            )  # Each pair contains user and assistant messages
             logger.info(
                 f"Cleaned up {int(cleaned_count)} unused placeholder message pairs."
             )
@@ -1298,12 +1460,14 @@ class OpenWebUIClient:
 
     def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
         """Check if message is a placeholder (content is empty and not marked as done)"""
-        return message.get("content", "").strip() == "" and not message.get("done", False)
+        return message.get("content", "").strip() == "" and not message.get(
+            "done", False
+        )
 
     def _find_or_create_chat_by_title(self, title: str):
         """Find an existing chat by title or create a new one."""
         logger.info(f"Finding or creating chat with title: '{title}'")
-        
+
         # First, search for existing chat
         existing_chat = self._search_latest_chat_by_title(title)
         if existing_chat:
@@ -1311,30 +1475,32 @@ class OpenWebUIClient:
             logger.info(f"Found existing chat: {chat_id}")
             self.chat_id = chat_id
             # Also set on base client for ChatManager compatibility
-            if hasattr(self, '_base_client'):
+            if hasattr(self, "_base_client"):
                 self._base_client.chat_id = chat_id
-            
+
             # Load chat details
             if self._load_chat_details(chat_id):
                 logger.info(f"Successfully loaded existing chat: {chat_id}")
                 return chat_id
             else:
                 logger.warning(f"Failed to load details for existing chat: {chat_id}")
-        
+
         # If no existing chat found or failed to load, create new one
         new_chat_id = self._create_new_chat(title)
         if new_chat_id:
             self.chat_id = new_chat_id
-            # Also set on base client for ChatManager compatibility  
-            if hasattr(self, '_base_client'):
+            # Also set on base client for ChatManager compatibility
+            if hasattr(self, "_base_client"):
                 self._base_client.chat_id = new_chat_id
-            
+
             # Load the newly created chat details
             if self._load_chat_details(new_chat_id):
                 logger.info(f"Successfully created and loaded new chat: {new_chat_id}")
                 return new_chat_id
             else:
-                logger.warning(f"Created new chat {new_chat_id} but failed to load details")
+                logger.warning(
+                    f"Created new chat {new_chat_id} but failed to load details"
+                )
                 return new_chat_id  # Still return the ID even if loading fails
         else:
             logger.error(f"Failed to create new chat with title: '{title}'")
@@ -1350,21 +1516,25 @@ class OpenWebUIClient:
             )
             response.raise_for_status()
             chat_data = response.json()
-            
+
             # Check for None/empty response specifically
             if chat_data is None:
-                logger.warning(f"Empty/None response when loading chat details for {chat_id}")
+                logger.warning(
+                    f"Empty/None response when loading chat details for {chat_id}"
+                )
                 return False
-                
+
             if chat_data:
                 self.chat_object_from_server = chat_data
                 # Also set on base client for ChatManager compatibility
-                if hasattr(self, '_base_client'):
+                if hasattr(self, "_base_client"):
                     self._base_client.chat_object_from_server = chat_data
                 logger.info(f"Successfully loaded chat details for: {chat_id}")
                 return True
             else:
-                logger.warning(f"Empty response when loading chat details for {chat_id}")
+                logger.warning(
+                    f"Empty response when loading chat details for {chat_id}"
+                )
                 return False
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get chat details for {chat_id}: {e}")
@@ -1391,7 +1561,9 @@ class OpenWebUIClient:
                 return None
             # Return the most recent chat (highest updated_at)
             latest_chat = max(matching_chats, key=lambda x: x.get("updated_at", 0))
-            logger.info(f"Found latest chat with title '{title}': {latest_chat['id'][:8]}...")
+            logger.info(
+                f"Found latest chat with title '{title}': {latest_chat['id'][:8]}..."
+            )
             return latest_chat
         except (requests.exceptions.RequestException, KeyError) as e:
             logger.error(f"Failed to search for chats with title '{title}': {e}")
@@ -1422,8 +1594,7 @@ class OpenWebUIClient:
         """Get detailed information about a chat."""
         try:
             response = self.session.get(
-                f"{self.base_url}/api/v1/chats/{chat_id}",
-                headers=self.json_headers
+                f"{self.base_url}/api/v1/chats/{chat_id}", headers=self.json_headers
             )
             response.raise_for_status()
             return response.json()
@@ -1484,7 +1655,9 @@ class OpenWebUIClient:
             return False
 
     def _handle_rag_references(
-        self, rag_files: Optional[List[str]] = None, rag_collections: Optional[List[str]] = None
+        self,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
     ) -> Tuple[List[Dict], List[Dict]]:
         """Handle RAG references for files and knowledge base collections."""
         api_payload, storage_payload = [], []
@@ -1523,8 +1696,6 @@ class OpenWebUIClient:
         """Upload a file and return the file metadata."""
         return self._file_manager.upload_file(file_path)
 
-
-
     def _get_title(self, messages: List[Dict[str, Any]]) -> Optional[str]:
         """
         Gets a title suggestion based on the conversation history.
@@ -1556,7 +1727,9 @@ class OpenWebUIClient:
                             logger.info(f"   ✅ Received title suggestion: '{title}'")
                             return title
                     except json.JSONDecodeError:
-                        logger.error(f"Failed to decode JSON from title content: {content}")
+                        logger.error(
+                            f"Failed to decode JSON from title content: {content}"
+                        )
                         return None
             logger.warning(f"   ⚠️ Unexpected format for title response: {data}")
             return None
@@ -1567,7 +1740,9 @@ class OpenWebUIClient:
             logger.error(f"Title API Network Error: {e}")
             return None
         except (json.JSONDecodeError, KeyError, IndexError):
-            logger.error("Failed to parse JSON or find expected keys in title response.")
+            logger.error(
+                "Failed to parse JSON or find expected keys in title response."
+            )
             return None
 
     def _get_tags(self, messages: List[Dict[str, Any]]) -> Optional[List[str]]:
@@ -1589,7 +1764,7 @@ class OpenWebUIClient:
             response = self.session.post(url, json=payload, headers=self.json_headers)
             response.raise_for_status()
             response_data = response.json()
-            
+
             if "choices" in response_data and len(response_data["choices"]) > 0:
                 content = response_data["choices"][0]["message"]["content"]
                 try:
@@ -1606,7 +1781,7 @@ class OpenWebUIClient:
             else:
                 logger.error(f"Invalid tags response format: {response_data}")
                 return None
-                
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Tags request failed: {e}")
             return None
@@ -1626,7 +1801,7 @@ class OpenWebUIClient:
         logger.info(f'Processing question: "{question}"')
         chat_core = self.chat_object_from_server["chat"]
         chat_core["models"] = [self.model_id]
-        
+
         # Ensure chat_core has the required history structure
         chat_core.setdefault("history", {"messages": {}, "currentId": None})
 
@@ -1750,36 +1925,34 @@ class OpenWebUIClient:
             return assistant_content, assistant_message_id, follow_ups
         return None, None, None
 
-
-
     def _extract_json_from_content(self, content: str) -> Optional[Dict[str, Any]]:
         """
         Extract JSON from content that may be wrapped in markdown code blocks or have extra formatting.
-        
+
         Args:
             content: The raw content string that may contain JSON
-            
+
         Returns:
             Parsed JSON dictionary or None if parsing fails
         """
         if not content or not content.strip():
             return None
-            
+
         # Try parsing the content as-is first (most common case)
         try:
             return json.loads(content.strip())
         except json.JSONDecodeError:
             pass
-            
+
         # Try to extract JSON from markdown code blocks
         # Look for JSON wrapped in markdown code blocks
         # Patterns: ```json\n{...}\n``` or ```\n{...}\n```
         code_block_patterns = [
-            r'```json\s*\n(.*?)\n\s*```',  # ```json ... ```
-            r'```\s*\n(.*?)\n\s*```',      # ``` ... ```
-            r'`(.*?)`',                     # `...` (single backticks)
+            r"```json\s*\n(.*?)\n\s*```",  # ```json ... ```
+            r"```\s*\n(.*?)\n\s*```",  # ``` ... ```
+            r"`(.*?)`",  # `...` (single backticks)
         ]
-        
+
         for pattern in code_block_patterns:
             matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
             for match in matches:
@@ -1787,12 +1960,12 @@ class OpenWebUIClient:
                     return json.loads(match.strip())
                 except json.JSONDecodeError:
                     continue
-                    
+
         # Try to find JSON-like content by looking for { ... } patterns
         json_patterns = [
-            r'\{.*\}',  # Find any {...} block
+            r"\{.*\}",  # Find any {...} block
         ]
-        
+
         for pattern in json_patterns:
             matches = re.findall(pattern, content, re.DOTALL)
             for match in matches:
@@ -1800,7 +1973,7 @@ class OpenWebUIClient:
                     return json.loads(match.strip())
                 except json.JSONDecodeError:
                     continue
-                    
+
         # If all parsing attempts fail, log the content for debugging
         logger.debug(f"Failed to extract JSON from content: {content[:200]}...")
         return None
@@ -1851,7 +2024,9 @@ class OpenWebUIClient:
                             )
                             return follow_ups
                         else:
-                            logger.warning(f"follow_ups field is not a list: {type(follow_ups)}")
+                            logger.warning(
+                                f"follow_ups field is not a list: {type(follow_ups)}"
+                            )
                     else:
                         logger.error(
                             f"Failed to decode JSON from follow-up content: {content}"
@@ -1887,6 +2062,7 @@ class OpenWebUIClient:
             "model": active_model_id,
             "messages": messages,
             "stream": False,  # Non-streaming
+            "parent_message": {},
         }
         if api_rag_payload:
             payload["files"] = api_rag_payload
@@ -1927,8 +2103,6 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Completions API Network Error for {active_model_id}: {e}")
             return None, []
-
-
 
     def _get_single_model_response_in_parallel(
         self,
@@ -2058,21 +2232,29 @@ class OpenWebUIClient:
         self._stream_delta_update(self.chat_id, user_message_id, question)
 
         # 6. Start streaming completion
-        logger.info(f"🔄 Starting streaming completion for {assistant_message_id[:8]}...")
+        logger.info(
+            f"🔄 Starting streaming completion for {assistant_message_id[:8]}..."
+        )
         try:
             content_chunks = []
             sources = []
-            
+
             for chunk_content in self._get_model_completion_stream(
                 self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
             ):
+                if chunk_content is None:
+                    continue
+                if not isinstance(chunk_content, str):
+                    chunk_content = str(chunk_content)
                 content_chunks.append(chunk_content)
                 yield chunk_content
 
                 # Update assistant message content incrementally
                 storage_assistant_message["content"] = "".join(content_chunks)
                 self._stream_delta_update(
-                    self.chat_id, assistant_message_id, storage_assistant_message["content"]
+                    self.chat_id,
+                    assistant_message_id,
+                    storage_assistant_message["content"],
                 )
 
             # Final content assembly
@@ -2122,29 +2304,36 @@ class OpenWebUIClient:
         Ensures there are enough placeholder message pairs available for streaming.
         Creates placeholder pairs that form a proper multi-turn conversation chain.
         """
-        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
             logger.warning("No chat object available for placeholder message creation.")
             return False
 
         chat_core = self.chat_object_from_server["chat"]
         chat_core.setdefault("history", {"messages": {}, "currentId": None})
-        
+
         # Count available placeholder pairs
         available_pairs = self._count_available_placeholder_pairs()
         logger.info(f"🔍 Found {available_pairs} available placeholder message pairs.")
 
         if available_pairs >= min_available:
-            logger.info(f"✅ Sufficient placeholder pairs available ({available_pairs} >= {min_available}).")
+            logger.info(
+                f"✅ Sufficient placeholder pairs available ({available_pairs} >= {min_available})."
+            )
             return True
 
         # Create more placeholder pairs as a connected conversation chain
         pairs_to_create = pool_size - available_pairs
-        logger.info(f"🔧 Creating {pairs_to_create} new placeholder message pairs as a conversation chain...")
-        
+        logger.info(
+            f"🔧 Creating {pairs_to_create} new placeholder message pairs as a conversation chain..."
+        )
+
         # Find the last message in the current conversation to continue the chain
         messages = chat_core["history"]["messages"]
         last_message_id = None
-        
+
         # Find the current end of the conversation chain
         if chat_core["history"].get("currentId"):
             last_message_id = chat_core["history"]["currentId"]
@@ -2154,13 +2343,13 @@ class OpenWebUIClient:
                 if not msg.get("_is_placeholder") and not msg.get("childrenIds"):
                     last_message_id = msg_id
                     break
-        
+
         # Create connected conversation pairs
         parent_id = last_message_id
         for i in range(pairs_to_create):
             user_id = str(uuid.uuid4())
             assistant_id = str(uuid.uuid4())
-            
+
             # Create placeholder user message
             user_message = {
                 "id": user_id,
@@ -2174,7 +2363,7 @@ class OpenWebUIClient:
                 "_is_placeholder": True,
                 "_is_available": True,
             }
-            
+
             # Create placeholder assistant message
             assistant_message = {
                 "id": assistant_id,
@@ -2190,17 +2379,17 @@ class OpenWebUIClient:
                 "_is_placeholder": True,
                 "_is_available": True,
             }
-            
+
             # Update parent message to point to this user message
             if parent_id and parent_id in messages:
                 if "childrenIds" not in messages[parent_id]:
                     messages[parent_id]["childrenIds"] = []
                 messages[parent_id]["childrenIds"].append(user_id)
-            
+
             # Add to history
             messages[user_id] = user_message
             messages[assistant_id] = assistant_message
-            
+
             # Set up for next iteration - assistant becomes parent for next user message
             parent_id = assistant_id
 
@@ -2212,7 +2401,7 @@ class OpenWebUIClient:
                 if msg.get("role") == "assistant" and not msg.get("childrenIds"):
                     last_assistant_id = msg_id
                     break
-            
+
             if last_assistant_id:
                 chat_core["history"]["currentId"] = last_assistant_id
                 # Update the linear messages array
@@ -2220,81 +2409,108 @@ class OpenWebUIClient:
                     chat_core, last_assistant_id
                 )
 
-        logger.info(f"✅ Created {pairs_to_create} placeholder message pairs in conversation chain.")
+        logger.info(
+            f"✅ Created {pairs_to_create} placeholder message pairs in conversation chain."
+        )
         return True
 
     def _count_available_placeholder_pairs(self) -> int:
         """Count the number of available placeholder message pairs."""
-        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
             return 0
-            
-        messages = self.chat_object_from_server["chat"].get("history", {}).get("messages", {})
+
+        messages = (
+            self.chat_object_from_server["chat"].get("history", {}).get("messages", {})
+        )
         available_pairs = 0
-        
+
         for message in messages.values():
-            if (message.get("_is_placeholder") and 
-                message.get("_is_available") and 
-                message.get("role") == "user"):
+            if (
+                message.get("_is_placeholder")
+                and message.get("_is_available")
+                and message.get("role") == "user"
+            ):
                 # Check if corresponding assistant message is also available
                 children = message.get("childrenIds", [])
                 if children:
                     assistant_message = messages.get(children[0])
-                    if (assistant_message and 
-                        assistant_message.get("_is_placeholder") and 
-                        assistant_message.get("_is_available")):
+                    if (
+                        assistant_message
+                        and assistant_message.get("_is_placeholder")
+                        and assistant_message.get("_is_available")
+                    ):
                         available_pairs += 1
-        
+
         return available_pairs
 
     def _get_next_available_message_pair(self) -> Optional[Tuple[str, str]]:
         """Get the next available placeholder message pair."""
-        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
             return None
-            
-        messages = self.chat_object_from_server["chat"].get("history", {}).get("messages", {})
-        
+
+        messages = (
+            self.chat_object_from_server["chat"].get("history", {}).get("messages", {})
+        )
+
         for message in messages.values():
-            if (message.get("_is_placeholder") and 
-                message.get("_is_available") and 
-                message.get("role") == "user"):
+            if (
+                message.get("_is_placeholder")
+                and message.get("_is_available")
+                and message.get("role") == "user"
+            ):
                 children = message.get("childrenIds", [])
                 if children:
                     assistant_id = children[0]
                     assistant_message = messages.get(assistant_id)
-                    if (assistant_message and 
-                        assistant_message.get("_is_placeholder") and 
-                        assistant_message.get("_is_available")):
+                    if (
+                        assistant_message
+                        and assistant_message.get("_is_placeholder")
+                        and assistant_message.get("_is_available")
+                    ):
                         # Mark as used
                         message["_is_available"] = False
                         assistant_message["_is_available"] = False
                         return message["id"], assistant_id
-        
+
         return None
 
     def _cleanup_unused_placeholder_messages(self) -> int:
         """Remove unused placeholder message pairs."""
-        if not self.chat_object_from_server or "chat" not in self.chat_object_from_server:
+        if (
+            not self.chat_object_from_server
+            or "chat" not in self.chat_object_from_server
+        ):
             return 0
-            
+
         chat_core = self.chat_object_from_server["chat"]
         messages = chat_core.get("history", {}).get("messages", {})
         cleaned_count = 0
-        
+
         # Find placeholder pairs that are still available (unused)
         pairs_to_remove = []
         for message in messages.values():
-            if (message.get("_is_placeholder") and 
-                message.get("_is_available") and 
-                message.get("role") == "user"):
+            if (
+                message.get("_is_placeholder")
+                and message.get("_is_available")
+                and message.get("role") == "user"
+            ):
                 children = message.get("childrenIds", [])
                 if children:
                     assistant_id = children[0]
                     assistant_message = messages.get(assistant_id)
-                    if (assistant_message and 
-                        assistant_message.get("_is_placeholder") and 
-                        assistant_message.get("_is_available")):
+                    if (
+                        assistant_message
+                        and assistant_message.get("_is_placeholder")
+                        and assistant_message.get("_is_available")
+                    ):
                         pairs_to_remove.append((message["id"], assistant_id))
-        
+
         # Remove the pairs
         for user_id, assistant_id in pairs_to_remove:
             if user_id in messages:
@@ -2302,10 +2518,12 @@ class OpenWebUIClient:
                 cleaned_count += 1
             if assistant_id in messages:
                 del messages[assistant_id]
-        
+
         if cleaned_count > 0:
-            logger.info(f"🧹 Cleaned up {cleaned_count} unused placeholder message pairs.")
-        
+            logger.info(
+                f"🧹 Cleaned up {cleaned_count} unused placeholder message pairs."
+            )
+
         return cleaned_count
 
     def _stream_delta_update(
@@ -2331,7 +2549,10 @@ class OpenWebUIClient:
             try:
                 # Use a longer timeout to ensure the request can complete
                 response = self.session.post(
-                    url, json=payload, headers=self.json_headers, timeout=3.0  # 3 second timeout
+                    url,
+                    json=payload,
+                    headers=self.json_headers,
+                    timeout=3.0,  # 3 second timeout
                 )
                 response.raise_for_status()
                 logger.debug(
@@ -2356,7 +2577,7 @@ class OpenWebUIClient:
         tool_ids: Optional[List[str]] = None,
     ) -> Generator[str, None, List]:
         """Get streaming completion from a model.
-        
+
         Yields content chunks, returns a list (sources) at the end.
         """
         active_model_id = model_id or self.model_id
@@ -2364,6 +2585,7 @@ class OpenWebUIClient:
             "model": active_model_id,
             "messages": messages,
             "stream": True,  # Enable streaming
+            "parent_message": {},
         }
         if api_rag_payload:
             payload["files"] = api_rag_payload
@@ -2466,9 +2688,9 @@ class OpenWebUIClient:
     def _get_task_model(self) -> Optional[str]:
         """Get the task model for metadata operations."""
         # Return cached task model if available
-        if hasattr(self, 'task_model') and self.task_model:
+        if hasattr(self, "task_model") and self.task_model:
             return self.task_model
-            
+
         # Fetch task model from config
         url = f"{self.base_url}/api/v1/tasks/config"
         try:

@@ -474,6 +474,7 @@ print(f"Summary: {result['response']}")
 The `AsyncOpenWebUIClient` provides an asynchronous interface for all operations, suitable for high-performance async applications (FastAPI, Sanic, etc.). All methods have the same signatures as their synchronous counterparts but are prefixed with `async`/`await`.
 
 **Key Differences:**
+
 - All methods are `async` and must be called with `await`
 - Uses `httpx.AsyncClient` for HTTP operations instead of `requests`
 - Supports async context manager (`async with`)
@@ -709,6 +710,28 @@ encoded = await asyncio.to_thread(
 - **Tool Not Found**: Ensure the `tool_ids` you provide match the IDs of tools configured in the Open WebUI settings.
 - **File/Image Upload Issues**: Ensure file paths are correct and the application has the necessary permissions to read them.
 - **Web UI Not Updating**: Refresh the page or check the server logs for any potential errors.
+
+---
+
+## 🧪 Integration Smoke Tests (Opt-in)
+
+Lightweight live checks are available under `examples/integration/` and are gated by environment variables so they can be skipped when credentials are absent.
+
+**Prerequisites:**
+
+- `OUI_BASE_URL` (e.g., `http://localhost:3000`)
+- `OUI_AUTH_TOKEN` (bearer token with chat access; admin token required for user/model operations)
+- `OUI_DEFAULT_MODEL` (defaults to `gpt-4.1` if omitted)
+
+**Run selected category:**
+
+```bash
+python run_integration_tests.py --category sync_live_stream --verbose
+```
+
+Common categories include `sync_live_stream`, `async_live_stream`, `model_management`, `notes_api`, and `prompts_api`. See `examples/integration/` for the full list.
+
+> These tests are optional and safe to run locally; CI will skip them automatically when secrets are not configured.
 
 ---
 

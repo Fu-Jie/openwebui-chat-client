@@ -58,6 +58,31 @@ class AsyncOpenWebUIClient:
     async def list_chats(self, page: Optional[int] = None):
         return await self._chat_manager.list_chats(page)
 
+    async def delete_all_chats(self) -> bool:
+        """
+        Delete ALL chat conversations for the current user.
+        
+        ⚠️ WARNING: This is a DESTRUCTIVE operation!
+        This method will permanently delete ALL chats associated with the current user account.
+        This action CANNOT be undone. Use with extreme caution.
+        
+        This method is useful for:
+        - Cleaning up test data after integration tests
+        - Resetting an account to a clean state
+        - Bulk cleanup operations
+        
+        Returns:
+            True if deletion was successful, False otherwise
+            
+        Example:
+            >>> # ⚠️ WARNING: This will delete ALL your chats!
+            >>> success = await client.delete_all_chats()
+            >>> if success:
+            ...     print("All chats have been permanently deleted")
+        """
+        return await self._chat_manager.delete_all_chats()
+
+
     # Models
     async def list_models(self):
         return await self._model_manager.list_models()

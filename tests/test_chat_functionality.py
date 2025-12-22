@@ -241,7 +241,9 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
 
         mock_post.assert_called_once_with(
             f"{self.base_url}/api/chat/completions",
-            json={"model": self.default_model, "messages": messages, "stream": False},
+            json={"model": self.default_model, "messages": messages, "stream": False,
+                    "parent_message": {}
+                    },    
             headers=self.client.json_headers,
         )
 

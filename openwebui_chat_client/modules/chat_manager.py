@@ -976,6 +976,40 @@ class ChatManager:
             logger.error(f"Failed to archive chat {chat_id}: {e}")
             return False
 
+    def delete_all_chats(self) -> bool:
+        """
+        Delete ALL chat conversations for the current user.
+        
+        ⚠️ WARNING: This is a DESTRUCTIVE operation!
+        This method will permanently delete ALL chats associated with the current user account.
+        This action CANNOT be undone. Use with extreme caution.
+        
+        This method is useful for:
+        - Cleaning up test data after integration tests
+        - Resetting an account to a clean state
+        - Bulk cleanup operations
+        
+        Returns:
+            True if deletion was successful, False otherwise
+            
+        Example:
+            >>> # ⚠️ WARNING: This will delete ALL your chats!
+            >>> success = client.delete_all_chats()
+            >>> if success:
+            ...     print("All chats have been permanently deleted")
+        """
+        logger.warning("⚠️ DELETING ALL CHATS - This action cannot be undone!")
+        url = f"{self.base_client.base_url}/api/v1/chats/"
+
+        try:
+            response = self.base_client.session.delete(url, headers=self.base_client.json_headers)
+            response.raise_for_status()
+            logger.info("✅ Successfully deleted all chats")
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Failed to delete all chats: {e}")
+            return False
+
     def create_folder(self, name: str) -> Optional[str]:
         """
         Create a new folder for organizing chats.
@@ -1792,6 +1826,7 @@ class ChatManager:
                 "messages": messages,
                 "stream": False,
                 "chat_id": chat_id,
+                "parent_message": {}
             }
             
             if rag_payload:
@@ -1804,6 +1839,8 @@ class ChatManager:
             
             logger.info(f"✅ Payload built successfully: {len(str(payload))} chars")
             logger.info(f"🌐 Making POST request to: {self.base_client.base_url}/api/chat/completions")
+            if 'parent_message' not in payload:
+                payload['parent_message'] = {}  # Ensure parent_message is included
             
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/chat/completions",

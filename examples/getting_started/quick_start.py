@@ -46,6 +46,8 @@ DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "gpt-4.1")
 # Parse parallel models
 parallel_models_str = os.getenv("OUI_PARALLEL_MODELS", "gpt-4.1,gemini-2.5-flash")
 PARALLEL_MODELS = [model.strip() for model in parallel_models_str.split(",") if model.strip()]
+# Optional: Set to 'true' to clean up all chats before running tests
+CLEANUP_BEFORE_TEST = os.getenv("OUI_CLEANUP_BEFORE_TEST", "false").lower() == "true"
 
 # Logging setup
 logging.basicConfig(
@@ -297,6 +299,17 @@ def main() -> None:
         logger.info("✅ OpenWebUI Chat Client initialized successfully")
         logger.info(f"   Server: {BASE_URL}")
         logger.info(f"   Default Model: {DEFAULT_MODEL}")
+        
+        # 🧹 Optional: Clean up all existing chats before running tests
+        # Enable by setting OUI_CLEANUP_BEFORE_TEST=true
+        if CLEANUP_BEFORE_TEST:
+            logger.info("🧹 Cleaning up existing chats for clean test environment...")
+            cleanup_success = client.delete_all_chats()
+            if cleanup_success:
+                logger.info("✅ Test environment cleaned (all previous chats deleted)")
+            else:
+                logger.warning("⚠️ Could not clean up previous chats, continuing anyway...")
+        
     except Exception as e:
         logger.error(f"❌ Failed to initialize client: {e}")
         logger.error("\n💡 Check your connection and token, or run:")

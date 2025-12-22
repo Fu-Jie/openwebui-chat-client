@@ -13,42 +13,42 @@ test_categories:
     name: "Notes API Integration Test"
     command: "python examples/notes_api/basic_notes.py"
     description: "Tests notes CRUD operations and API functionality"
-    
+
   prompts_api:
     name: "Prompts API Integration Test"
     command: "python examples/prompts_api/basic_prompts.py"
     description: "Tests prompts CRUD operations, variables, and management functionality"
-    
+
   basic_chat:
     name: "Basic Usage Integration Test"
     command: "python examples/getting_started/basic_chat.py"
     description: "Tests basic chat functionality and client initialization"
-    
+
   rag_integration:
     name: "RAG Integration Test"
     command: "python examples/rag_knowledge/file_rag.py"
     description: "Tests RAG (Retrieval Augmented Generation) with files"
-    
+
   model_management:
     name: "Model Management Integration Test"
     command: "python examples/model_management/model_operations.py"
     description: "Tests model CRUD operations and management"
-    
+
   model_switching:
     name: "Model Switch Integration Test"
     command: "python examples/chat_features/model_switching.py"
     description: "Tests model switching functionality in existing chats"
-    
+
   comprehensive_demos:
     name: "Comprehensive Demos Test"
     command: "python examples/getting_started/quick_start.py"
     description: "Tests comprehensive feature integration and workflows"
-    
+
   connectivity:
     name: "Basic Connectivity Test"
-    command: "python -c \"from openwebui_chat_client import OpenWebUIClient; import os; import sys; client = OpenWebUIClient(os.getenv('OUI_BASE_URL'), os.getenv('OUI_AUTH_TOKEN'), os.getenv('OUI_DEFAULT_MODEL')); models = client.list_models(); print(f'✅ Connected. Found {len(models) if models else 0} models.') if models is not None else sys.exit(1)\""
+    command: 'python -c "from openwebui_chat_client import OpenWebUIClient; import os; import sys; client = OpenWebUIClient(os.getenv(''OUI_BASE_URL''), os.getenv(''OUI_AUTH_TOKEN''), os.getenv(''OUI_DEFAULT_MODEL'')); models = client.list_models(); print(f''✅ Connected. Found {len(models) if models else 0} models.'') if models is not None else sys.exit(1)"'
     description: "Tests basic client connectivity and authentication"
-    
+
   continuous_conversation:
     name: "Continuous Conversation Integration Test"
     command: "python examples/advanced_features/continuous_conversation.py"
@@ -69,85 +69,192 @@ test_categories:
     command: "python examples/advanced_features/stream_process_task_example.py"
     description: "Tests the streaming version of the task processing agent"
 
+  async_basic_chat:
+    name: "Async Basic Usage Integration Test"
+    command: "python examples/getting_started/async_basic_chat.py"
+    description: "Tests async client basic functionality including async chat, streaming, and concurrent operations"
+
+  async_streaming_chat:
+    name: "Async Streaming Chat Integration Test"
+    command: "python examples/chat_features/async_streaming_chat.py"
+    description: "Tests async streaming chat with timing analysis and concurrent streaming sessions"
+
+  async_model_operations:
+    name: "Async Model Operations Integration Test"
+    command: "python examples/model_management/async_model_operations.py"
+    description: "Tests async model listing, categorization, and batch model operations"
+
+  async_live_client:
+    name: "Async Live Client Integration Test"
+    command: "python examples/integration/test_integration_async_client_live.py"
+    description: "Live async client smoke: list_models and chat"
+
+  async_live_stream:
+    name: "Async Live Streaming Integration Test"
+    command: "python examples/integration/test_integration_async_stream_chat.py"
+    description: "Live async streaming chat smoke"
+
+  async_live_model_ops:
+    name: "Async Live Model Ops Integration Test"
+    command: "python examples/integration/test_integration_async_model_ops.py"
+    description: "Live async model list and detail fetch"
+
+  sync_live_client:
+    name: "Sync Live Client Integration Test"
+    command: "python examples/integration/test_integration_openwebui_chat_client.py"
+    description: "Live sync client smoke: chat and model CRUD"
+
+  sync_live_stream:
+    name: "Sync Live Streaming Integration Test"
+    command: "python examples/integration/test_integration_sync_stream_chat.py"
+    description: "Live sync streaming chat smoke"
+
 # File patterns mapped to test categories
 # When files matching these patterns change, the corresponding tests will run
 file_mappings:
   # Core client functionality - triggers multiple tests
   - pattern: "openwebui_chat_client/openwebui_chat_client.py"
-    categories: ["connectivity", "basic_chat", "model_management", "deep_research"]
+    categories:
+      [
+        "connectivity",
+        "basic_chat",
+        "model_management",
+        "deep_research",
+        "sync_live_stream",
+        "sync_live_client",
+      ]
 
   - pattern: "openwebui_chat_client/core/base_client.py"
-    categories: ["connectivity", "basic_chat"]
-    
+    categories:
+      ["connectivity", "basic_chat", "sync_live_stream", "sync_live_client"]
+
+  # Async client functionality
+  - pattern: "openwebui_chat_client/async_openwebui_client.py"
+    categories:
+      [
+        "async_basic_chat",
+        "async_streaming_chat",
+        "async_model_operations",
+        "connectivity",
+        "async_live_client",
+        "async_live_stream",
+        "async_live_model_ops",
+      ]
+
+  - pattern: "openwebui_chat_client/core/async_base_client.py"
+    categories:
+      [
+        "async_basic_chat",
+        "async_streaming_chat",
+        "async_model_operations",
+        "connectivity",
+        "async_live_client",
+        "async_live_stream",
+        "async_live_model_ops",
+      ]
+
+  - pattern: "openwebui_chat_client/modules/async_*.py"
+    categories:
+      [
+        "async_basic_chat",
+        "async_streaming_chat",
+        "async_model_operations",
+        "async_live_client",
+        "async_live_stream",
+        "async_live_model_ops",
+      ]
+
+  # Async example files
+  - pattern: "examples/chat_features/async_*.py"
+    categories: ["async_streaming_chat"]
+
+  - pattern: "examples/model_management/async_*.py"
+    categories: ["async_model_operations"]
+
   # Chat-related functionality - be more specific to avoid prompts conflicts
   - pattern: "openwebui_chat_client/**/*chat*.py"
-    categories: ["basic_chat", "model_switching", "comprehensive_demos", "deep_research"]
-  
+    categories:
+      ["basic_chat", "model_switching", "comprehensive_demos", "deep_research"]
+
   # Chat manager changes should trigger process_task tests
   - pattern: "openwebui_chat_client/modules/chat_manager.py"
-    categories: ["basic_chat", "model_switching", "process_task", "stream_process_task"]
-    
+    categories:
+      ["basic_chat", "model_switching", "process_task", "stream_process_task"]
+
   # Continuous conversation functionality
   - pattern: "**/*continuous*"
     categories: ["continuous_conversation", "comprehensive_demos"]
-  
+
   # Task processing functionality
   - pattern: "**/*task*.py"
     categories: ["process_task", "stream_process_task"]
-    
+
   # Core client and module changes
   - pattern: "openwebui_chat_client/**/*.py"
     categories: ["connectivity", "basic_chat", "model_management"]
-  
+
   # Notes API functionality
   - pattern: "**/*notes*.py"
     categories: ["notes_api"]
-  
+
   # Prompts API functionality
   - pattern: "**/*prompts*.py"
     categories: ["prompts_api"]
-  
+
   # RAG and knowledge base functionality
   - pattern: "**/*rag*.py"
     categories: ["rag_integration", "comprehensive_demos"]
-    
+
   - pattern: "**/*knowledge*.py"
     categories: ["rag_integration", "comprehensive_demos"]
-  
+
   # Examples - categorize by directory
   - pattern: "examples/getting_started/**"
-    categories: ["basic_chat", "comprehensive_demos", "connectivity"]
-    
+    categories:
+      ["basic_chat", "async_basic_chat", "comprehensive_demos", "connectivity"]
+
   - pattern: "examples/chat_features/**"
     categories: ["basic_chat", "model_switching"]
-    
+
   - pattern: "examples/advanced_features/**"
     categories: ["continuous_conversation", "comprehensive_demos"]
-    
+
   - pattern: "examples/notes_api/**"
     categories: ["notes_api"]
-    
+
   - pattern: "examples/prompts_api/**"
     categories: ["prompts_api"]
-    
+
   - pattern: "examples/rag_knowledge/**"
     categories: ["rag_integration"]
-    
+
   - pattern: "examples/model_management/**"
     categories: ["model_management"]
-  
+
+  - pattern: "examples/integration/**"
+    categories:
+      [
+        "async_live_client",
+        "async_live_stream",
+        "async_live_model_ops",
+        "sync_live_stream",
+        "sync_live_client",
+      ]
+
   # Test files - categorize by name
   - pattern: "tests/**/test_notes*"
     categories: ["notes_api"]
-    
+
   - pattern: "tests/**/test_prompts*"
     categories: ["prompts_api"]
-  
+
   - pattern: "tests/test_deep_research.py"
     categories: ["deep_research"]
 
   - pattern: "tests/test_task_processing.py"
-    categories: ["process_task", "stream_process_task"]# Default categories to run when no specific mapping is found
+    categories: ["process_task", "stream_process_task"]
+
+# Default categories to run when no specific mapping is found
 # This ensures that at least basic functionality is tested for any changes
 default_categories:
   - "connectivity"

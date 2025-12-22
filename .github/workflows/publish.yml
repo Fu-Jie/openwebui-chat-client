@@ -1,3 +1,5 @@
+---
+# yamllint disable rule:line-length rule:trailing-spaces rule:indentation rule:truthy
 name: Tag and Publish on CHANGELOG update
 
 on:
@@ -116,7 +118,7 @@ jobs:
           echo "Running all tests for first release"
           echo "should-run=true" >> $GITHUB_OUTPUT
           echo "patterns=test_*.py" >> $GITHUB_OUTPUT
-          echo "integration-tests=[\"connectivity\",\"basic_chat\",\"notes_api\",\"prompts_api\",\"rag_integration\",\"model_management\",\"model_switching\",\"comprehensive_demos\",\"continuous_conversation\",\"deep_research\"]" >> $GITHUB_OUTPUT
+          echo "integration-tests=[\"connectivity\",\"basic_chat\",\"notes_api\",\"prompts_api\",\"rag_integration\",\"model_management\",\"model_switching\",\"comprehensive_demos\",\"continuous_conversation\",\"deep_research\",\"async_live_client\",\"async_live_stream\",\"async_live_model_ops\",\"sync_live_stream\"]" >> $GITHUB_OUTPUT
         else
           echo "Comparing changes from $LAST_TAG to ${{ needs.create_tag.outputs.tag }}"
           
@@ -199,9 +201,10 @@ jobs:
       env:
         OUI_BASE_URL: ${{ secrets.OUI_BASE_URL }}
         OUI_AUTH_TOKEN: ${{ secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_DEFAULT_MODEL: ${{ secrets.OUI_DEFAULT_MODEL }}
       run: |
         echo "🧪 Checking environment for integration test: ${{ matrix.test-category }}"
+        : "${OUI_DEFAULT_MODEL:=gpt-4.1}"
         
         if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ]; then
           echo "⚠️  Integration test secrets not configured, skipping"
@@ -214,11 +217,15 @@ jobs:
       env:
         OUI_BASE_URL: ${{ secrets.OUI_BASE_URL }}
         OUI_AUTH_TOKEN: ${{ secrets.OUI_AUTH_TOKEN }}
-        OUI_DEFAULT_MODEL: ${{ secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
-        OUI_PARALLEL_MODELS: ${{ secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
-        OUI_MULTIMODAL_MODEL: ${{ secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
-        OUI_RAG_MODEL: ${{ secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
+        OUI_DEFAULT_MODEL: ${{ secrets.OUI_DEFAULT_MODEL }}
+        OUI_MULTIMODAL_MODEL: ${{ secrets.OUI_DEFAULT_MODEL }}
+        OUI_RAG_MODEL: ${{ secrets.OUI_DEFAULT_MODEL }}
       run: |
+        : "${OUI_DEFAULT_MODEL:=gpt-4.1}"
+        : "${OUI_PARALLEL_MODELS:=gpt-4.1,gpt-4o}"
+        : "${OUI_MULTIMODAL_MODEL:=$OUI_DEFAULT_MODEL}"
+        : "${OUI_RAG_MODEL:=$OUI_DEFAULT_MODEL}"
+        
         if [ -z "$OUI_BASE_URL" ] || [ -z "$OUI_AUTH_TOKEN" ]; then
           echo "Skipping integration test (no credentials)"
           exit 0
