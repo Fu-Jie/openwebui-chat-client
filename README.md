@@ -32,21 +32,40 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+# Option 1: Use context manager (recommended for automatic resource cleanup)
+with OpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+) as client:
+    result = client.chat(
+        question="Hello, how are you?",
+        chat_title="My First Chat"
+    )
+    
+    if result:
+        print(f"Response: {result['response']}")
+        print(f"Chat ID: {result['chat_id']}")
+# Resources are automatically cleaned up after the with block
+
+# Option 2: Traditional usage (remember to call close() when done)
 client = OpenWebUIClient(
     base_url="http://localhost:3000",
     token="your-bearer-token",
     default_model_id="gpt-4.1"
 )
 
-# The chat method returns a dictionary with the response, chat_id, and message_id
-result = client.chat(
-    question="Hello, how are you?",
-    chat_title="My First Chat"
-)
-
-if result:
-    print(f"Response: {result['response']}")
-    print(f"Chat ID: {result['chat_id']}")
+try:
+    result = client.chat(
+        question="Hello, how are you?",
+        chat_title="My First Chat"
+    )
+    
+    if result:
+        print(f"Response: {result['response']}")
+        print(f"Chat ID: {result['chat_id']}")
+finally:
+    client.close()  # Explicitly cleanup resources
 ```
 
 ### ⚡ Async Client

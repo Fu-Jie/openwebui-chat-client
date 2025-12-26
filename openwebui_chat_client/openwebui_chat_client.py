@@ -158,10 +158,47 @@ class OpenWebUIClient:
         self._model_manager.available_model_ids = value
         self._base_client.available_model_ids = value
 
-    def __del__(self):
+    def __enter__(self):
         """
-        Destructor: Automatically cleans up placeholder messages and syncs with remote server when instance is destroyed
+        Enter the runtime context for the client object.
+        
+        Returns:
+            self: The client instance
+            
+        Example:
+            >>> with OpenWebUIClient(base_url, token, model_id) as client:
+            ...     result = client.chat("Hello", "Test Chat")
+            >>> # Session automatically closed after the with block
         """
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Exit the runtime context and cleanup resources.
+        
+        Args:
+            exc_type: Exception type if an exception occurred
+            exc_val: Exception value if an exception occurred
+            exc_tb: Exception traceback if an exception occurred
+            
+        Returns:
+            False: Do not suppress exceptions
+        """
+        self.close()
+        return False
+    
+    def close(self):
+        """
+        Close the client and cleanup resources.
+        
+        This method:
+        - Performs placeholder message cleanup if enabled
+        - Closes the HTTP session
+        - Releases any other resources
+        
+        Note: This is automatically called when using the client as a context manager.
+        """
+        # Cleanup placeholder messages if enabled
         if (
             hasattr(self, "_base_client")
             and self._base_client
@@ -184,6 +221,28 @@ class OpenWebUIClient:
                 logger.warning(
                     f"🧹 Client cleanup: Error during automatic cleanup: {e}"
                 )
+        
+        # Close the HTTP session
+        if hasattr(self, 'session') and self.session:
+            try:
+                self.session.close()
+                logger.info("✅ Client session closed successfully")
+            except Exception as e:
+                logger.warning(f"⚠️ Error closing session: {e}")
+
+    def __del__(self):
+        """
+        Destructor: Automatically cleans up resources when instance is garbage collected.
+        
+        Note: It's better to use the context manager (with statement) or explicitly 
+        call close() for deterministic resource cleanup.
+        """
+        # Call close() for cleanup, which handles placeholder messages and session
+        try:
+            self.close()
+        except Exception as e:
+            # Errors in __del__ should not propagate
+            logger.debug(f"Error during object destruction cleanup: {e}")
 
     # =============================================================================
     # CHAT OPERATIONS - Delegate to ChatManager
