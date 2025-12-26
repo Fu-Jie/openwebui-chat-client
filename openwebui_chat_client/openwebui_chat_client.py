@@ -1751,10 +1751,6 @@ class OpenWebUIClient:
                         )
         return api_payload, storage_payload
 
-    def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
-        """Upload a file and return the file metadata."""
-        return self._file_manager.upload_file(file_path)
-
     def _get_title(self, messages: List[Dict[str, Any]]) -> Optional[str]:
         """
         Gets a title suggestion based on the conversation history.
@@ -2764,6 +2760,12 @@ class OpenWebUIClient:
             else:
                 logger.error("   ❌ 'TASK_MODEL' not found in config response.")
                 return self.model_id  # Fallback to default model
-        except Exception as e:
-            logger.error(f"Failed to fetch task config: {e}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error fetching task config: {e}")
+            return self.model_id  # Fallback to default model
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in task config response: {e}")
+            return self.model_id  # Fallback to default model
+        except KeyError as e:
+            logger.error(f"Missing expected key in task config: {e}")
             return self.model_id  # Fallback to default model

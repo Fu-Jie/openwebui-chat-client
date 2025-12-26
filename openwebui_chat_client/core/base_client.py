@@ -122,9 +122,6 @@ class BaseClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error for {method} {endpoint}: {e}")
             return None
-        except Exception as e:
-            logger.error(f"Unexpected error for {method} {endpoint}: {e}")
-            return None
     
     def _get_json_response(
         self, 
@@ -207,9 +204,6 @@ class BaseClient:
             if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"Response content: {e.response.text}")
             return None
-        except Exception as e:
-            logger.error(f"Unexpected error uploading file '{file_name}': {e}")
-            return None
 
     def _get_task_model(self) -> Optional[str]:
         """Get the task model for AI tasks (tags, titles, follow-ups)."""
@@ -236,8 +230,12 @@ class BaseClient:
                 logger.error("   ❌ 'TASK_MODEL' not found in config response.")
                 return None
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to fetch task config: {e}")
+            logger.error(f"Network error fetching task config: {e}")
             return None
-        except json.JSONDecodeError:
-            logger.error("Failed to decode JSON from task config response.")
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in task config response: {e}")
+            return None
+        except KeyError as e:
+            logger.error(f"Missing expected key in task config: {e}")
+            return None
             return None
