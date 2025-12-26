@@ -4,6 +4,33 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [未发布]
+
+### 新增
+- 上下文管理器支持（`__enter__` 和 `__exit__`），实现资源自动清理
+- 显式 `close()` 方法用于手动资源管理
+- 全面的上下文管理器功能测试套件（8 个新测试）
+- 演示上下文管理器用法的示例脚本（`examples/getting_started/context_manager_example.py`）
+- 详细的设计改进分析文档（`DESIGN_IMPROVEMENTS.md`）
+
+### 变更
+- 改进 `_get_task_model` 方法的异常处理（base_client 和主客户端）
+  - 将宽泛的 `except Exception` 替换为具体异常类型
+  - 添加 `requests.exceptions.RequestException` 处理网络错误
+  - 添加 `json.JSONDecodeError` 处理 JSON 解析错误
+  - 添加 `KeyError` 处理配置键错误
+- 更新 `__del__` 方法以使用新的 `close()` 方法实现一致的清理
+- 更新 README.md 快速开始部分，展示上下文管理器作为推荐用法
+
+### 修复
+- 删除主客户端中重复的 `_upload_file` 方法定义（之前定义了两次）
+- 删除 base_client 中 `_make_request` 和 `_upload_file` 方法里不必要的宽泛异常处理器
+
+### 文档
+- 在 README.md 中添加上下文管理器使用示例
+- 创建全面的设计改进文档，分析架构和代码质量
+- 更新新上下文管理器方法的文档字符串
+
 ## [0.1.23] - 2025-12-23
 
 ### 新增

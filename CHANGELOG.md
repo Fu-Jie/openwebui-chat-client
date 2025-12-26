@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased]
+
+### Added
+- Context manager support (`__enter__` and `__exit__`) for automatic resource cleanup
+- Explicit `close()` method for manual resource management
+- Comprehensive test suite for context manager functionality (8 new tests)
+- Example script demonstrating context manager usage (`examples/getting_started/context_manager_example.py`)
+- Detailed design improvement analysis document (`DESIGN_IMPROVEMENTS.md`)
+
+### Changed
+- Improved exception handling in `_get_task_model` methods (both base_client and main client)
+  - Replaced broad `except Exception` with specific exception types
+  - Added `requests.exceptions.RequestException` for network errors
+  - Added `json.JSONDecodeError` for JSON parsing errors
+  - Added `KeyError` for configuration key errors
+- Updated `__del__` method to use new `close()` method for consistent cleanup
+- Updated README.md Quick Start section to show context manager usage as recommended approach
+
+### Fixed
+- Removed duplicate `_upload_file` method definition in main client (was defined twice)
+- Removed unnecessary broad exception handlers in base_client `_make_request` and `_upload_file` methods
+
+### Documentation
+- Added context manager usage examples to README.md
+- Created comprehensive design improvement document analyzing architecture and code quality
+- Updated docstrings for new context manager methods
+
 ## [0.1.23] - 2025-12-23
 
 ### Added
