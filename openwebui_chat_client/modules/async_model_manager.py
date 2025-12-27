@@ -5,9 +5,8 @@ Async Model management module for OpenWebUI Chat Client.
 import logging
 import json
 import asyncio
-from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
-
 import httpx
+from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
@@ -237,9 +236,7 @@ class AsyncModelManager:
             return False
 
         if response.status_code == 405:
-            logger.warning(
-                f"DELETE not allowed for model '{model_id}', retrying with POST fallback."
-            )
+            logger.warning("DELETE not allowed, retrying with POST fallback.")
             response = await self.base_client._make_request(
                 "POST",
                 "/api/v1/models/model/delete",
