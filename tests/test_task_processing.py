@@ -96,5 +96,126 @@ class TestTaskProcessing(unittest.TestCase):
         self.assertEqual(todo_updates[0][0]["task"], "Step 1.")
         self.assertEqual(todo_updates[0][0]["status"], "in_progress")
 
+    def test_enhanced_prompt_contains_key_findings(self):
+        """Test that the enhanced prompt includes Key Findings section."""
+        prompt = self.client._chat_manager._get_task_processing_prompt()
+        
+        # Check for Key Findings section
+        self.assertIn("Key Findings", prompt)
+        self.assertIn("Knowledge Accumulation", prompt)
+        self.assertIn("[From tool", prompt)
+        
+    def test_enhanced_prompt_contains_options_guidance(self):
+        """Test that the enhanced prompt includes guidance for multiple options."""
+        prompt = self.client._chat_manager._get_task_processing_prompt()
+        
+        # Check for options handling guidance
+        self.assertIn("Options:", prompt)
+        self.assertIn("multiple solution options", prompt)
+
+    def test_detect_options_in_response_with_valid_options(self):
+        """Test detection of multiple options in AI response."""
+        response_text = """Thought:
+**Key Findings:**
+- [From search] Found 3 possible approaches
+
+**Options:**
+1. [Direct API]: Use the direct API call method
+2. [Batch Processing]: Process items in batches for efficiency
+3. [Async Method]: Use async/await for better performance
+
+I will proceed with the best option.
+
+Action:
+```json
+{"tool": "test", "args": {}}
+```"""
+        
+        options = self.client._chat_manager._detect_options_in_response(response_text)
+        
+        self.assertIsNotNone(options)
+        self.assertEqual(len(options), 3)
+        self.assertEqual(options[0]["number"], "1")
+        self.assertEqual(options[0]["label"], "Direct API")
+
+    def test_detect_options_in_response_without_options(self):
+        """Test that no options are detected when none exist."""
+        response_text = """Thought:
+I will solve this problem step by step.
+
+Action:
+```json
+{"tool": "calculator", "args": {"operation": "add", "a": 1, "b": 2}}
+```"""
+        
+        options = self.client._chat_manager._detect_options_in_response(response_text)
+        
+        self.assertIsNone(options)
+
+    def test_get_decision_from_model(self):
+        """Test that decision model can select an option."""
+        options = [
+            {"number": "1", "label": "Option A", "description": "First approach"},
+            {"number": "2", "label": "Option B", "description": "Second approach"},
+        ]
+        
+        # Mock the model completion to return a decision
+        self.client._chat_manager._get_model_completion = MagicMock(return_value=(
+            '{"selected_option": 2, "reasoning": "Option B is more efficient"}',
+            []
+        ))
+        
+        selected = self.client._chat_manager._get_decision_from_model(
+            options=options,
+            context="Test context",
+            decision_model_id="decision_model",
+            original_question="Solve this problem"
+        )
+        
+        self.assertEqual(selected, 2)
+
+    def test_process_task_with_decision_model(self):
+        """Test process_task with decision_model_id parameter."""
+        # First response presents options, second response provides final answer
+        call_count = [0]
+        
+        def mock_completion(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call: present options
+                return (
+                    '''Thought:
+**Options:**
+1. [Method A]: Use method A
+2. [Method B]: Use method B
+
+Action:
+```json
+{"tool": "analyze", "args": {}}
+```''',
+                    []
+                )
+            else:
+                # Subsequent calls: provide final answer
+                return (
+                    'Thought:\nFinal step.\nAction:\n```json\n{"final_answer": "Completed with decision model."}\n```',
+                    []
+                )
+        
+        self.client._chat_manager._get_model_completion = MagicMock(side_effect=mock_completion)
+        self.client._chat_manager._get_decision_from_model = MagicMock(return_value=1)
+        self.client._chat_manager._summarize_history = MagicMock(return_value="Summary")
+
+        result = self.client.process_task(
+            question="Solve with decision model.",
+            model_id="test_model",
+            tool_server_ids="test_tool",
+            decision_model_id="decision_model_id"
+        )
+
+        # Verify decision model was called
+        self.client._chat_manager._get_decision_from_model.assert_called()
+        self.assertEqual(result["solution"], "Completed with decision model.")
+
 if __name__ == '__main__':
     unittest.main()

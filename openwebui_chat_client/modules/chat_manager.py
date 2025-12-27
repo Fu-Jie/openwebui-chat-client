@@ -2874,15 +2874,29 @@ class ChatManager:
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
         summarize_history: bool = False,
+        decision_model_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Processes a task using a structured "Thought -> Action -> Observation" loop.
         This enhances task-solving capability and provides better observability.
+        
+        Args:
+            question: The task to process.
+            model_id: The ID of the model to use for task execution.
+            tool_server_ids: The ID(s) of the tool server(s) to use.
+            knowledge_base_name: The name of the knowledge base to use.
+            max_iterations: The maximum number of iterations to attempt.
+            summarize_history: If True, the conversation history will be summarized.
+            decision_model_id: Optional model ID for automatic decision-making when 
+                              the AI presents multiple options. If provided, this model
+                              will analyze the options and select the best one automatically.
         """
         logger.info("=" * 80)
         logger.info(f"🚀 Starting ENHANCED task processing: '{question}'")
         logger.info(f"   Max iterations: {max_iterations}")
         logger.info(f"   Summarize history: {summarize_history}")
+        if decision_model_id:
+            logger.info(f"   Decision model: {decision_model_id}")
         logger.info("=" * 80)
 
         chat_title = f"Task Processing: {question[:50]}"
@@ -2932,6 +2946,31 @@ class ChatManager:
                 parsed_todo = self._parse_todo_list(thought_content)
                 if parsed_todo:
                     last_todo_list = parsed_todo
+                    
+                # Check for multiple options requiring a decision
+                if decision_model_id:
+                    options = self._detect_options_in_response(thought_content)
+                    if options:
+                        logger.info(f"🔄 Multiple options detected, using decision model to select...")
+                        # Build context from recent messages
+                        context = "\n".join([
+                            f"{msg['role']}: {msg['content'][:500]}" 
+                            for msg in api_messages[-6:]  # Last 6 messages for context
+                        ])
+                        selected_option = self._get_decision_from_model(
+                            options=options,
+                            context=context,
+                            decision_model_id=decision_model_id,
+                            original_question=question
+                        )
+                        if selected_option:
+                            # Inject decision as user feedback
+                            decision_feedback = (
+                                f"Observation: The decision model has analyzed the options and selected "
+                                f"Option {selected_option}. Please proceed with this option."
+                            )
+                            api_messages.append({"role": "user", "content": decision_feedback})
+                            continue  # Continue to next iteration with the decision
 
             action_json = self._extract_json_from_content(model_response_text)
             observation = ""
@@ -2979,6 +3018,7 @@ class ChatManager:
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
         summarize_history: bool = False,
+        decision_model_id: Optional[str] = None,
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """
         Processes a task in a streaming fashion, yielding structured events for observability.
@@ -3011,6 +3051,10 @@ class ChatManager:
             {"type": "observation", "content": str, "iteration": int}
             Emitted when the model receives an observation/result from a tool call.
 
+        - decision:
+            {"type": "decision", "selected_option": int, "options": List[Dict], "iteration": int}
+            Emitted when the decision model selects an option.
+
         - final_answer:
             {"type": "final_answer", "content": str, "iteration": int}
             Emitted when the model produces the final answer to the task.
@@ -3019,12 +3063,24 @@ class ChatManager:
             {"type": "error", "content": str}
             Emitted if an error occurs during processing.
 
+        Args:
+            question: The task to process.
+            model_id: The ID of the model to use for task execution.
+            tool_server_ids: The ID(s) of the tool server(s) to use.
+            knowledge_base_name: The name of the knowledge base to use.
+            max_iterations: The maximum number of iterations to attempt.
+            summarize_history: If True, the conversation history will be summarized.
+            decision_model_id: Optional model ID for automatic decision-making when 
+                              the AI presents multiple options.
+
         Yields:
             Dict[str, Any]: Structured event as described above.
         """
         logger.info("=" * 80)
         logger.info(f"🚀 Starting ENHANCED stream processing for task: '{question}'")
         logger.info(f"   Summarize history: {summarize_history}")
+        if decision_model_id:
+            logger.info(f"   Decision model: {decision_model_id}")
         logger.info("=" * 80)
 
         chat_title = f"Task Processing: {question[:50]}"
@@ -3048,6 +3104,7 @@ class ChatManager:
         for i in range(max_iterations):
             yield {"type": "iteration_start", "iteration": i + 1}
             full_model_response = ""
+            thought_content_for_decision = ""
             try:
                 assistant_response_generator = self._stream_process_task_step(
                     api_messages=api_messages,
@@ -3058,6 +3115,7 @@ class ChatManager:
                 for event in assistant_response_generator:
                     if event["type"] == "thought":
                         thought_content = event["content"]
+                        thought_content_for_decision = thought_content
                         parsed_todo = self._parse_todo_list(thought_content)
                         if parsed_todo:
                             last_todo_list = parsed_todo
@@ -3073,6 +3131,34 @@ class ChatManager:
                 return
 
             api_messages.append({"role": "assistant", "content": full_model_response})
+            
+            # Check for multiple options requiring a decision
+            if decision_model_id and thought_content_for_decision:
+                options = self._detect_options_in_response(thought_content_for_decision)
+                if options:
+                    logger.info(f"🔄 Multiple options detected, using decision model to select...")
+                    # Build context from recent messages
+                    context = "\n".join([
+                        f"{msg['role']}: {msg['content'][:500]}" 
+                        for msg in api_messages[-6:]  # Last 6 messages for context
+                    ])
+                    selected_option = self._get_decision_from_model(
+                        options=options,
+                        context=context,
+                        decision_model_id=decision_model_id,
+                        original_question=question
+                    )
+                    if selected_option:
+                        yield {"type": "decision", "selected_option": selected_option, "options": options, "iteration": i + 1}
+                        # Inject decision as user feedback
+                        decision_feedback = (
+                            f"Observation: The decision model has analyzed the options and selected "
+                            f"Option {selected_option}. Please proceed with this option."
+                        )
+                        api_messages.append({"role": "user", "content": decision_feedback})
+                        yield {"type": "observation", "content": decision_feedback}
+                        continue  # Continue to next iteration with the decision
+            
             action_json = self._extract_json_from_content(full_model_response)
             observation = ""
 
@@ -3362,10 +3448,149 @@ class ChatManager:
             logger.error(f"Failed to summarize history: {e}")
             return api_messages  # Fallback to returning the full history
 
+    def _detect_options_in_response(self, response_text: str) -> Optional[List[Dict[str, str]]]:
+        """
+        Detect if the AI response contains multiple options/solutions that need a decision.
+        
+        Args:
+            response_text: The AI's response text to analyze
+            
+        Returns:
+            A list of option dictionaries with 'number' and 'description' keys,
+            or None if no options are detected.
+        """
+        if not response_text:
+            return None
+            
+        # Look for **Options:** section in the response
+        options_match = re.search(r"\*\*Options:\*\*\s*\n((?:\d+\.\s*\[.*?\].*(?:\n|$))*)", response_text, re.DOTALL)
+        if not options_match:
+            # Also try alternative format without markdown
+            options_match = re.search(r"Options:\s*\n((?:\d+\.\s*.*(?:\n|$))*)", response_text, re.DOTALL)
+            
+        if not options_match:
+            return None
+            
+        options_text = options_match.group(1)
+        # Parse individual options
+        option_pattern = r"(\d+)\.\s*(?:\[(.*?)\]:?\s*)?(.*?)(?=\n\d+\.|$)"
+        matches = re.findall(option_pattern, options_text, re.DOTALL)
+        
+        if not matches or len(matches) < 2:  # Need at least 2 options
+            return None
+            
+        options = []
+        for match in matches:
+            number, label, description = match
+            option = {
+                "number": number.strip(),
+                "label": label.strip() if label else f"Option {number}",
+                "description": description.strip()
+            }
+            options.append(option)
+            
+        logger.info(f"🔍 Detected {len(options)} options in AI response")
+        return options
+
+    def _get_decision_from_model(
+        self, 
+        options: List[Dict[str, str]], 
+        context: str,
+        decision_model_id: str,
+        original_question: str
+    ) -> Optional[int]:
+        """
+        Use a decision model to automatically select the best option.
+        
+        Args:
+            options: List of options detected from the AI response
+            context: The current conversation context
+            decision_model_id: The model to use for decision-making
+            original_question: The original task question for context
+            
+        Returns:
+            The selected option number (1-indexed), or None if decision fails.
+        """
+        logger.info(f"🤖 Using decision model '{decision_model_id}' to select best option...")
+        
+        # Format options for the decision model
+        options_text = "\n".join([
+            f"{opt['number']}. [{opt['label']}]: {opt['description']}" 
+            for opt in options
+        ])
+        
+        decision_prompt = f"""You are a decision-making assistant. Your task is to analyze the given options and select the best one based on the context.
+
+**Original Task:** {original_question}
+
+**Available Options:**
+{options_text}
+
+**Context:**
+{context[-2000:] if len(context) > 2000 else context}
+
+**Instructions:**
+1. Analyze each option carefully
+2. Consider the original task requirements
+3. Evaluate which option is most likely to succeed
+4. Return ONLY a JSON object with your decision
+
+**Response Format:**
+```json
+{{
+  "selected_option": <number>,
+  "reasoning": "<brief explanation of why this option was selected>"
+}}
+```
+
+Select the best option now:"""
+
+        decision_messages = [
+            {"role": "system", "content": "You are a precise decision-making assistant. Always respond with valid JSON."},
+            {"role": "user", "content": decision_prompt}
+        ]
+        
+        try:
+            decision_response, _ = self._get_model_completion(
+                chat_id=self.base_client.chat_id,
+                messages=decision_messages,
+                rag_payload={},
+                model_id=decision_model_id,
+                tool_ids=[],
+            )
+            
+            if not decision_response:
+                logger.warning("Decision model returned empty response")
+                return None
+                
+            # Parse the decision
+            parent_client = getattr(self.base_client, '_parent_client', None)
+            if parent_client and hasattr(parent_client, '_extract_json_from_content'):
+                decision_json = parent_client._extract_json_from_content(decision_response)
+            else:
+                try:
+                    decision_json = json.loads(decision_response)
+                except json.JSONDecodeError:
+                    decision_json = None
+                    
+            if decision_json and "selected_option" in decision_json:
+                selected = int(decision_json["selected_option"])
+                reasoning = decision_json.get("reasoning", "No reasoning provided")
+                logger.info(f"✅ Decision model selected option {selected}: {reasoning}")
+                return selected
+            else:
+                logger.warning(f"Decision model response missing 'selected_option': {decision_response}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting decision from model: {e}")
+            return None
+
     def _get_task_processing_prompt(self) -> str:
         """
         Generates a system prompt to guide the model in a structured task-solving process.
         This prompt enforces the 'Thought -> Action -> Observation' cycle with a to-do list.
+        Enhanced to emphasize tool result injection and knowledge accumulation.
         """
         return """You are a highly intelligent agent designed to solve tasks by creating and managing a todo list. You must operate in a loop of Thought, Action, Observation.
 
@@ -3374,25 +3599,47 @@ class ChatManager:
 - In every subsequent "Thought" process, you MUST include the updated todo list.
 - Use markdown for the list items. Mark completed tasks with `[x]`, current tasks with `[@]`, and pending tasks with `[ ]`.
 
-**2. Thought Process:**
-- Analyze the task, review the history, and consult your todo list to decide on the next action.
-- Your thoughts should be detailed and clearly articulated, including the updated todo list.
+**2. Knowledge Accumulation (CRITICAL):**
+- **IMPORTANT**: Every time you receive an Observation from a tool call, you MUST extract and record the key information in a "**Key Findings:**" section within your Thought.
+- These Key Findings represent accumulated knowledge that will be essential for solving the problem.
+- Always reference your Key Findings when making decisions or providing the final answer.
+- Format your Key Findings as bullet points, e.g.:
+  **Key Findings:**
+  - [From tool X] Result: 42
+  - [From search] The answer to Y is Z
+  - [Calculated] A + B = C
 
-**3. Action:**
+**3. Thought Process:**
+- Analyze the task, review the history, and consult your todo list to decide on the next action.
+- Your thoughts should be detailed and clearly articulated, including:
+  1. The updated **Todo List**
+  2. The accumulated **Key Findings** from all previous tool calls
+  3. Your reasoning for the next step based on both
+
+**4. Action:**
 - Your action must be one of two types, provided as a JSON object:
     1.  **Call a tool**: `{"tool": "tool_name", "args": {...}}`
     2.  **Provide a Final Answer**: `{"final_answer": "your final answer"}`
+- **When you have multiple solution options**: If you identify multiple possible approaches or solutions, you MUST present them as numbered options in your Thought section, formatted as:
+  **Options:**
+  1. [Option A]: Description and reasoning
+  2. [Option B]: Description and reasoning
+  3. [Option C]: Description and reasoning
+  Then choose the most appropriate option based on your analysis and proceed with the corresponding action.
 
 **Response Format:**
 
 Thought:
-My plan is to first do X, then Y.
+**Key Findings:**
+- [From previous tool calls] Important result 1
+- [From analysis] Important insight 2
+
 **Todo List:**
 - [x] Step 1: Finished task.
 - [@] Step 2: Currently working on this.
 - [ ] Step 3: Next task.
 
-I will now perform the action for Step 2.
+Based on my Key Findings and Todo List, I will now perform the action for Step 2.
 
 Action:
 ```json
@@ -3407,7 +3654,9 @@ Action:
 After your action, the system will provide an **Observation**. Continue this loop until all tasks on your todo list are complete and you can provide a final answer.
 
 **Important**:
+- You MUST include the updated **Key Findings** section in every "Thought" to ensure tool results are persisted across the entire conversation.
 - You MUST include the updated **Todo List** in every "Thought" section.
 - You MUST output the "Action" part as a valid JSON object enclosed in triple backticks.
+- When providing a final answer, make sure to reference your accumulated Key Findings.
 - Do not add any text after the JSON object.
 """

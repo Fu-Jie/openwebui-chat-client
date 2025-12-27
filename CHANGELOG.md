@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased]
+
+### Added
+
+- **Enhanced Task Processing Prompt**: Optimized the task processing system prompt with "Key Findings" accumulation mechanism to ensure tool call results are persistently injected into the AI's context throughout the entire problem-solving process. The AI is now instructed to maintain and reference accumulated knowledge from all tool calls.
+
+- **Decision Model Support**: Added `decision_model_id` parameter to `process_task` and `stream_process_task` methods. When AI presents multiple solution options, a separate decision model can automatically analyze and select the best option, eliminating the need for user intervention.
+
+- **Options Detection**: Added `_detect_options_in_response` helper method to parse and identify when the AI presents multiple numbered options in its response.
+
+- **Automatic Option Selection**: Added `_get_decision_from_model` helper method that uses a decision model to analyze options and make informed selections based on context and original task requirements.
+
+- **New Stream Event Type**: Added `decision` event type to `stream_process_task` for real-time visibility when the decision model selects an option.
+
+### Changed
+
+- **Improved System Prompt**: The task processing prompt now emphasizes maintaining a "Key Findings" section that accumulates results from all tool calls, ensuring these insights are available and referenced throughout the entire task-solving process.
+
 ## [0.1.23] - 2025-12-23
 
 ### Added
