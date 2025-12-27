@@ -250,7 +250,9 @@ class AsyncModelManager:
             logger.error(f"Failed to delete model '{model_id}': {exc}")
             return False
         except Exception as exc:
-            logger.error(f"Unexpected error deleting model '{model_id}': {exc}")
+            logger.error(
+                f"Unexpected error deleting model '{model_id}': {type(exc).__name__}: {exc}"
+            )
             return False
         logger.info(f"Successfully deleted model '{model_id}'.")
         await self._refresh_available_models()

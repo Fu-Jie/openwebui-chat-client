@@ -465,6 +465,11 @@ class ModelManager:
                     params={"id": model_id},
                     headers=self.base_client.json_headers
                 )
+                if response.status_code >= 400:
+                    logger.error(
+                        f"POST fallback failed to delete model '{model_id}' "
+                        f"with status {response.status_code}"
+                    )
             response.raise_for_status()
             logger.info(f"Successfully deleted model '{model_id}'.")
             self._refresh_available_models()
