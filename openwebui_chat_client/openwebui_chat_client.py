@@ -1203,7 +1203,7 @@ class OpenWebUIClient:
     # =============================================================================
 
     def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
-        """Upload a file to the OpenWebUI server."""
+        """Upload a file and return the file metadata."""
         return self._file_manager.upload_file(file_path)
 
     @staticmethod
@@ -1402,62 +1402,6 @@ class OpenWebUIClient:
             results["errors"].append(error_msg)
             return results
 
-    def _cleanup_unused_placeholder_messages(self) -> int:
-        """
-        Clean up all unused empty placeholder messages in the current chat_object_from_server.
-        Returns the number of message pairs cleaned up.
-        """
-        if (
-            not self.chat_object_from_server
-            or "chat" not in self.chat_object_from_server
-        ):
-            logger.error(
-                "Chat object not initialized, cannot cleanup placeholder messages."
-            )
-            return 0
-
-        chat_core = self.chat_object_from_server["chat"]
-        messages = chat_core["history"]["messages"]
-
-        # Collect all placeholder message IDs to be deleted
-        message_ids_to_delete = []
-        for msg_id, msg in messages.items():
-            if self._is_placeholder_message(msg):
-                message_ids_to_delete.append(msg_id)
-
-        cleaned_count = 0
-        if message_ids_to_delete:
-            for msg_id in message_ids_to_delete:
-                del messages[msg_id]
-            cleaned_count = (
-                len(message_ids_to_delete) / 2
-            )  # Each pair contains user and assistant messages
-            logger.info(
-                f"Cleaned up {int(cleaned_count)} unused placeholder message pairs."
-            )
-
-            # After cleanup, need to rebuild the messages list and current_id to ensure history chain correctness
-            # Find the new current_id (the ID of the last non-placeholder message)
-            new_current_id = None
-            for msg_id in reversed(list(messages.keys())):  # Search backwards
-                msg = messages[msg_id]
-                if not self._is_placeholder_message(msg):
-                    new_current_id = msg_id
-                    break
-
-            chat_core["history"]["currentId"] = new_current_id
-            chat_core["messages"] = self._build_linear_history_for_storage(
-                chat_core, new_current_id
-            )
-
-            # Also need to sync with the backend
-            if self._update_remote_chat():
-                logger.info("Successfully synced chat state after cleanup.")
-            else:
-                logger.warning("Failed to sync chat state after cleanup.")
-
-        return int(cleaned_count)
-
     def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
         """Check if message is a placeholder (content is empty and not marked as done)"""
         return message.get("content", "").strip() == "" and not message.get(
@@ -1653,48 +1597,6 @@ class OpenWebUIClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to update remote chat: {e}")
             return False
-
-    def _handle_rag_references(
-        self,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
-    ) -> Tuple[List[Dict], List[Dict]]:
-        """Handle RAG references for files and knowledge base collections."""
-        api_payload, storage_payload = [], []
-        if rag_files:
-            logger.info("Processing RAG files...")
-            for file_path in rag_files:
-                if file_obj := self._upload_file(file_path):
-                    api_payload.append({"type": "file", "id": file_obj["id"]})
-                    storage_payload.append(
-                        {"type": "file", "file": file_obj, **file_obj}
-                    )
-        if rag_collections:
-            logger.info("Processing RAG knowledge base collections...")
-            for kb_name in rag_collections:
-                if kb_summary := self.get_knowledge_base_by_name(kb_name):
-                    if kb_details := self._get_knowledge_base_details(kb_summary["id"]):
-                        file_ids = [f["id"] for f in kb_details.get("files", [])]
-                        api_payload.append(
-                            {
-                                "type": "collection",
-                                "id": kb_details["id"],
-                                "name": kb_details.get("name"),
-                                "data": {"file_ids": file_ids},
-                            }
-                        )
-                        storage_payload.append(
-                            {
-                                "type": "collection",
-                                "collection": kb_details,
-                                **kb_details,
-                            }
-                        )
-        return api_payload, storage_payload
-
-    def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
-        """Upload a file and return the file metadata."""
-        return self._file_manager.upload_file(file_path)
 
     def _get_title(self, messages: List[Dict[str, Any]]) -> Optional[str]:
         """
@@ -2674,7 +2576,9 @@ class OpenWebUIClient:
                                 "data": {"file_ids": file_ids},
                             }
                         )
-                        storage_payload.append({"type": "collection", **kb_details})
+                        storage_payload.append(
+                            {"type": "collection", "collection": kb_details, **kb_details}
+                        )
                     else:
                         logger.warning(
                             f"Could not get details for knowledge base '{kb_name}', it will be skipped."

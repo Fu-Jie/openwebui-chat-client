@@ -733,33 +733,6 @@ class ChatManager:
             else:
                 logger.info(f"  = Tag '{tag_name}' already exists, skipping.")
 
-    def rename_chat(self, chat_id: str, new_title: str) -> bool:
-        """
-        Rename an existing chat.
-        
-        Args:
-            chat_id: ID of the chat to rename
-            new_title: New title for the chat
-            
-        Returns:
-            True if rename was successful, False otherwise
-        """
-        if not chat_id:
-            logger.error("rename_chat: chat_id cannot be empty.")
-            return False
-
-        url = f"{self.base_client.base_url}/api/v1/chats/{chat_id}"
-        payload = {"chat": {"title": new_title}}
-
-        try:
-            response = self.base_client.session.post(url, json=payload, headers=self.base_client.json_headers)
-            response.raise_for_status()
-            logger.info(f"Successfully renamed chat {chat_id[:8]}... to '{new_title}'")
-            return True
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to rename chat {chat_id[:8]}...: {e}")
-            return False
-
     def update_chat_metadata(
         self,
         chat_id: str,
@@ -1046,63 +1019,6 @@ class ChatManager:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create folder '{name}': {e}")
             return None
-
-    def get_folder_id_by_name(self, folder_name: str) -> Optional[str]:
-        """
-        Get folder ID by folder name.
-        
-        Args:
-            folder_name: Name of the folder to find
-            
-        Returns:
-            Folder ID if found, None otherwise
-        """
-        logger.info(f"Looking up folder ID for: '{folder_name}'")
-        url = f"{self.base_client.base_url}/api/v1/folders/"
-
-        try:
-            response = self.base_client.session.get(url, headers=self.base_client.json_headers)
-            response.raise_for_status()
-            folders = response.json()
-            
-            for folder in folders:
-                if folder.get("name") == folder_name:
-                    folder_id = folder.get("id")
-                    logger.info(f"Found folder '{folder_name}' with ID: {folder_id}")
-                    return folder_id
-            
-            logger.info(f"Folder '{folder_name}' not found")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to lookup folder '{folder_name}': {e}")
-            return None
-
-    def move_chat_to_folder(self, chat_id: str, folder_id: str):
-        """
-        Move a chat to a specific folder.
-        
-        Args:
-            chat_id: ID of the chat to move
-            folder_id: ID of the destination folder
-        """
-        logger.info(f"Moving chat {chat_id[:8]}... to folder {folder_id[:8]}...")
-        url = f"{self.base_client.base_url}/api/v1/chats/{chat_id}/folder"
-        payload = {"folder_id": folder_id}
-
-        try:
-            response = self.base_client.session.post(
-                url, 
-                json=payload, 
-                headers=self.base_client.json_headers
-            )
-            response.raise_for_status()
-            logger.info("Chat moved to folder successfully.")
-            
-            # Update local state
-            if self.base_client.chat_object_from_server:
-                self.base_client.chat_object_from_server["folder_id"] = folder_id
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to move chat to folder: {e}")
 
     # Helper methods for chat management
     def _find_or_create_chat_by_title(self, title: str):
