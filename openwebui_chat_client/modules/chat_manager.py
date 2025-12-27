@@ -16,6 +16,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
 
+# Constants for decision model context handling
+DECISION_CONTEXT_MAX_LENGTH = 2000  # Maximum characters for context in decision prompts
+
 
 class ChatManager:
     """
@@ -3472,7 +3475,12 @@ class ChatManager:
             return None
             
         options_text = options_match.group(1)
-        # Parse individual options
+        # Parse individual options using a regex pattern that matches:
+        # - (\d+)\. : A number followed by a period (captures the option number)
+        # - \s* : Optional whitespace
+        # - (?:\[(.*?)\]:?\s*)? : Optional label in brackets like [Option A]: (captures label)
+        # - (.*?) : The option description (captures description)
+        # - (?=\n\d+\.|$) : Lookahead to stop at next option or end of string
         option_pattern = r"(\d+)\.\s*(?:\[(.*?)\]:?\s*)?(.*?)(?=\n\d+\.|$)"
         matches = re.findall(option_pattern, options_text, re.DOTALL)
         
@@ -3519,6 +3527,9 @@ class ChatManager:
             for opt in options
         ])
         
+        # Truncate context if it exceeds the maximum length
+        truncated_context = context[-DECISION_CONTEXT_MAX_LENGTH:] if len(context) > DECISION_CONTEXT_MAX_LENGTH else context
+        
         decision_prompt = f"""You are a decision-making assistant. Your task is to analyze the given options and select the best one based on the context.
 
 **Original Task:** {original_question}
@@ -3527,7 +3538,7 @@ class ChatManager:
 {options_text}
 
 **Context:**
-{context[-2000:] if len(context) > 2000 else context}
+{truncated_context}
 
 **Instructions:**
 1. Analyze each option carefully
@@ -3563,15 +3574,8 @@ Select the best option now:"""
                 logger.warning("Decision model returned empty response")
                 return None
                 
-            # Parse the decision
-            parent_client = getattr(self.base_client, '_parent_client', None)
-            if parent_client and hasattr(parent_client, '_extract_json_from_content'):
-                decision_json = parent_client._extract_json_from_content(decision_response)
-            else:
-                try:
-                    decision_json = json.loads(decision_response)
-                except json.JSONDecodeError:
-                    decision_json = None
+            # Parse the decision using our own JSON extraction method
+            decision_json = self._extract_json_from_content(decision_response)
                     
             if decision_json and "selected_option" in decision_json:
                 selected = int(decision_json["selected_option"])
