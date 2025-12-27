@@ -231,17 +231,22 @@ class AsyncModelManager:
             "/api/v1/models/model/delete",
             params={"id": model_id}
         )
-        if response and response.status_code == 405:
+        if not response:
+            return False
+
+        if response.status_code == 405:
             logger.warning("DELETE not allowed, retrying with POST fallback (async).")
             response = await self.base_client._make_request(
                 "POST",
                 "/api/v1/models/model/delete",
                 params={"id": model_id}
             )
-        if response:
-            await self._refresh_available_models()
-            return True
-        return False
+            if not response:
+                return False
+
+        logger.info(f"Successfully deleted model '{model_id}'.")
+        await self._refresh_available_models()
+        return True
 
     async def batch_update_model_permissions(
         self,
