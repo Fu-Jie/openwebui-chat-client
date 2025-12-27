@@ -16,7 +16,11 @@ class TestDuplicateDefinitions(unittest.TestCase):
 
     def _get_method_counts(self, file_path: Path, class_name: str) -> dict:
         """Return a mapping of method names to definition counts for a class."""
-        tree = ast.parse(file_path.read_text(encoding="utf-8"))
+        try:
+            source = file_path.read_text(encoding="utf-8")
+            tree = ast.parse(source)
+        except Exception as exc:  # pragma: no cover - defensive error reporting
+            self.fail(f"Failed to load/parse {file_path}: {exc}")
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name == class_name:
                 counts = {}

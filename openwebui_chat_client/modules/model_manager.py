@@ -458,6 +458,13 @@ class ModelManager:
                 params={"id": model_id},
                 headers=self.base_client.json_headers
             )
+            if response.status_code == 405:
+                logger.warning("DELETE not allowed, retrying with POST fallback.")
+                response = self.base_client.session.post(
+                    f"{self.base_client.base_url}/api/v1/models/model/delete",
+                    params={"id": model_id},
+                    headers=self.base_client.json_headers
+                )
             response.raise_for_status()
             logger.info(f"Successfully deleted model '{model_id}'.")
             self._refresh_available_models()
