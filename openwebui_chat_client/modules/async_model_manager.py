@@ -7,6 +7,8 @@ import json
 import asyncio
 from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
 
+import httpx
+
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
 
@@ -235,7 +237,9 @@ class AsyncModelManager:
             return False
 
         if response.status_code == 405:
-            logger.warning("DELETE not allowed, retrying with POST fallback (async).")
+            logger.warning(
+                f"DELETE not allowed for model '{model_id}', retrying with POST fallback."
+            )
             response = await self.base_client._make_request(
                 "POST",
                 "/api/v1/models/model/delete",
@@ -245,7 +249,11 @@ class AsyncModelManager:
                 return False
         try:
             response.raise_for_status()
-        except Exception:
+        except httpx.HTTPStatusError as exc:
+            logger.error(f"Failed to delete model '{model_id}': {exc}")
+            return False
+        except Exception as exc:
+            logger.error(f"Unexpected error deleting model '{model_id}': {exc}")
             return False
         logger.info(f"Successfully deleted model '{model_id}'.")
         await self._refresh_available_models()
