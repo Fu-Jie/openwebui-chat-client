@@ -231,7 +231,8 @@ class AsyncModelManager:
             "/api/v1/models/model/delete",
             params={"id": model_id}
         )
-        if response and hasattr(response, "status_code") and response.status_code == 405:
+        if response and response.status_code == 405:
+            logger.warning("DELETE not allowed, retrying with POST fallback (async).")
             response = await self.base_client._make_request(
                 "POST",
                 "/api/v1/models/model/delete",
