@@ -243,7 +243,10 @@ class AsyncModelManager:
             )
             if not response:
                 return False
-
+        try:
+            response.raise_for_status()
+        except Exception:
+            return False
         logger.info(f"Successfully deleted model '{model_id}'.")
         await self._refresh_available_models()
         return True
