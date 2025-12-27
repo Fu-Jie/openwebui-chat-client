@@ -2576,7 +2576,9 @@ class OpenWebUIClient:
                                 "data": {"file_ids": file_ids},
                             }
                         )
-                        storage_payload.append({"type": "collection", **kb_details})
+                        storage_payload.append(
+                            {"type": "collection", "collection": kb_details, **kb_details}
+                        )
                     else:
                         logger.warning(
                             f"Could not get details for knowledge base '{kb_name}', it will be skipped."
