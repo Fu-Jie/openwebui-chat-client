@@ -6,9 +6,16 @@ complex problems in a multi-step agentic loop. The agent will repeatedly plan an
 execute steps until it reaches a final answer, and the entire workflow will be
 visible as a conversation in the OpenWebUI interface.
 
+Features demonstrated:
+- Multi-step iterative problem-solving with tool integration
+- Key Findings accumulation across iterations
+- Optional decision model for automatic option selection
+- History summarization
+
 Requirements:
 - A tool server configured in OpenWebUI (e.g., web search, calculator, etc.)
 - Set OUI_TOOL_SERVER_ID environment variable with your tool server ID
+- (Optional) Set OUI_DECISION_MODEL environment variable for automatic decision-making
 """
 import os
 import sys
@@ -24,6 +31,8 @@ BASE_URL = os.getenv("OUI_BASE_URL", "http://localhost:3000")
 TOKEN = os.getenv("OUI_AUTH_TOKEN")
 DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "llama3")
 TOOL_SERVER_ID = os.getenv("OUI_TOOL_SERVER_ID", "")
+# Optional: Decision model for automatic option selection
+DECISION_MODEL = os.getenv("OUI_DECISION_MODEL", "")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -81,13 +90,24 @@ if __name__ == "__main__":
         logger.info(f"   Tool Server: {tool_id}")
         logger.info(f"   Max Iterations: {max_iterations}")
         
+        # Check if decision model is configured
+        decision_model_id = None
+        if DECISION_MODEL:
+            # Verify decision model is available
+            if DECISION_MODEL in available_model_ids:
+                decision_model_id = DECISION_MODEL
+                logger.info(f"   Decision Model: {decision_model_id}")
+            else:
+                logger.warning(f"⚠️ Decision model '{DECISION_MODEL}' not found. Proceeding without automatic option selection.")
+        
         # 2. Call the process_task method with history summarization enabled
         result = client.process_task(
             question=task_question,
             model_id=selected_model,
             tool_server_ids=tool_id,
             max_iterations=max_iterations,
-            summarize_history=True  # New: Enable history summarization
+            summarize_history=True,  # Enable history summarization
+            decision_model_id=decision_model_id  # Optional: Use decision model for automatic option selection
         )
 
         if result:

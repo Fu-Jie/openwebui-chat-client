@@ -69,6 +69,11 @@ test_categories:
     command: "python examples/advanced_features/stream_process_task_example.py"
     description: "Tests the streaming version of the task processing agent"
 
+  decision_model:
+    name: "Decision Model Integration Test"
+    command: "python examples/integration/test_integration_decision_model.py"
+    description: "Tests the decision model feature for automatic option selection in autonomous task processing"
+
   async_basic_chat:
     name: "Async Basic Usage Integration Test"
     command: "python examples/getting_started/async_basic_chat.py"
@@ -179,7 +184,7 @@ file_mappings:
   # Chat manager changes should trigger process_task tests
   - pattern: "openwebui_chat_client/modules/chat_manager.py"
     categories:
-      ["basic_chat", "model_switching", "process_task", "stream_process_task"]
+      ["basic_chat", "model_switching", "process_task", "stream_process_task", "decision_model"]
 
   # Continuous conversation functionality
   - pattern: "**/*continuous*"
@@ -187,7 +192,11 @@ file_mappings:
 
   # Task processing functionality
   - pattern: "**/*task*.py"
-    categories: ["process_task", "stream_process_task"]
+    categories: ["process_task", "stream_process_task", "decision_model"]
+
+  # Decision model functionality
+  - pattern: "**/*decision*.py"
+    categories: ["decision_model", "process_task", "stream_process_task"]
 
   # Core client and module changes
   - pattern: "openwebui_chat_client/**/*.py"
@@ -239,6 +248,7 @@ file_mappings:
         "async_live_model_ops",
         "sync_live_stream",
         "sync_live_client",
+        "decision_model",
       ]
 
   # Test files - categorize by name
@@ -252,7 +262,7 @@ file_mappings:
     categories: ["deep_research"]
 
   - pattern: "tests/test_task_processing.py"
-    categories: ["process_task", "stream_process_task"]
+    categories: ["process_task", "stream_process_task", "decision_model"]
 
 # Default categories to run when no specific mapping is found
 # This ensures that at least basic functionality is tested for any changes
