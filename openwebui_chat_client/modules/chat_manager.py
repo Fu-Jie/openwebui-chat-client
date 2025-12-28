@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 logger = logging.getLogger(__name__)
 
 # Constants for decision model context handling
-DECISION_CONTEXT_MAX_LENGTH = 2000  # Maximum characters for context in decision prompts
+DECISION_CONTEXT_MAX_LENGTH = 10000  # Maximum characters for context in decision prompts
 
 
 class ChatManager:
