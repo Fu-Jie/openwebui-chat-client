@@ -768,3 +768,38 @@ encoded = await asyncio.to_thread(
 ```
 
 ---
+
+## 📚 文档
+
+完整文档可在以下网址获取：**[https://fu-jie.github.io/openwebui-chat-client/](https://fu-jie.github.io/openwebui-chat-client/)**
+
+文档包括：
+- 详细的安装和设置指南
+- 全面的使用示例
+- 完整的 API 参考
+- 开发指南
+
+### 本地构建文档
+
+要在本地构建和预览文档：
+
+```bash
+pip install mkdocs mkdocs-material mkdocstrings[python]
+mkdocs serve
+```
+
+然后在浏览器中访问 `http://localhost:8000`。
+
+### 部署文档
+
+当更改推送到主分支时，文档会自动部署到 GitHub Pages。
+
+**首次设置：** 如果您是首次设置存储库，需要启用 GitHub Pages：
+
+1. 进入存储库设置：`https://github.com/Fu-Jie/openwebui-chat-client/settings/pages`
+2. 在"构建和部署"下，选择 **"GitHub Actions"** 作为源
+3. 保存设置
+
+详细说明请参阅 [docs/github-pages-setup.md](docs/github-pages-setup.md)。
+
+---
