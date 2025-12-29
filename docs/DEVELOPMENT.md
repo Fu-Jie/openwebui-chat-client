@@ -7,7 +7,7 @@ This guide explains how to develop and maintain the documentation site for `open
 Install the documentation dependencies:
 
 ```bash
-pip install mkdocs mkdocs-material mkdocstrings[python]
+pip install mkdocs mkdocs-material mkdocstrings[python] mkdocs-static-i18n
 ```
 
 ## Local Development
@@ -44,15 +44,35 @@ This will fail on any warnings, helping catch issues early.
 
 ## Documentation Structure
 
+The documentation supports English and Chinese (中文) languages using the `mkdocs-static-i18n` plugin.
+
 ```
 docs/
-├── index.md          # Homepage
-├── installation.md   # Installation guide
-├── usage.md          # User guide
-└── api.md            # API reference (auto-generated)
+├── index.md              # Homepage (English)
+├── index.zh.md           # Homepage (Chinese)
+├── installation.md       # Installation guide (English)
+├── installation.zh.md    # Installation guide (Chinese)
+├── usage.md              # User guide (English)
+├── usage.zh.md           # User guide (Chinese)
+├── api.md                # API reference (English)
+├── api.zh.md             # API reference (Chinese)
+├── github-pages-setup.md # GitHub Pages setup (English)
+├── github-pages-setup.zh.md # GitHub Pages setup (Chinese)
+├── DEVELOPMENT.md        # Development guide (English)
+└── DEVELOPMENT.zh.md     # Development guide (Chinese)
 
-mkdocs.yml            # MkDocs configuration
+mkdocs.yml                # MkDocs configuration (includes i18n settings)
 ```
+
+### Multilingual File Naming Convention
+
+- **English files**: `filename.md` (default language, no suffix)
+- **Chinese files**: `filename.zh.md` (with `.zh` suffix)
+
+### Documentation URLs
+
+- **English**: `https://fu-jie.github.io/openwebui-chat-client/`
+- **Chinese**: `https://fu-jie.github.io/openwebui-chat-client/zh/`
 
 ## GitHub Pages Deployment
 
@@ -217,3 +237,34 @@ Ensure:
 - [MkDocs Documentation](https://www.mkdocs.org/)
 - [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/)
 - [mkdocstrings](https://mkdocstrings.github.io/)
+- [mkdocs-static-i18n](https://ultrabug.github.io/mkdocs-static-i18n/)
+
+## Multilingual Documentation
+
+### Adding Translations
+
+When adding a new documentation page:
+
+1. Create the English version: `docs/new-page.md`
+2. Create the Chinese version: `docs/new-page.zh.md`
+3. Update `mkdocs.yml` navigation if needed
+4. Add navigation translations in `nav_translations` section
+
+### Translation Guidelines
+
+- Keep the document structure identical between languages
+- Do not translate code blocks, file names, or command examples
+- Maintain consistent terminology (see the terminology table in `.github/copilot-instructions.md`)
+- Update internal links to point to the correct language version
+
+### Testing Multilingual Build
+
+```bash
+# Build and verify both languages
+mkdocs build --strict
+
+# Preview locally
+mkdocs serve
+```
+
+The English version is available at `http://localhost:8000/` and Chinese at `http://localhost:8000/zh/`.

@@ -1360,3 +1360,224 @@ class MyExample(ExampleBase):
 example = MyExample("my_example", "演示某功能")
 example.run()
 ```
+
+---
+
+## GitHub Pages 多语言文档规范
+
+### 1. 文档架构概述
+
+本项目使用 MkDocs 和 Material 主题构建文档站点，并通过 `mkdocs-static-i18n` 插件支持中英文双语文档。
+
+#### 技术栈
+- **文档框架**: MkDocs
+- **主题**: Material for MkDocs
+- **多语言支持**: mkdocs-static-i18n 插件
+- **API文档生成**: mkdocstrings
+
+#### 文档站点地址
+- **英文版本**: `https://fu-jie.github.io/openwebui-chat-client/` (默认)
+- **中文版本**: `https://fu-jie.github.io/openwebui-chat-client/zh/`
+
+### 2. 文档目录结构
+
+```
+docs/
+├── index.md              # 英文首页
+├── index.zh.md           # 中文首页
+├── installation.md       # 英文安装指南
+├── installation.zh.md    # 中文安装指南
+├── usage.md              # 英文用户指南
+├── usage.zh.md           # 中文用户指南
+├── api.md                # 英文 API 参考
+├── api.zh.md             # 中文 API 参考
+├── github-pages-setup.md # 英文 GitHub Pages 设置
+├── github-pages-setup.zh.md # 中文 GitHub Pages 设置
+├── DEVELOPMENT.md        # 英文开发指南
+└── DEVELOPMENT.zh.md     # 中文开发指南
+
+mkdocs.yml                # MkDocs 配置（含 i18n 配置）
+```
+
+### 3. 多语言文件命名规范
+
+#### 后缀命名策略
+- **英文文档**: `filename.md` (默认语言，无后缀)
+- **中文文档**: `filename.zh.md` (添加 `.zh` 后缀)
+
+#### 示例
+| 英文文件 | 中文文件 |
+|----------|----------|
+| `index.md` | `index.zh.md` |
+| `installation.md` | `installation.zh.md` |
+| `usage.md` | `usage.zh.md` |
+| `api.md` | `api.zh.md` |
+
+### 4. 编写双语文档的标准流程
+
+#### 步骤一：创建英文版本
+1. 首先编写完整的英文文档
+2. 确保内容准确、结构清晰
+3. 验证代码示例可以正常运行
+
+#### 步骤二：创建中文翻译
+1. 复制英文文件并添加 `.zh` 后缀
+2. 翻译所有文本内容
+3. 保持文档结构和格式完全一致
+4. 更新内部链接指向正确的中文版本
+
+#### 步骤三：同步检查
+1. 确保两个版本的章节结构相同
+2. 验证代码块在两个版本中一致
+3. 检查图片和资源引用正确
+
+### 5. 翻译规范
+
+#### 术语一致性
+保持技术术语翻译的一致性：
+
+| 英文术语 | 中文翻译 |
+|----------|----------|
+| Chat | 聊天 |
+| Model | 模型 |
+| Knowledge Base | 知识库 |
+| RAG (Retrieval-Augmented Generation) | 检索增强生成 |
+| Streaming | 流式 |
+| Token | 令牌/密钥 |
+| API Reference | API 参考 |
+| User Guide | 用户指南 |
+| Installation | 安装 |
+| Configuration | 配置 |
+
+#### 不翻译的内容
+以下内容应保持英文原样：
+- 代码示例和代码块
+- 命令行指令
+- 文件名和路径
+- API 方法名和参数名
+- 环境变量名
+- 技术品牌名（如 GitHub, Python, MkDocs）
+
+### 6. 内部链接规范
+
+#### 链接更新规则
+中文文档中的内部链接需要更新为指向中文版本：
+
+```markdown
+# 英文版本 (index.md)
+- [Installation Guide](installation.md)
+- [User Guide](usage.md)
+- [API Reference](api.md)
+
+# 中文版本 (index.zh.md)
+- [安装指南](installation.zh.md)
+- [用户指南](usage.zh.md)
+- [API 参考](api.zh.md)
+```
+
+#### 外部链接
+外部链接（如 GitHub 仓库、PyPI 等）在两个版本中保持相同。
+
+### 7. 部署触发机制
+
+#### 自动部署条件
+当以下文件发生更改并推送到 `main` 或 `master` 分支时，GitHub Actions 会自动触发文档部署：
+
+- `docs/**` 目录中的任何文件
+- `mkdocs.yml` 配置文件
+- `openwebui_chat_client/**` 目录中的 Python 代码（用于 API 文档更新）
+- `.github/workflows/deploy.yml` 工作流文件
+
+#### 部署流程
+1. **触发**: 推送到 main/master 分支或手动触发工作流
+2. **构建**: GitHub Actions 运行 `mkdocs build --strict`
+3. **上传**: 构建产物上传为 Pages artifact
+4. **部署**: 部署到 GitHub Pages 环境
+
+#### 手动触发部署
+1. 访问仓库的 Actions 页面
+2. 选择 "Deploy Documentation" 工作流
+3. 点击 "Run workflow" 按钮
+4. 选择分支并运行
+
+### 8. 本地开发和预览
+
+#### 安装依赖
+```bash
+pip install mkdocs mkdocs-material mkdocstrings[python] mkdocs-static-i18n
+```
+
+#### 本地预览
+```bash
+mkdocs serve
+```
+访问 `http://localhost:8000` 预览文档，支持热重载。
+
+#### 构建验证
+```bash
+mkdocs build --strict
+```
+使用 `--strict` 模式确保没有警告和错误。
+
+### 9. mkdocs.yml 多语言配置
+
+#### i18n 插件配置示例
+```yaml
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix        # 使用后缀命名策略
+      fallback_to_default: true     # 缺失翻译时回退到默认语言
+      reconfigure_material: true    # 自动配置 Material 主题
+      reconfigure_search: true      # 自动配置多语言搜索
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 中文
+          build: true
+          nav_translations:         # 导航栏翻译
+            Home: 首页
+            Installation: 安装指南
+            User Guide: 用户指南
+            API Reference: API 参考
+            Development: 开发
+```
+
+### 10. 文档质量检查清单
+
+#### 新文档添加时
+- [ ] 创建了英文版本 (`filename.md`)
+- [ ] 创建了中文版本 (`filename.zh.md`)
+- [ ] 两个版本的章节结构完全一致
+- [ ] 代码示例在两个版本中相同
+- [ ] 更新了 `mkdocs.yml` 的 `nav` 配置（如需要）
+- [ ] 更新了 `nav_translations`（如需要）
+- [ ] 内部链接正确指向对应语言版本
+- [ ] 本地预览验证通过
+
+#### 文档更新时
+- [ ] 同步更新了英文和中文版本
+- [ ] 保持术语翻译一致性
+- [ ] 验证更新后的链接仍然有效
+- [ ] 使用 `mkdocs build --strict` 验证无错误
+
+### 11. 常见问题排除
+
+#### 问题：语言切换器不显示
+**原因**: `reconfigure_material` 未启用或配置错误
+**解决**: 确保 mkdocs.yml 中 `reconfigure_material: true`
+
+#### 问题：中文页面显示英文内容
+**原因**: 缺少对应的 `.zh.md` 文件
+**解决**: 创建对应的中文翻译文件
+
+#### 问题：构建时出现链接错误
+**原因**: 内部链接指向不存在的文件
+**解决**: 检查链接路径，确保文件存在
+
+#### 问题：导航栏翻译不生效
+**原因**: `nav_translations` 配置不正确
+**解决**: 确保翻译键值与 `nav` 中的标题完全匹配

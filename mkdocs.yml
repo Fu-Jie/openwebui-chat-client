@@ -47,6 +47,27 @@ theme:
 # Plugins
 plugins:
   - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 中文
+          build: true
+          nav_translations:
+            Home: 首页
+            Installation: 安装指南
+            User Guide: 用户指南
+            API Reference: API 参考
+            Development: 开发
+            GitHub Pages Setup: GitHub Pages 设置
+            Contributing: 贡献指南
   - mkdocstrings:
       handlers:
         python:
