@@ -1151,8 +1151,14 @@ class ChatManager:
             logger.error(f"❌ Unexpected error in chat creation: {e}")
             return None
 
-    def _load_chat_details(self, chat_id: str) -> bool:
-        """Load chat details from server."""
+    def _load_chat_details(self, chat_id: str, max_retries: int = 3, retry_delay: float = 1.0) -> bool:
+        """Load chat details from server.
+        
+        Args:
+            chat_id: The ID of the chat to load
+            max_retries: Maximum number of retries for transient errors (default: 3)
+            retry_delay: Delay in seconds between retries (default: 1.0)
+        """
         logger.info(f"📂 Loading chat details for: {chat_id}")
         
         # Use parent client's method if available and mocked (for test mocking)
@@ -1170,73 +1176,99 @@ class ChatManager:
                 # This is a real method, use our own implementation
                 logger.info(f"   Using ChatManager's own _load_chat_details instead of parent client delegation")
         
-        try:
-            logger.info(f"📡 GET request to: {self.base_client.base_url}/api/v1/chats/{chat_id}")
-            
-            response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/v1/chats/{chat_id}", 
-                headers=self.base_client.json_headers,
-                timeout=30  # Add explicit timeout
-            )
-            
-            logger.info(f"📡 Load response: Status {response.status_code}")
-            response.raise_for_status()
-            
-            details = response.json()
-            logger.info(f"📄 Chat details response: {len(str(details)) if details else 0} chars")
-            
-            # Check for None/empty response specifically
-            if details is None:
-                logger.error(f"❌ Empty/None response when loading chat details for {chat_id}")
-                return False
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    logger.info(f"🔄 Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay...")
+                    time.sleep(retry_delay)
                 
-            if details:
-                logger.info("✅ Processing chat details...")
-                self.base_client.chat_id = chat_id
-                self.base_client.chat_object_from_server = details
+                logger.info(f"📡 GET request to: {self.base_client.base_url}/api/v1/chats/{chat_id}")
                 
-                chat_core = self.base_client.chat_object_from_server.setdefault("chat", {})
-                chat_core.setdefault("history", {"messages": {}, "currentId": None})
+                response = self.base_client.session.get(
+                    f"{self.base_client.base_url}/api/v1/chats/{chat_id}", 
+                    headers=self.base_client.json_headers,
+                    timeout=30  # Add explicit timeout
+                )
                 
-                logger.info(f"   Chat title: {chat_core.get('title', 'N/A')}")
-                logger.info(f"   Messages: {len(chat_core.get('history', {}).get('messages', {}))}")
+                logger.info(f"📡 Load response: Status {response.status_code}")
                 
-                # Ensure 'models' is a list
-                models_list = chat_core.get("models", [])
-                if isinstance(models_list, list) and models_list:
-                    self.base_client.model_id = models_list[0]
-                    logger.info(f"   Model from chat: {self.base_client.model_id}")
-                else:
-                    self.base_client.model_id = self.base_client.default_model_id
-                    logger.info(f"   Using default model: {self.base_client.model_id}")
+                # Handle 401 errors with retry (can be transient after chat creation)
+                if response.status_code == 401:
+                    logger.warning(f"⚠️ Got 401 Unauthorized on attempt {attempt + 1}/{max_retries}")
+                    if attempt < max_retries - 1:
+                        last_error = f"401 Unauthorized"
+                        continue  # Retry
+                    else:
+                        response.raise_for_status()  # Will raise HTTPError on last attempt
+                
+                response.raise_for_status()
+                
+                details = response.json()
+                logger.info(f"📄 Chat details response: {len(str(details)) if details else 0} chars")
+                
+                # Check for None/empty response specifically
+                if details is None:
+                    logger.error(f"❌ Empty/None response when loading chat details for {chat_id}")
+                    return False
                     
-                logger.info(f"✅ Successfully loaded chat details for: {chat_id}")
-                return True
-            else:
-                logger.error(f"❌ Empty response when loading chat details for {chat_id}")
+                if details:
+                    logger.info("✅ Processing chat details...")
+                    self.base_client.chat_id = chat_id
+                    self.base_client.chat_object_from_server = details
+                    
+                    chat_core = self.base_client.chat_object_from_server.setdefault("chat", {})
+                    chat_core.setdefault("history", {"messages": {}, "currentId": None})
+                    
+                    logger.info(f"   Chat title: {chat_core.get('title', 'N/A')}")
+                    logger.info(f"   Messages: {len(chat_core.get('history', {}).get('messages', {}))}")
+                    
+                    # Ensure 'models' is a list
+                    models_list = chat_core.get("models", [])
+                    if isinstance(models_list, list) and models_list:
+                        self.base_client.model_id = models_list[0]
+                        logger.info(f"   Model from chat: {self.base_client.model_id}")
+                    else:
+                        self.base_client.model_id = self.base_client.default_model_id
+                        logger.info(f"   Using default model: {self.base_client.model_id}")
+                        
+                    logger.info(f"✅ Successfully loaded chat details for: {chat_id}")
+                    return True
+                else:
+                    logger.error(f"❌ Empty response when loading chat details for {chat_id}")
+                    return False
+                    
+            except requests.exceptions.Timeout as e:
+                logger.error(f"❌ Chat details load timeout after 30s: {e}")
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    continue  # Retry on timeout
                 return False
-                
-        except requests.exceptions.Timeout as e:
-            logger.error(f"❌ Chat details load timeout after 30s: {e}")
-            return False
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"❌ Chat details load connection error: {e}")
-            return False
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"❌ Chat details load HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
-            if e.response:
-                try:
-                    error_data = e.response.json()
-                    logger.error(f"   Error details: {error_data}")
-                except:
-                    logger.error(f"   Raw response: {e.response.text[:500]}")
-            return False
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Chat details JSON decode error: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Unexpected error loading chat details: {e}")
-            return False
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"❌ Chat details load connection error: {e}")
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    continue  # Retry on connection error
+                return False
+            except requests.exceptions.HTTPError as e:
+                logger.error(f"❌ Chat details load HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
+                if e.response:
+                    try:
+                        error_data = e.response.json()
+                        logger.error(f"   Error details: {error_data}")
+                    except:
+                        logger.error(f"   Raw response: {e.response.text[:500]}")
+                return False
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ Chat details JSON decode error: {e}")
+                return False
+            except Exception as e:
+                logger.error(f"❌ Unexpected error loading chat details: {e}")
+                return False
+        
+        # If we exhausted all retries
+        logger.error(f"❌ Failed to load chat details after {max_retries} attempts. Last error: {last_error}")
+        return False
     
     def _ask(self, question: str, image_paths: Optional[List[str]] = None, 
              rag_files: Optional[List[str]] = None, rag_collections: Optional[List[str]] = None,
