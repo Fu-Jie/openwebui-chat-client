@@ -57,6 +57,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Setup - Verify GitHub Pages Configuration
+        run: |
+          echo "📋 GitHub Pages Deployment Checklist:"
+          echo "✓ Build artifacts uploaded successfully"
+          echo ""
+          echo "⚠️  If deployment fails with 404 error:"
+          echo "1. Enable GitHub Pages in repository settings"
+          echo "2. Go to: https://github.com/${{ github.repository }}/settings/pages"
+          echo "3. Under 'Build and deployment', select 'GitHub Actions' as the source"
+          echo "4. Re-run this workflow after enabling Pages"
+          echo ""
+          echo "📚 See docs/github-pages-setup.md for detailed setup instructions"
+          echo ""
+          echo "🚀 Attempting deployment..."
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

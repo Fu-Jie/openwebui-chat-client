@@ -109,6 +109,9 @@ nav:
   - Installation: installation.md
   - User Guide: usage.md
   - API Reference: api.md
+  - Development:
+    - GitHub Pages Setup: github-pages-setup.md
+    - Contributing: DEVELOPMENT.md
 
 # Extra
 extra:

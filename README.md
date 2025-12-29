@@ -826,6 +826,41 @@ encoded = await asyncio.to_thread(
 
 ---
 
+## 📚 Documentation
+
+Full documentation is available at: **[https://fu-jie.github.io/openwebui-chat-client/](https://fu-jie.github.io/openwebui-chat-client/)**
+
+The documentation includes:
+- Detailed installation and setup guides
+- Comprehensive usage examples
+- Complete API reference
+- Development guides
+
+### Building Documentation Locally
+
+To build and preview the documentation locally:
+
+```bash
+pip install mkdocs mkdocs-material mkdocstrings[python]
+mkdocs serve
+```
+
+Then visit `http://localhost:8000` in your browser.
+
+### Deploying Documentation
+
+The documentation is automatically deployed to GitHub Pages when changes are pushed to the main branch. 
+
+**First-time setup:** If you're setting up the repository for the first time, you need to enable GitHub Pages:
+
+1. Go to repository settings: `https://github.com/Fu-Jie/openwebui-chat-client/settings/pages`
+2. Under "Build and deployment", select **"GitHub Actions"** as the source
+3. Save the settings
+
+For detailed instructions, see [docs/github-pages-setup.md](docs/github-pages-setup.md).
+
+---
+
 ## 🛠️ Troubleshooting
 
 - **Authentication Errors**: Ensure your bearer token is valid.
