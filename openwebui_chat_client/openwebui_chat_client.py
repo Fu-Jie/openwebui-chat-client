@@ -506,17 +506,22 @@ class OpenWebUIClient:
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
         summarize_history: bool = False,
+        decision_model_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Processes a task using an AI model and a tool server in a multi-step process.
 
         Args:
             question: The task to process.
-            model_id: The ID of the model to use.
+            model_id: The ID of the model to use for task execution.
             tool_server_ids: The ID(s) of the tool server(s) to use.
             knowledge_base_name: The name of the knowledge base to use.
             max_iterations: The maximum number of iterations to attempt.
             summarize_history: If True, the conversation history will be summarized.
+            decision_model_id: Optional model ID for automatic decision-making when 
+                              the AI presents multiple options. If provided, this model
+                              will analyze the options and select the best one automatically,
+                              eliminating the need for user input when choices arise.
 
         Returns:
             A dictionary containing:
@@ -532,6 +537,7 @@ class OpenWebUIClient:
             knowledge_base_name=knowledge_base_name,
             max_iterations=max_iterations,
             summarize_history=summarize_history,
+            decision_model_id=decision_model_id,
         )
 
     def stream_process_task(
@@ -542,9 +548,21 @@ class OpenWebUIClient:
         knowledge_base_name: Optional[str] = None,
         max_iterations: int = 25,
         summarize_history: bool = False,
+        decision_model_id: Optional[str] = None,
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """
         Processes a task in a streaming fashion, yielding results for each step.
+        
+        Args:
+            question: The task to process.
+            model_id: The ID of the model to use for task execution.
+            tool_server_ids: The ID(s) of the tool server(s) to use.
+            knowledge_base_name: The name of the knowledge base to use.
+            max_iterations: The maximum number of iterations to attempt.
+            summarize_history: If True, the conversation history will be summarized.
+            decision_model_id: Optional model ID for automatic decision-making when 
+                              the AI presents multiple options. If provided, this model
+                              will analyze the options and select the best one automatically.
         """
         return self._chat_manager.stream_process_task(
             question=question,
@@ -553,6 +571,7 @@ class OpenWebUIClient:
             knowledge_base_name=knowledge_base_name,
             max_iterations=max_iterations,
             summarize_history=summarize_history,
+            decision_model_id=decision_model_id,
         )
 
     def set_chat_tags(self, chat_id: str, tags: List[str]):

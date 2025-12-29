@@ -213,6 +213,129 @@ if result_1 and result_2:
     print(f"\n两次交互的 Chat ID: {result_1['chat_id']}")
 ```
 
+### 8. 自主任务处理
+
+`process_task` 和 `stream_process_task` 方法支持多步骤迭代式问题解决，具有工具集成、知识库支持和智能决策能力。
+
+#### 核心特性
+
+- **关键发现累积**：AI 会维护一个"关键发现"部分，在整个问题解决过程中持久化工具调用结果，确保关键信息不会在迭代之间丢失。
+- **决策模型支持**：当 AI 提出多个解决方案时，可选的决策模型可以自动分析并选择最佳方案，无需用户干预。
+- **待办事项管理**：AI 在整个任务解决过程中维护和更新结构化的待办事项列表。
+- **工具集成**：与 Open WebUI 工具服务器无缝集成，用于外部数据检索和计算。
+
+#### 基本用法
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+# 基本任务处理
+result = client.process_task(
+    question="研究量子计算的最新发展并总结关键突破",
+    model_id="gpt-4.1",
+    tool_server_ids="web-search-tool",
+    max_iterations=10,
+    summarize_history=True
+)
+
+if result:
+    print("--- 解决方案 ---")
+    print(result['solution'])
+    print("\n--- 待办事项 ---")
+    for item in result['todo_list']:
+        status = "✅" if item['status'] == 'completed' else "⏳"
+        print(f"{status} {item['task']}")
+```
+
+#### 使用决策模型自动选择方案
+
+当 AI 识别出多种可能的方法时，决策模型会自动选择最佳选项：
+
+```python
+# 带决策模型的任务处理
+result = client.process_task(
+    question="分析高流量电商应用的最佳缓存策略",
+    model_id="gpt-4.1",
+    tool_server_ids=["web-search", "code-analyzer"],
+    decision_model_id="claude-3-sonnet",  # 当出现多个选项时自动选择
+    max_iterations=15,
+    summarize_history=True
+)
+
+if result:
+    print(f"解决方案: {result['solution']}")
+```
+
+#### 流式任务处理
+
+实时查看问题解决过程：
+
+```python
+# 带决策模型的流式任务处理
+stream = client.stream_process_task(
+    question="为社交媒体平台设计微服务架构",
+    model_id="gpt-4.1",
+    tool_server_ids="architecture-tools",
+    decision_model_id="claude-3-sonnet",
+    max_iterations=10
+)
+
+try:
+    while True:
+        event = next(stream)
+        event_type = event.get("type")
+        
+        if event_type == "iteration_start":
+            print(f"\n--- 迭代 {event['iteration']} ---")
+        elif event_type == "thought":
+            print(f"🤔 思考中: {event['content'][:100]}...")
+        elif event_type == "todo_list_update":
+            print("📋 待办事项已更新")
+        elif event_type == "tool_call":
+            print(f"🛠️ 调用工具: {event['content']}")
+        elif event_type == "decision":
+            print(f"🎯 决策模型选择了选项 {event['selected_option']}")
+        elif event_type == "observation":
+            print(f"👀 观察结果: {event['content'][:100]}...")
+        elif event_type == "final_answer":
+            print(f"\n✅ 最终答案: {event['content']}")
+            
+except StopIteration as e:
+    final_result = e.value
+    print(f"\n📊 任务完成，解决方案: {final_result['solution'][:200]}...")
+```
+
+#### 参数说明
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `question` | str | 要解决的任务或问题 |
+| `model_id` | str | 用于任务执行的模型 ID |
+| `tool_server_ids` | str \| List[str] | 工具服务器 ID，用于外部功能 |
+| `knowledge_base_name` | str (可选) | 知识库名称，用于 RAG 增强 |
+| `max_iterations` | int | 问题解决的最大迭代次数（默认：25） |
+| `summarize_history` | bool | 是否总结对话历史（默认：False） |
+| `decision_model_id` | str (可选) | 决策模型 ID，当出现多个方案时自动选择 |
+
+#### 流事件类型
+
+| 事件类型 | 说明 |
+|----------|------|
+| `iteration_start` | 每次推理迭代开始时发出 |
+| `thought` | AI 的当前思考和推理 |
+| `todo_list_update` | 待办事项已更新 |
+| `tool_call` | AI 正在调用外部工具 |
+| `observation` | 工具调用或操作的结果 |
+| `decision` | 决策模型选择了一个选项（当提供 `decision_model_id` 时） |
+| `final_answer` | 任务完成，给出最终解决方案 |
+| `error` | 处理过程中发生错误 |
+
 ### 4. 批量模型权限管理
 
 您可以一次性管理多个模型的权限，支持公共、私有和基于群组的访问控制。
@@ -373,8 +496,8 @@ print(f"摘要: {result['response']}")
 | `chat()` | 启动/继续单模型对话，支持追问生成选项 | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `stream_chat()` | 启动/继续单模型流式对话，支持实时更新 | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `parallel_chat()` | 启动/继续多模型并行对话 | `question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
-| `process_task()` | 执行自主多步骤任务处理和迭代式问题解决 | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
-| `stream_process_task()` | 流式自主多步骤任务处理，支持实时更新 | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
+| `process_task()` | 执行自主多步骤任务处理和迭代式问题解决，支持关键发现累积和可选的决策模型自动选择方案 | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations, summarize_history, decision_model_id` |
+| `stream_process_task()` | 流式自主多步骤任务处理，支持实时更新、关键发现累积和可选的决策模型 | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations, summarize_history, decision_model_id` |
 
 ### 🛠️ 聊天管理
 

@@ -348,6 +348,129 @@ if result:
     print(f"\\n👉 View the full research process in the UI under the chat titled '{result.get('chat_title')}'.")
 ```
 
+### 9. Autonomous Task Processing
+
+The `process_task` and `stream_process_task` methods enable multi-step, iterative problem-solving with tool integration, knowledge base support, and intelligent decision-making capabilities.
+
+#### Key Features
+
+- **Key Findings Accumulation**: The AI maintains a "Key Findings" section that persists tool call results across the entire problem-solving process, ensuring critical information is not lost between iterations.
+- **Decision Model Support**: When the AI presents multiple solution options, an optional decision model can automatically analyze and select the best approach without user intervention.
+- **To-Do List Management**: The AI maintains and updates a structured to-do list throughout the task-solving process.
+- **Tool Integration**: Seamlessly integrates with Open WebUI tool servers for external data retrieval and computation.
+
+#### Basic Usage
+
+```python
+from openwebui_chat_client import OpenWebUIClient
+
+client = OpenWebUIClient(
+    base_url="http://localhost:3000",
+    token="your-bearer-token",
+    default_model_id="gpt-4.1"
+)
+
+# Basic task processing
+result = client.process_task(
+    question="Research the latest developments in quantum computing and summarize the key breakthroughs",
+    model_id="gpt-4.1",
+    tool_server_ids="web-search-tool",
+    max_iterations=10,
+    summarize_history=True
+)
+
+if result:
+    print("--- Solution ---")
+    print(result['solution'])
+    print("\n--- To-Do List ---")
+    for item in result['todo_list']:
+        status = "✅" if item['status'] == 'completed' else "⏳"
+        print(f"{status} {item['task']}")
+```
+
+#### Using Decision Model for Automatic Option Selection
+
+When the AI identifies multiple possible approaches, the decision model automatically selects the best option:
+
+```python
+# Task processing with decision model
+result = client.process_task(
+    question="Analyze the best caching strategy for a high-traffic e-commerce application",
+    model_id="gpt-4.1",
+    tool_server_ids=["web-search", "code-analyzer"],
+    decision_model_id="claude-3-sonnet",  # Automatically selects when options arise
+    max_iterations=15,
+    summarize_history=True
+)
+
+if result:
+    print(f"Solution: {result['solution']}")
+```
+
+#### Streaming Task Processing
+
+For real-time visibility into the problem-solving process:
+
+```python
+# Stream task processing with decision model
+stream = client.stream_process_task(
+    question="Design a microservices architecture for a social media platform",
+    model_id="gpt-4.1",
+    tool_server_ids="architecture-tools",
+    decision_model_id="claude-3-sonnet",
+    max_iterations=10
+)
+
+try:
+    while True:
+        event = next(stream)
+        event_type = event.get("type")
+        
+        if event_type == "iteration_start":
+            print(f"\n--- Iteration {event['iteration']} ---")
+        elif event_type == "thought":
+            print(f"🤔 Thinking: {event['content'][:100]}...")
+        elif event_type == "todo_list_update":
+            print("📋 To-Do List Updated")
+        elif event_type == "tool_call":
+            print(f"🛠️ Calling tool: {event['content']}")
+        elif event_type == "decision":
+            print(f"🎯 Decision model selected option {event['selected_option']}")
+        elif event_type == "observation":
+            print(f"👀 Observation: {event['content'][:100]}...")
+        elif event_type == "final_answer":
+            print(f"\n✅ Final Answer: {event['content']}")
+            
+except StopIteration as e:
+    final_result = e.value
+    print(f"\n📊 Task completed with solution: {final_result['solution'][:200]}...")
+```
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `question` | str | The task or problem to solve |
+| `model_id` | str | ID of the model to use for task execution |
+| `tool_server_ids` | str \| List[str] | ID(s) of tool server(s) for external capabilities |
+| `knowledge_base_name` | str (optional) | Name of knowledge base for RAG enhancement |
+| `max_iterations` | int | Maximum iterations for problem-solving (default: 25) |
+| `summarize_history` | bool | Whether to summarize conversation history (default: False) |
+| `decision_model_id` | str (optional) | Model ID for automatic option selection when multiple solutions are presented |
+
+#### Stream Event Types
+
+| Event Type | Description |
+|------------|-------------|
+| `iteration_start` | Emitted at the start of each reasoning iteration |
+| `thought` | AI's current thinking and reasoning |
+| `todo_list_update` | To-do list has been updated |
+| `tool_call` | AI is calling an external tool |
+| `observation` | Result from a tool call or action |
+| `decision` | Decision model selected an option (when `decision_model_id` is provided) |
+| `final_answer` | Task completed with final solution |
+| `error` | An error occurred during processing |
+
 ```python
 from openwebui_chat_client import OpenWebUIClient
 
@@ -429,8 +552,8 @@ print(f"Summary: {result['response']}")
 | `chat()` | Start/continue a single-model conversation with support for follow-up generation options | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `stream_chat()` | Start/continue a single-model streaming conversation with real-time updates | `question, chat_title, model_id, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
 | `parallel_chat()` | Start/continue a multi-model conversation with parallel processing | `question, chat_title, model_ids, folder_name, image_paths, tags, rag_files, rag_collections, tool_ids, enable_follow_up, enable_auto_tagging, enable_auto_titling` |
-| `process_task()` | Execute autonomous multi-step task processing with iterative problem-solving | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
-| `stream_process_task()` | Stream autonomous multi-step task processing with real-time updates | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations` |
+| `process_task()` | Execute autonomous multi-step task processing with iterative problem-solving, Key Findings accumulation, and optional decision model for automatic option selection | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations, summarize_history, decision_model_id` |
+| `stream_process_task()` | Stream autonomous multi-step task processing with real-time updates, Key Findings accumulation, and optional decision model | `question, model_id, tool_server_ids, knowledge_base_name, max_iterations, summarize_history, decision_model_id` |
 
 ### 🛠️ Chat Management
 
