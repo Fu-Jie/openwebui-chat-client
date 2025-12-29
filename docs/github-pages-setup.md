@@ -130,7 +130,7 @@ The deployment workflow consists of two jobs:
 
 1. **Test Locally First**: Before pushing, test your documentation locally:
    ```bash
-   pip install mkdocs mkdocs-material mkdocstrings[python]
+   pip install mkdocs mkdocs-material mkdocstrings[python] mkdocs-static-i18n
    mkdocs serve
    ```
    Then visit `http://localhost:8000` to preview.
@@ -141,9 +141,23 @@ The deployment workflow consists of two jobs:
 
 4. **Cache Dependencies**: The workflow caches pip dependencies to speed up builds.
 
+## Multilingual Support
+
+This project uses the `mkdocs-static-i18n` plugin to support English and Chinese documentation:
+
+- **English version**: `https://fu-jie.github.io/openwebui-chat-client/` (default)
+- **Chinese version**: `https://fu-jie.github.io/openwebui-chat-client/zh/`
+
+### Adding New Translated Pages
+
+1. Create the Chinese version file with `.zh.md` suffix (e.g., `index.md` → `index.zh.md`)
+2. Translate the content while keeping the structure consistent
+3. Ensure internal links point to the correct language version
+
 ## Additional Resources
 
 - [GitHub Pages Documentation](https://docs.github.com/en/pages)
 - [GitHub Actions for Pages](https://github.com/actions/deploy-pages)
 - [MkDocs Documentation](https://www.mkdocs.org/)
 - [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/)
+- [mkdocs-static-i18n Plugin](https://ultrabug.github.io/mkdocs-static-i18n/)
