@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 <!-- markdownlint-disable MD024 -->
 
-## [Unreleased]
+## [0.1.24] - 2025-12-29
 
 ### Added
 
