@@ -969,10 +969,12 @@ class ChatManager:
             True if deletion was successful, False otherwise
             
         Example:
-            >>> # ⚠️ WARNING: This will delete ALL your chats!
-            >>> success = client.delete_all_chats()
-            >>> if success:
-            ...     print("All chats have been permanently deleted")
+            ```python
+            # ⚠️ WARNING: This will delete ALL your chats!
+            success = client.delete_all_chats()
+            if success:
+                print("All chats have been permanently deleted")
+            ```
         """
         logger.warning("⚠️ DELETING ALL CHATS - This action cannot be undone!")
         url = f"{self.base_client.base_url}/api/v1/chats/"

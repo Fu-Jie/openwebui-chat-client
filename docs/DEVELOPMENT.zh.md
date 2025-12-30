@@ -137,8 +137,10 @@ def new_method(self, param1: str, param2: Optional[int] = None) -> Dict[str, Any
         ValueError: 当提供无效参数时。
 
     Example:
-        >>> result = client.new_method("test")
-        >>> print(result)
+        ```python
+        result = client.new_method("test")
+        print(result)
+        ```
     """
     pass
 ```
