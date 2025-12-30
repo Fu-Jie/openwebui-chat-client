@@ -11,6 +11,15 @@
 - Pull Request到main/master分支
 - 手动触发
 
+**跳过条件（paths-ignore）:**
+当变更仅涉及以下文件时，整个工作流将被跳过：
+- `docs/**` - 文档目录
+- `*.md` - 所有Markdown文件
+- `mkdocs.yml` - MkDocs配置
+- `.github/workflows/deploy.yml` - 文档部署工作流
+- `LICENSE` - 许可证文件
+- `.gitignore` - Git忽略配置
+
 **智能测试选择:**
 - 自动检测修改的文件
 - 根据源代码到测试文件的映射，只运行相关的单元测试
@@ -33,10 +42,23 @@
 - Pull Request到main/master分支
 - 手动触发
 
+**跳过条件（paths-ignore）:**
+当变更仅涉及以下文件时，直接push和pull_request触发的工作流将被跳过：
+- `docs/**` - 文档目录
+- `*.md` - 所有Markdown文件
+- `mkdocs.yml` - MkDocs配置
+- `.github/workflows/deploy.yml` - 文档部署工作流
+- `LICENSE` - 许可证文件
+- `.gitignore` - Git忽略配置
+
+**文档检测逻辑:**
+即使通过`workflow_run`触发，检测脚本也会识别文档文件并返回空的测试列表，从而跳过集成测试。
+
 **智能测试选择:**
 - 基于`.github/test-mapping.yml`配置
 - 检测文件变更并映射到集成测试类别
 - 只运行与变更相关的集成测试类别
+- 文档文件变更会返回空列表，跳过所有集成测试
 - 支持手动覆盖，运行所有测试
 
 **测试类别:**
