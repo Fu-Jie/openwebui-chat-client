@@ -1,5 +1,5 @@
 /* Custom styling for mkdocstrings symbol type labels */
-/* Change abbreviated "meth" to full "method" in Table of Contents */
+/* Change abbreviated labels to full words for better readability */
 
 code.doc-symbol-method::after {
     content: "method" !important;
@@ -10,11 +10,11 @@ code.doc-symbol-class::after {
 }
 
 code.doc-symbol-function::after {
-    content: "func" !important;
+    content: "function" !important;
 }
 
 code.doc-symbol-attribute::after {
-    content: "attr" !important;
+    content: "attribute" !important;
 }
 
 code.doc-symbol-module::after {
