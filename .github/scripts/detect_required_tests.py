@@ -28,6 +28,24 @@ import yaml
 from pathlib import Path
 from typing import List, Dict, Set, Any
 
+# File patterns that are considered documentation-only and should skip tests
+DOCUMENTATION_PATTERNS = [
+    'docs/**',
+    '*.md',
+    'mkdocs.yml',
+    '.github/workflows/deploy.yml',
+    'LICENSE',
+    '.gitignore',
+]
+
+
+def is_documentation_file(filepath: str) -> bool:
+    """Check if a file is a documentation file that should skip tests."""
+    for pattern in DOCUMENTATION_PATTERNS:
+        if fnmatch.fnmatch(filepath, pattern):
+            return True
+    return False
+
 
 def get_changed_files(base_ref: str = "origin/main", head_ref: str = "HEAD") -> List[str]:
     """Get list of changed files between two Git references."""
@@ -86,9 +104,18 @@ def determine_required_tests(changed_files: List[str], config: Dict[str, Any]) -
         print("No changed files detected, using default test categories", file=sys.stderr)
         return default_categories
     
-    # Check each changed file against patterns
-    for filepath in changed_files:
+    # Filter out documentation files
+    non_doc_files = [f for f in changed_files if not is_documentation_file(f)]
+    
+    # Check if all changed files are documentation-only
+    if not non_doc_files:
+        print("All changed files are documentation-only, skipping integration tests", file=sys.stderr)
+        return []
+    
+    # Check each non-documentation file against patterns
+    for filepath in non_doc_files:
         print(f"Checking file: {filepath}", file=sys.stderr)
+            
         matched_categories = match_file_patterns(filepath, file_mappings)
         
         if matched_categories:

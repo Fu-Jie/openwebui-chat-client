@@ -78,6 +78,8 @@ SKIP_TEST_PATTERNS = [
     "CHANGELOG*",
     "LICENSE",
     ".gitignore",
+    "mkdocs.yml",
+    ".github/workflows/deploy.yml",
 ]
 
 
