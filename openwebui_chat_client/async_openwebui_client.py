@@ -75,10 +75,12 @@ class AsyncOpenWebUIClient:
             True if deletion was successful, False otherwise
             
         Example:
-            >>> # ⚠️ WARNING: This will delete ALL your chats!
-            >>> success = await client.delete_all_chats()
-            >>> if success:
-            ...     print("All chats have been permanently deleted")
+            ```python
+            # ⚠️ WARNING: This will delete ALL your chats!
+            success = await client.delete_all_chats()
+            if success:
+                print("All chats have been permanently deleted")
+            ```
         """
         return await self._chat_manager.delete_all_chats()
 
