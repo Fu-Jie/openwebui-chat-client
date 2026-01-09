@@ -1,0 +1,167 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/code-quality.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/code-quality.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: code-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black isort
+
+      - name: Check code formatting with Black
+        run: |
+          echo "🎨 Checking code formatting with Black..."
+          black --check --diff openwebui_chat_client/ tests/ || {
+            echo ""
+            echo "❌ Code formatting issues found!"
+            echo "Run 'black openwebui_chat_client/ tests/' to fix formatting."
+            exit 1
+          }
+          echo "✅ Code formatting check passed"
+
+      - name: Check import sorting with isort
+        run: |
+          echo "📦 Checking import sorting with isort..."
+          isort --check-only --diff openwebui_chat_client/ tests/ || {
+            echo ""
+            echo "❌ Import sorting issues found!"
+            echo "Run 'isort openwebui_chat_client/ tests/' to fix imports."
+            exit 1
+          }
+          echo "✅ Import sorting check passed"
+
+      - name: Lint with Ruff
+        run: |
+          echo "🔍 Linting with Ruff..."
+          ruff check openwebui_chat_client/ tests/ --output-format=github
+          echo "✅ Linting check passed"
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install type checking tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install mypy types-requests
+          pip install -e .
+
+      - name: Run type checking with mypy
+        run: |
+          echo "🔬 Running type checking with mypy..."
+          mypy openwebui_chat_client/ --ignore-missing-imports --no-error-summary || {
+            echo ""
+            echo "⚠️  Type checking found issues (non-blocking)"
+          }
+        continue-on-error: true
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety pip-audit
+
+      - name: Run Bandit security scan
+        run: |
+          echo "🔒 Running Bandit security scan..."
+          bandit -r openwebui_chat_client/ -ll -ii --format json --output bandit-report.json || true
+          bandit -r openwebui_chat_client/ -ll -ii --format txt
+        continue-on-error: true
+
+      - name: Check dependencies with pip-audit
+        run: |
+          echo "📦 Checking dependencies for vulnerabilities..."
+          pip install -e .
+          pip-audit --desc || {
+            echo ""
+            echo "⚠️  Dependency vulnerabilities found (review recommended)"
+          }
+        continue-on-error: true
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+          retention-days: 30
+
+  code-quality-summary:
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, type-check, security-scan]
+    if: always()
+    steps:
+      - name: Code Quality Summary
+        run: |
+          echo "📊 Code Quality Summary"
+          echo "======================="
+          echo ""
+          
+          if [ "${{ needs.lint-and-format.result }}" = "success" ]; then
+            echo "✅ Linting & Formatting: Passed"
+          else
+            echo "❌ Linting & Formatting: Failed"
+          fi
+          
+          if [ "${{ needs.type-check.result }}" = "success" ]; then
+            echo "✅ Type Checking: Passed"
+          else
+            echo "⚠️  Type Checking: Issues found (non-blocking)"
+          fi
+          
+          if [ "${{ needs.security-scan.result }}" = "success" ]; then
+            echo "✅ Security Scan: Passed"
+          else
+            echo "⚠️  Security Scan: Issues found (review recommended)"
+          fi
+          
+          # Fail if linting failed
+          if [ "${{ needs.lint-and-format.result }}" != "success" ]; then
+            exit 1
+          fi

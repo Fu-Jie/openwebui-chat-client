@@ -1,6 +1,5 @@
 import unittest
-from unittest.mock import Mock, patch, MagicMock
-import json
+from unittest.mock import MagicMock, Mock, patch
 
 from openwebui_chat_client.openwebui_chat_client import OpenWebUIClient
 
@@ -13,7 +12,7 @@ class TestModelPermissions(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        
+
         # Create client with skip_model_refresh to prevent HTTP requests during initialization
         self.client = OpenWebUIClient(
             base_url=self.base_url,
@@ -34,7 +33,7 @@ class TestModelPermissions(unittest.TestCase):
                 "name": "normal",
                 "description": "",
                 "permissions": {"workspace": {"models": True}},
-                "user_ids": ["user1", "user2"]
+                "user_ids": ["user1", "user2"],
             },
             {
                 "id": "111b6e26-edf2-5208-a573-132c73f0f1f1",
@@ -42,8 +41,8 @@ class TestModelPermissions(unittest.TestCase):
                 "name": "admin",
                 "description": "Admin group",
                 "permissions": {"workspace": {"models": True}},
-                "user_ids": ["admin1"]
-            }
+                "user_ids": ["admin1"],
+            },
         ]
         mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
@@ -55,15 +54,14 @@ class TestModelPermissions(unittest.TestCase):
         self.assertEqual(result[0]["name"], "normal")
         self.assertEqual(result[1]["name"], "admin")
         mock_get.assert_called_once_with(
-            f"{self.base_url}/api/v1/groups/",
-            headers=self.client.json_headers
+            f"{self.base_url}/api/v1/groups/", headers=self.client.json_headers
         )
 
     @patch("openwebui_chat_client.openwebui_chat_client.requests.Session.get")
     def test_list_groups_failure(self, mock_get):
         """Test groups listing failure."""
         from requests.exceptions import RequestException
-        
+
         mock_get.side_effect = RequestException("Network error")
 
         result = self.client.list_groups()
@@ -75,16 +73,22 @@ class TestModelPermissions(unittest.TestCase):
     def test_update_model_to_public(self, mock_post, mock_get_model):
         """Test updating a model to public permissions."""
         # Arrange
-        existing_model = {"id": "test-model", "name": "Test Model", "access_control": {"read": [], "write": []}}
+        existing_model = {
+            "id": "test-model",
+            "name": "Test Model",
+            "access_control": {"read": [], "write": []},
+        }
         mock_get_model.return_value = existing_model
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"id": "test-model", "updated": True}
         mock_post.return_value = mock_response
 
         # Act
-        result = self.client.update_model(model_id="test-model", permission_type="public")
+        result = self.client.update_model(
+            model_id="test-model", permission_type="public"
+        )
 
         # Assert
         self.assertIsNotNone(result)
@@ -100,10 +104,10 @@ class TestModelPermissions(unittest.TestCase):
         existing_model = {
             "id": "test-model",
             "name": "Test Model",
-            "access_control": existing_permissions
+            "access_control": existing_permissions,
         }
         mock_get_model.return_value = existing_model
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"id": "test-model", "updated": True}
@@ -118,7 +122,9 @@ class TestModelPermissions(unittest.TestCase):
         self.assertEqual(payload["access_control"], existing_permissions)
 
     @patch("openwebui_chat_client.modules.model_manager.ModelManager.get_model")
-    @patch("openwebui_chat_client.modules.model_manager.ModelManager._resolve_group_ids")
+    @patch(
+        "openwebui_chat_client.modules.model_manager.ModelManager._resolve_group_ids"
+    )
     @patch("openwebui_chat_client.core.base_client.requests.Session.post")
     def test_update_model_to_group(self, mock_post, mock_resolve_ids, mock_get_model):
         """Test updating a model to group permissions."""
@@ -126,7 +132,7 @@ class TestModelPermissions(unittest.TestCase):
         existing_model = {"id": "test-model", "name": "Test Model"}
         mock_get_model.return_value = existing_model
         mock_resolve_ids.return_value = ["group-id-1"]
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"id": "test-model", "updated": True}
@@ -134,9 +140,7 @@ class TestModelPermissions(unittest.TestCase):
 
         # Act
         result = self.client.update_model(
-            model_id="test-model",
-            permission_type="group",
-            group_identifiers=["admin"]
+            model_id="test-model", permission_type="group", group_identifiers=["admin"]
         )
 
         # Assert
@@ -144,7 +148,7 @@ class TestModelPermissions(unittest.TestCase):
         payload = mock_post.call_args.kwargs["json"]
         expected_permissions = {
             "read": {"group_ids": ["group-id-1"], "user_ids": []},
-            "write": {"group_ids": ["group-id-1"], "user_ids": []}
+            "write": {"group_ids": ["group-id-1"], "user_ids": []},
         }
         self.assertEqual(payload["access_control"], expected_permissions)
 
@@ -155,20 +159,26 @@ class TestModelPermissions(unittest.TestCase):
 
     def test_build_access_control_private(self):
         """Test building private access control."""
-        result = self.client._build_access_control("private", user_ids=["user1", "user2"])
+        result = self.client._build_access_control(
+            "private", user_ids=["user1", "user2"]
+        )
         expected = {
             "read": {"group_ids": [], "user_ids": ["user1", "user2"]},
-            "write": {"group_ids": [], "user_ids": ["user1", "user2"]}
+            "write": {"group_ids": [], "user_ids": ["user1", "user2"]},
         }
         self.assertEqual(result, expected)
 
     def test_build_access_control_group_with_ids(self):
         """Test building group access control with group IDs."""
-        with patch.object(self.client, '_resolve_group_ids', return_value=["group1", "group2"]):
-            result = self.client._build_access_control("group", group_identifiers=["group1", "group2"])
+        with patch.object(
+            self.client, "_resolve_group_ids", return_value=["group1", "group2"]
+        ):
+            result = self.client._build_access_control(
+                "group", group_identifiers=["group1", "group2"]
+            )
             expected = {
                 "read": {"group_ids": ["group1", "group2"], "user_ids": []},
-                "write": {"group_ids": ["group1", "group2"], "user_ids": []}
+                "write": {"group_ids": ["group1", "group2"], "user_ids": []},
             }
             self.assertEqual(result, expected)
 
@@ -179,29 +189,23 @@ class TestModelPermissions(unittest.TestCase):
 
     def test_resolve_group_ids_with_names_and_ids(self):
         """Test resolving group names to IDs."""
-        mock_groups = [
-            {"id": "id1", "name": "normal"},
-            {"id": "id2", "name": "admin"}
-        ]
-        
-        with patch.object(self.client, 'list_groups', return_value=mock_groups):
+        mock_groups = [{"id": "id1", "name": "normal"}, {"id": "id2", "name": "admin"}]
+
+        with patch.object(self.client, "list_groups", return_value=mock_groups):
             result = self.client._resolve_group_ids(["normal", "id2", "admin"])
             self.assertEqual(result, ["id1", "id2", "id2"])
 
     def test_resolve_group_ids_invalid_identifier(self):
         """Test resolving group IDs with invalid identifier."""
-        mock_groups = [
-            {"id": "id1", "name": "normal"},
-            {"id": "id2", "name": "admin"}
-        ]
-        
-        with patch.object(self.client, 'list_groups', return_value=mock_groups):
+        mock_groups = [{"id": "id1", "name": "normal"}, {"id": "id2", "name": "admin"}]
+
+        with patch.object(self.client, "list_groups", return_value=mock_groups):
             result = self.client._resolve_group_ids(["nonexistent"])
             self.assertFalse(result)
 
     def test_resolve_group_ids_no_groups(self):
         """Test resolving group IDs when group listing fails."""
-        with patch.object(self.client, 'list_groups', return_value=None):
+        with patch.object(self.client, "list_groups", return_value=None):
             result = self.client._resolve_group_ids(["normal"])
             self.assertFalse(result)
 
@@ -209,24 +213,27 @@ class TestModelPermissions(unittest.TestCase):
     def test_batch_update_model_permissions_with_model_ids(self, mock_executor):
         """Test batch update with specific model IDs."""
         mock_model = {"id": "test-model", "name": "Test Model"}
-        
+
         # Mock the ThreadPoolExecutor context manager
         mock_context = MagicMock()
         mock_executor.return_value.__enter__.return_value = mock_context
         mock_executor.return_value.__exit__.return_value = None
-        
+
         # Mock concurrent.futures.as_completed
-        with patch("openwebui_chat_client.openwebui_chat_client.as_completed") as mock_as_completed:
+        with patch(
+            "openwebui_chat_client.openwebui_chat_client.as_completed"
+        ) as mock_as_completed:
             mock_future = MagicMock()
             mock_future.result.return_value = ("test-model", True, "success")
             mock_as_completed.return_value = [mock_future]
             mock_context.submit.return_value = mock_future
-            
-            with patch.object(self.client, 'get_model', return_value=mock_model):
-                with patch.object(self.client, '_build_access_control', return_value=None):
+
+            with patch.object(self.client, "get_model", return_value=mock_model):
+                with patch.object(
+                    self.client, "_build_access_control", return_value=None
+                ):
                     result = self.client.batch_update_model_permissions(
-                        model_identifiers=["test-model"],
-                        permission_type="public"
+                        model_identifiers=["test-model"], permission_type="public"
                     )
 
             self.assertEqual(len(result["success"]), 1)
@@ -238,60 +245,62 @@ class TestModelPermissions(unittest.TestCase):
         mock_models = [
             {"id": "gpt-4", "name": "GPT-4"},
             {"id": "gpt-3.5", "name": "GPT-3.5"},
-            {"id": "claude", "name": "Claude"}
+            {"id": "claude", "name": "Claude"},
         ]
-        
-        with patch.object(self.client, 'list_models', return_value=mock_models):
-            with patch.object(self.client, '_build_access_control', return_value=None):
-                with patch("openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor") as mock_executor:
+
+        with patch.object(self.client, "list_models", return_value=mock_models):
+            with patch.object(self.client, "_build_access_control", return_value=None):
+                with patch(
+                    "openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor"
+                ) as mock_executor:
                     mock_context = MagicMock()
                     mock_executor.return_value.__enter__.return_value = mock_context
                     mock_executor.return_value.__exit__.return_value = None
-                    
-                    with patch("openwebui_chat_client.openwebui_chat_client.as_completed") as mock_as_completed:
+
+                    with patch(
+                        "openwebui_chat_client.openwebui_chat_client.as_completed"
+                    ) as mock_as_completed:
                         mock_future = MagicMock()
                         mock_future.result.return_value = ("gpt-4", True, "success")
                         mock_as_completed.return_value = [mock_future]
                         mock_context.submit.return_value = mock_future
-                        
+
                         result = self.client.batch_update_model_permissions(
-                            model_keyword="gpt",
-                            permission_type="public"
+                            model_keyword="gpt", permission_type="public"
                         )
-                
+
                 # Should find 2 models with "gpt" in the name/id
-                self.assertEqual(len(result["success"]), 1)  # Only one mock future returned
+                self.assertEqual(
+                    len(result["success"]), 1
+                )  # Only one mock future returned
 
     def test_batch_update_model_permissions_invalid_permission_type(self):
         """Test batch update with invalid permission type."""
         result = self.client.batch_update_model_permissions(
-            model_identifiers=["test-model"],
-            permission_type="invalid"
+            model_identifiers=["test-model"], permission_type="invalid"
         )
-        
+
         self.assertEqual(len(result["success"]), 0)
         self.assertEqual(len(result["failed"]), 0)
         self.assertEqual(len(result["skipped"]), 0)
 
     def test_batch_update_model_permissions_no_models_found(self):
         """Test batch update when no models are found."""
-        with patch.object(self.client, 'get_model', return_value=None):
+        with patch.object(self.client, "get_model", return_value=None):
             result = self.client.batch_update_model_permissions(
-                model_identifiers=["nonexistent-model"],
-                permission_type="public"
+                model_identifiers=["nonexistent-model"], permission_type="public"
             )
-            
+
             self.assertEqual(len(result["success"]), 0)
             self.assertEqual(len(result["failed"]), 0)
 
     def test_batch_update_model_permissions_failed_models_list(self):
         """Test batch update when models list fails."""
-        with patch.object(self.client, 'list_models', return_value=None):
+        with patch.object(self.client, "list_models", return_value=None):
             result = self.client.batch_update_model_permissions(
-                model_keyword="test",
-                permission_type="public"
+                model_keyword="test", permission_type="public"
             )
-            
+
             self.assertEqual(len(result["success"]), 0)
             self.assertEqual(len(result["failed"]), 0)
 
@@ -326,7 +335,7 @@ class TestModelPermissions(unittest.TestCase):
             tags=tags,
             suggestion_prompts=suggestion_prompts,
             capabilities=capabilities,
-            is_active=is_active
+            is_active=is_active,
         )
 
         # --- Assert ---
@@ -343,7 +352,7 @@ class TestModelPermissions(unittest.TestCase):
         self.assertEqual(payload["name"], name)
         self.assertEqual(payload["base_model_id"], base_model_id)
         self.assertEqual(payload["is_active"], is_active)
-        self.assertIsNone(payload["access_control"]) # Default is public (None)
+        self.assertIsNone(payload["access_control"])  # Default is public (None)
 
         # Meta object fields
         self.assertIn("meta", payload)

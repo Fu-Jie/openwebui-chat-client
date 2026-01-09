@@ -6,25 +6,23 @@ Supports single/multi-model chats, tagging, and RAG with both
 direct file uploads and knowledge base collections, matching the backend format.
 """
 
+import json
 import logging
-from typing import Optional, List, Dict, Any, Union, Generator, Tuple
+import re
+import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 # Import required modules for backward compatibility with tests
 import requests
-import json
-import re
-import uuid
-import time
-import base64
-import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .core.base_client import BaseClient
+from .modules.chat_manager import ChatManager
+from .modules.file_manager import FileManager
+from .modules.knowledge_base_manager import KnowledgeBaseManager
 from .modules.model_manager import ModelManager
 from .modules.notes_manager import NotesManager
-from .modules.knowledge_base_manager import KnowledgeBaseManager
-from .modules.file_manager import FileManager
-from .modules.chat_manager import ChatManager
 from .modules.prompts_manager import PromptsManager
 from .modules.user_manager import UserManager
 
@@ -518,7 +516,7 @@ class OpenWebUIClient:
             knowledge_base_name: The name of the knowledge base to use.
             max_iterations: The maximum number of iterations to attempt.
             summarize_history: If True, the conversation history will be summarized.
-            decision_model_id: Optional model ID for automatic decision-making when 
+            decision_model_id: Optional model ID for automatic decision-making when
                               the AI presents multiple options. If provided, this model
                               will analyze the options and select the best one automatically,
                               eliminating the need for user input when choices arise.
@@ -552,7 +550,7 @@ class OpenWebUIClient:
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """
         Processes a task in a streaming fashion, yielding results for each step.
-        
+
         Args:
             question: The task to process.
             model_id: The ID of the model to use for task execution.
@@ -560,7 +558,7 @@ class OpenWebUIClient:
             knowledge_base_name: The name of the knowledge base to use.
             max_iterations: The maximum number of iterations to attempt.
             summarize_history: If True, the conversation history will be summarized.
-            decision_model_id: Optional model ID for automatic decision-making when 
+            decision_model_id: Optional model ID for automatic decision-making when
                               the AI presents multiple options. If provided, this model
                               will analyze the options and select the best one automatically.
         """
@@ -2269,7 +2267,7 @@ class OpenWebUIClient:
 
         # Create connected conversation pairs
         parent_id = last_message_id
-        for i in range(pairs_to_create):
+        for _ in range(pairs_to_create):
             user_id = str(uuid.uuid4())
             assistant_id = str(uuid.uuid4())
 
@@ -2598,7 +2596,11 @@ class OpenWebUIClient:
                             }
                         )
                         storage_payload.append(
-                            {"type": "collection", "collection": kb_details, **kb_details}
+                            {
+                                "type": "collection",
+                                "collection": kb_details,
+                                **kb_details,
+                            }
                         )
                     else:
                         logger.warning(

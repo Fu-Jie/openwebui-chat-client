@@ -2,11 +2,12 @@
 Async Model management module for OpenWebUI Chat Client.
 """
 
-import logging
-import json
 import asyncio
+import json
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
 import httpx
-from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
@@ -33,14 +34,15 @@ class AsyncModelManager:
         """Refresh the list of available model IDs."""
         models = await self.list_models()
         if models:
-            self.available_model_ids = [model.get('id', '') for model in models if model.get('id')]
+            self.available_model_ids = [
+                model.get("id", "") for model in models if model.get("id")
+            ]
 
     async def list_models(self) -> Optional[List[Dict[str, Any]]]:
         """Lists all available models."""
         logger.info("Listing all available models for the user...")
         response = await self.base_client._make_request(
-            "GET",
-            "/api/models?refresh=true"
+            "GET", "/api/models?refresh=true"
         )
 
         if response:
@@ -55,10 +57,7 @@ class AsyncModelManager:
 
     async def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
         """Lists all base models."""
-        response = await self.base_client._make_request(
-            "GET",
-            "/api/models/base"
-        )
+        response = await self.base_client._make_request("GET", "/api/models/base")
         if response:
             try:
                 data = response.json()
@@ -71,17 +70,11 @@ class AsyncModelManager:
 
     async def list_custom_models(self) -> Optional[List[Dict[str, Any]]]:
         """Lists custom models."""
-        return await self.base_client._get_json_response(
-            "GET",
-            "/api/v1/models"
-        )
+        return await self.base_client._get_json_response("GET", "/api/v1/models")
 
     async def list_groups(self) -> Optional[List[Dict[str, Any]]]:
         """Lists all available groups."""
-        return await self.base_client._get_json_response(
-            "GET",
-            "/api/v1/groups/"
-        )
+        return await self.base_client._get_json_response("GET", "/api/v1/groups/")
 
     async def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
         """Fetches details of a specific model."""
@@ -90,23 +83,21 @@ class AsyncModelManager:
 
         # Try fetch
         response = await self.base_client._make_request(
-            "GET",
-            "/api/v1/models/model",
-            params={"id": model_id}
+            "GET", "/api/v1/models/model", params={"id": model_id}
         )
 
         if response:
             if response.status_code == 401:
                 # Try create if missing in backend
-                logger.warning(f"Model '{model_id}' not initialized in backend. creating...")
+                logger.warning(
+                    f"Model '{model_id}' not initialized in backend. creating..."
+                )
                 created = await self.create_model(model_id=model_id, name=f"{model_id}")
                 if not created:
                     return None
                 # Retry
                 response = await self.base_client._make_request(
-                    "GET",
-                    "/api/v1/models/model",
-                    params={"id": model_id}
+                    "GET", "/api/v1/models/model", params={"id": model_id}
                 )
                 if response and response.status_code == 200:
                     return response.json()
@@ -158,9 +149,7 @@ class AsyncModelManager:
             model_data["access_control"] = None
 
         response = await self.base_client._make_request(
-            "POST",
-            "/api/v1/models/create",
-            json_data=model_data
+            "POST", "/api/v1/models/create", json_data=model_data
         )
 
         if response:
@@ -191,20 +180,29 @@ class AsyncModelManager:
 
         update_data = current_model.copy()
 
-        if name is not None: update_data['name'] = name
-        if base_model_id is not None: update_data['base_model_id'] = base_model_id
-        if is_active is not None: update_data['is_active'] = is_active
-        if params is not None: update_data['params'] = params
+        if name is not None:
+            update_data["name"] = name
+        if base_model_id is not None:
+            update_data["base_model_id"] = base_model_id
+        if is_active is not None:
+            update_data["is_active"] = is_active
+        if params is not None:
+            update_data["params"] = params
 
         meta_update = {}
-        if description is not None: meta_update['description'] = description
-        if profile_image_url is not None: meta_update['profile_image_url'] = profile_image_url
-        if suggestion_prompts is not None: meta_update['suggestion_prompts'] = suggestion_prompts
-        if tags is not None: meta_update['tags'] = [{"name": tag} for tag in tags]
-        if capabilities is not None: meta_update['capabilities'] = capabilities
+        if description is not None:
+            meta_update["description"] = description
+        if profile_image_url is not None:
+            meta_update["profile_image_url"] = profile_image_url
+        if suggestion_prompts is not None:
+            meta_update["suggestion_prompts"] = suggestion_prompts
+        if tags is not None:
+            meta_update["tags"] = [{"name": tag} for tag in tags]
+        if capabilities is not None:
+            meta_update["capabilities"] = capabilities
 
         if meta_update:
-            update_data['meta'] = {**current_model.get('meta', {}), **meta_update}
+            update_data["meta"] = {**current_model.get("meta", {}), **meta_update}
 
         if permission_type is not None:
             access_control = await self._build_access_control(
@@ -218,7 +216,7 @@ class AsyncModelManager:
             "POST",
             "/api/v1/models/model/update",
             params={"id": model_id},
-            json_data=update_data
+            json_data=update_data,
         )
 
         if response:
@@ -228,9 +226,7 @@ class AsyncModelManager:
     async def delete_model(self, model_id: str) -> bool:
         """Deletes a model."""
         response = await self.base_client._make_request(
-            "DELETE",
-            "/api/v1/models/model/delete",
-            params={"id": model_id}
+            "DELETE", "/api/v1/models/model/delete", params={"id": model_id}
         )
         if not response:
             return False
@@ -238,9 +234,7 @@ class AsyncModelManager:
         if response.status_code == 405:
             logger.warning("DELETE not allowed, retrying with POST fallback.")
             response = await self.base_client._make_request(
-                "POST",
-                "/api/v1/models/model/delete",
-                params={"id": model_id}
+                "POST", "/api/v1/models/model/delete", params={"id": model_id}
             )
             if not response:
                 return False
@@ -266,6 +260,7 @@ class AsyncModelManager:
         user_ids: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         """Updates permissions for multiple models in parallel."""
+
         async def update_single(model):
             model_id = model.get("id")
             if not model_id:
@@ -274,7 +269,7 @@ class AsyncModelManager:
                 model_id,
                 permission_type=permission_type,
                 group_identifiers=group_identifiers,
-                user_ids=user_ids
+                user_ids=user_ids,
             )
             return model_id, (result is not None)
 
@@ -288,7 +283,10 @@ class AsyncModelManager:
         return results
 
     async def _build_access_control(
-        self, permission_type: str, group_identifiers: Optional[List[str]], user_ids: Optional[List[str]]
+        self,
+        permission_type: str,
+        group_identifiers: Optional[List[str]],
+        user_ids: Optional[List[str]],
     ) -> Union[Dict[str, Any], None, bool]:
         if permission_type == "public":
             return None
@@ -296,7 +294,7 @@ class AsyncModelManager:
         if permission_type == "private":
             return {
                 "read": {"group_ids": [], "user_ids": user_ids or []},
-                "write": {"group_ids": [], "user_ids": user_ids or []}
+                "write": {"group_ids": [], "user_ids": user_ids or []},
             }
 
         if permission_type == "group":
@@ -307,11 +305,13 @@ class AsyncModelManager:
                 return False
             return {
                 "read": {"group_ids": group_ids, "user_ids": user_ids or []},
-                "write": {"group_ids": group_ids, "user_ids": user_ids or []}
+                "write": {"group_ids": group_ids, "user_ids": user_ids or []},
             }
         return False
 
-    async def _resolve_group_ids(self, group_identifiers: List[str]) -> Union[List[str], bool]:
+    async def _resolve_group_ids(
+        self, group_identifiers: List[str]
+    ) -> Union[List[str], bool]:
         groups = await self.list_groups()
         if not groups:
             return False

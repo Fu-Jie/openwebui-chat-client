@@ -1,7 +1,5 @@
 import unittest
-from unittest.mock import Mock, patch, MagicMock, call
-import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from unittest.mock import Mock, patch
 
 from openwebui_chat_client.openwebui_chat_client import OpenWebUIClient
 
@@ -14,7 +12,7 @@ class TestOpenWebUIClientKnowledgeBase(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        
+
         # Create client with skip_model_refresh to prevent HTTP requests during initialization
         self.client = OpenWebUIClient(
             base_url=self.base_url,

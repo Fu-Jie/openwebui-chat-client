@@ -4,8 +4,9 @@ Handles user administration operations including listing, updating roles, and de
 """
 
 import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
 import requests
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..core.base_client import BaseClient
@@ -33,7 +34,9 @@ class UserManager:
         """
         self.base_client = base_client
 
-    def get_users(self, skip: int = 0, limit: int = 50) -> Optional[List[Dict[str, Any]]]:
+    def get_users(
+        self, skip: int = 0, limit: int = 50
+    ) -> Optional[List[Dict[str, Any]]]:
         """
         Get a list of all users.
 
@@ -49,7 +52,7 @@ class UserManager:
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/v1/users/",
                 params={"skip": skip, "limit": limit},
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             users = response.json()
@@ -76,7 +79,7 @@ class UserManager:
         try:
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/v1/users/{user_id}",
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             user = response.json()
@@ -108,7 +111,7 @@ class UserManager:
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/users/{user_id}/update/role",
                 json=payload,
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             logger.info(f"Successfully updated role for user {user_id}.")
@@ -131,7 +134,7 @@ class UserManager:
         try:
             response = self.base_client.session.delete(
                 f"{self.base_client.base_url}/api/v1/users/{user_id}",
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             logger.info(f"Successfully deleted user {user_id}.")

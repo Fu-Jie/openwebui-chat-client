@@ -2,10 +2,10 @@
 Async File management module for OpenWebUI Chat Client.
 """
 
+import base64
 import logging
 import os
-import base64
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
@@ -28,7 +28,7 @@ class AsyncFileManager:
     def encode_image_to_base64(self, image_path: str) -> Optional[str]:
         """
         Encode an image file to base64 string.
-        
+
         Note: This method is synchronous (not async) as it's CPU-bound and the file
         operations are typically fast for images. For consistency in async contexts,
         callers can use asyncio.to_thread(self.encode_image_to_base64, image_path)
@@ -40,7 +40,7 @@ class AsyncFileManager:
 
         try:
             with open(image_path, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
                 media_type = "image/jpeg"
                 if image_path.lower().endswith(".png"):
                     media_type = "image/png"

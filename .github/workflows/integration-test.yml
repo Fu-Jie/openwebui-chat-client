@@ -5,9 +5,9 @@ on:
     workflows: ["Test"]
     types:
       - completed
-    branches: [ main, master ]
+    branches: [main, master]
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths-ignore:
       - 'docs/**'
       - '*.md'
@@ -16,7 +16,7 @@ on:
       - 'LICENSE'
       - '.gitignore'
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
     paths-ignore:
       - 'docs/**'
       - '*.md'
@@ -48,6 +48,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: integration-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -65,9 +69,10 @@ jobs:
         ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
 
     - name: Install dependencies for detection
       run: |
@@ -81,6 +86,7 @@ jobs:
         WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         GITHUB_EVENT_NAME: ${{ github.event_name }}
+        VERBOSE: 'true'  # Enable verbose logging for better debugging
       run: |
         # Determine if we should run all tests
         if [ "${{ github.event.inputs.run_all_tests }}" = "true" ]; then
@@ -96,17 +102,28 @@ jobs:
           
           # Debug information for workflow_run events
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "Workflow run context:"
+            echo "🔧 Workflow run context:"
             echo "  Head SHA: ${{ github.event.workflow_run.head_sha }}"
             echo "  Head Branch: ${{ github.event.workflow_run.head_branch }}"
           fi
           
           # Use our detection script to determine required tests
+          echo ""
+          echo "🔍 Running selective test detection..."
           required_tests=$(python .github/scripts/detect_required_tests.py)
           echo "tests=$required_tests" >> $GITHUB_OUTPUT
-          echo "Detected required tests: $required_tests"
+          
+          # Pretty print the results
+          echo ""
+          echo "📊 Detection Results:"
+          echo "$required_tests" | jq -r '.[]' | while read category; do
+            echo "  ✅ $category"
+          done || echo "  ⚠️  No tests detected"
+          
           if [ "$required_tests" = "[]" ]; then
-            echo "No matching integration test categories detected; integration job will be skipped."
+            echo ""
+            echo "ℹ️  No matching integration test categories detected"
+            echo "   Integration tests will be skipped for this change"
           fi
         fi
 
@@ -121,7 +138,7 @@ jobs:
       OUI_PARALLEL_MODELS: ${{ (github.event.inputs.parallel_models != '' && github.event.inputs.parallel_models) || secrets.OUI_PARALLEL_MODELS || 'gpt-4.1,gpt-4o' }}
       OUI_MULTIMODAL_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
       OUI_RAG_MODEL: ${{ (github.event.inputs.default_model != '' && github.event.inputs.default_model) || secrets.OUI_DEFAULT_MODEL || 'gpt-4.1' }}
-      OUI_CLEANUP_BEFORE_TEST: 'true'
+      OUI_CLEANUP_BEFORE_TEST: 'true'  # Always cleanup before chat tests in CI
     strategy:
       matrix:
         test-category: ${{ fromJson(needs.detect-changes.outputs.required-tests) }}
@@ -131,9 +148,21 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          .pytest_cache
+        key: ${{ runner.os }}-python-3.11-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-python-3.11-
+          ${{ runner.os }}-python-
 
     - name: Install dependencies
       run: |
@@ -167,6 +196,13 @@ jobs:
         fi
         
         echo "✅ All required environment variables are set."
+
+    - name: Cleanup Test Environment (for chat tests)
+      if: contains(matrix.test-category, 'chat') || contains(matrix.test-category, 'conversation')
+      run: |
+        echo "🧹 Cleaning up test environment for chat-related tests..."
+        python .github/scripts/cleanup_test_chats.py || echo "⚠️ Cleanup failed, continuing anyway..."
+      continue-on-error: true
 
     - name: Run Selected Integration Test
       run: |

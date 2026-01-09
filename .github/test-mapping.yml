@@ -116,153 +116,349 @@ test_categories:
 
 # File patterns mapped to test categories
 # When files matching these patterns change, the corresponding tests will run
+# 
+# 🎯 映射优先级规则:
+# 1. 具体文件路径优先于通配符模式
+# 2. 更长的路径模式优先于更短的路径模式
+# 3. 模块特定的映射优先于通用的映射
+# 4. 按照从上到下的顺序匹配，所有匹配的类别都会被收集
+#
+# 📝 最佳实践:
+# - 将最具体的模式放在前面
+# - 避免过度触发测试（精确映射）
+# - 确保核心功能变更有足够的测试覆盖
 file_mappings:
-  # Core client functionality - triggers multiple tests
+  # ============================================================================
+  # 1. 核心客户端文件 - 精确映射
+  # ============================================================================
+  
+  # 同步客户端主文件
   - pattern: "openwebui_chat_client/openwebui_chat_client.py"
     categories:
-      [
-        "connectivity",
-        "basic_chat",
-        "model_management",
-        "deep_research",
-        "sync_live_stream",
-        "sync_live_client",
-      ]
+      - "connectivity"
+      - "basic_chat"
+      - "model_management"
+      - "sync_live_client"
+      - "sync_live_stream"
+    description: "Sync client main file - triggers core sync tests"
 
-  - pattern: "openwebui_chat_client/core/base_client.py"
-    categories:
-      ["connectivity", "basic_chat", "sync_live_stream", "sync_live_client"]
-
-  # Async client functionality
+  # 异步客户端主文件
   - pattern: "openwebui_chat_client/async_openwebui_client.py"
     categories:
-      [
-        "async_basic_chat",
-        "async_streaming_chat",
-        "async_model_operations",
-        "connectivity",
-        "async_live_client",
-        "async_live_stream",
-        "async_live_model_ops",
-      ]
+      - "connectivity"
+      - "async_basic_chat"
+      - "async_streaming_chat"
+      - "async_model_operations"
+      - "async_live_client"
+      - "async_live_stream"
+      - "async_live_model_ops"
+    description: "Async client main file - triggers core async tests"
 
+  # ============================================================================
+  # 2. 核心基础类 - 精确映射
+  # ============================================================================
+  
+  # 同步基础客户端
+  - pattern: "openwebui_chat_client/core/base_client.py"
+    categories:
+      - "connectivity"
+      - "basic_chat"
+      - "sync_live_client"
+    description: "Sync base client - triggers basic sync connectivity tests"
+
+  # 异步基础客户端
   - pattern: "openwebui_chat_client/core/async_base_client.py"
     categories:
-      [
-        "async_basic_chat",
-        "async_streaming_chat",
-        "async_model_operations",
-        "connectivity",
-        "async_live_client",
-        "async_live_stream",
-        "async_live_model_ops",
-      ]
+      - "connectivity"
+      - "async_basic_chat"
+      - "async_live_client"
+    description: "Async base client - triggers basic async connectivity tests"
 
-  - pattern: "openwebui_chat_client/modules/async_*.py"
-    categories:
-      [
-        "async_basic_chat",
-        "async_streaming_chat",
-        "async_model_operations",
-        "async_live_client",
-        "async_live_stream",
-        "async_live_model_ops",
-      ]
-
-  # Async example files
-  - pattern: "examples/chat_features/async_*.py"
-    categories: ["async_streaming_chat"]
-
-  - pattern: "examples/model_management/async_*.py"
-    categories: ["async_model_operations"]
-
-  # Chat-related functionality - be more specific to avoid prompts conflicts
-  - pattern: "openwebui_chat_client/**/*chat*.py"
-    categories:
-      ["basic_chat", "model_switching", "comprehensive_demos", "deep_research"]
-
-  # Chat manager changes should trigger process_task tests
+  # ============================================================================
+  # 3. 模块管理器 - 精确映射到相关功能
+  # ============================================================================
+  
+  # 聊天管理器（同步）
   - pattern: "openwebui_chat_client/modules/chat_manager.py"
     categories:
-      ["basic_chat", "model_switching", "process_task", "stream_process_task", "decision_model"]
+      - "basic_chat"
+      - "model_switching"
+      - "continuous_conversation"
+    description: "Sync chat manager - triggers chat-related tests"
 
-  # Continuous conversation functionality
-  - pattern: "**/*continuous*"
-    categories: ["continuous_conversation", "comprehensive_demos"]
-
-  # Task processing functionality
-  - pattern: "**/*task*.py"
-    categories: ["process_task", "stream_process_task", "decision_model"]
-
-  # Decision model functionality
-  - pattern: "**/*decision*.py"
-    categories: ["decision_model", "process_task", "stream_process_task"]
-
-  # Core client and module changes
-  - pattern: "openwebui_chat_client/**/*.py"
-    categories: ["connectivity", "basic_chat", "model_management"]
-
-  # Notes API functionality
-  - pattern: "**/*notes*.py"
-    categories: ["notes_api"]
-
-  # Prompts API functionality
-  - pattern: "**/*prompts*.py"
-    categories: ["prompts_api"]
-
-  # RAG and knowledge base functionality
-  - pattern: "**/*rag*.py"
-    categories: ["rag_integration", "comprehensive_demos"]
-
-  - pattern: "**/*knowledge*.py"
-    categories: ["rag_integration", "comprehensive_demos"]
-
-  # Examples - categorize by directory
-  - pattern: "examples/getting_started/**"
+  # 聊天管理器（异步）
+  - pattern: "openwebui_chat_client/modules/async_chat_manager.py"
     categories:
-      ["basic_chat", "async_basic_chat", "comprehensive_demos", "connectivity"]
+      - "async_basic_chat"
+      - "async_streaming_chat"
+    description: "Async chat manager - triggers async chat tests"
 
-  - pattern: "examples/chat_features/**"
-    categories: ["basic_chat", "model_switching"]
-
-  - pattern: "examples/advanced_features/**"
-    categories: ["continuous_conversation", "comprehensive_demos"]
-
-  - pattern: "examples/notes_api/**"
-    categories: ["notes_api"]
-
-  - pattern: "examples/prompts_api/**"
-    categories: ["prompts_api"]
-
-  - pattern: "examples/rag_knowledge/**"
-    categories: ["rag_integration"]
-
-  - pattern: "examples/model_management/**"
-    categories: ["model_management"]
-
-  - pattern: "examples/integration/**"
+  # 模型管理器（同步）
+  - pattern: "openwebui_chat_client/modules/model_manager.py"
     categories:
-      [
-        "async_live_client",
-        "async_live_stream",
-        "async_live_model_ops",
-        "sync_live_stream",
-        "sync_live_client",
-        "decision_model",
-      ]
+      - "model_management"
+      - "connectivity"
+    description: "Sync model manager - triggers model management tests"
 
-  # Test files - categorize by name
-  - pattern: "tests/**/test_notes*"
-    categories: ["notes_api"]
+  # 模型管理器（异步）
+  - pattern: "openwebui_chat_client/modules/async_model_manager.py"
+    categories:
+      - "async_model_operations"
+    description: "Async model manager - triggers async model tests"
 
-  - pattern: "tests/**/test_prompts*"
-    categories: ["prompts_api"]
+  # 笔记管理器（同步）
+  - pattern: "openwebui_chat_client/modules/notes_manager.py"
+    categories:
+      - "notes_api"
+    description: "Sync notes manager - triggers notes API tests"
+
+  # 笔记管理器（异步）
+  - pattern: "openwebui_chat_client/modules/async_notes_manager.py"
+    categories:
+      - "notes_api"
+    description: "Async notes manager - triggers notes API tests"
+
+  # Prompts管理器（同步）
+  - pattern: "openwebui_chat_client/modules/prompts_manager.py"
+    categories:
+      - "prompts_api"
+    description: "Sync prompts manager - triggers prompts API tests"
+
+  # Prompts管理器（异步）
+  - pattern: "openwebui_chat_client/modules/async_prompts_manager.py"
+    categories:
+      - "prompts_api"
+    description: "Async prompts manager - triggers prompts API tests"
+
+  # 知识库管理器（同步）
+  - pattern: "openwebui_chat_client/modules/knowledge_base_manager.py"
+    categories:
+      - "rag_integration"
+    description: "Sync knowledge base manager - triggers RAG tests"
+
+  # 知识库管理器（异步）
+  - pattern: "openwebui_chat_client/modules/async_knowledge_base_manager.py"
+    categories:
+      - "rag_integration"
+    description: "Async knowledge base manager - triggers RAG tests"
+
+  # 文件管理器（同步）
+  - pattern: "openwebui_chat_client/modules/file_manager.py"
+    categories:
+      - "rag_integration"
+    description: "Sync file manager - triggers RAG tests"
+
+  # 文件管理器（异步）
+  - pattern: "openwebui_chat_client/modules/async_file_manager.py"
+    categories:
+      - "rag_integration"
+    description: "Async file manager - triggers RAG tests"
+
+  # 用户管理器（同步）
+  - pattern: "openwebui_chat_client/modules/user_manager.py"
+    categories:
+      - "connectivity"
+    description: "Sync user manager - triggers basic connectivity tests"
+
+  # 用户管理器（异步）
+  - pattern: "openwebui_chat_client/modules/async_user_manager.py"
+    categories:
+      - "connectivity"
+    description: "Async user manager - triggers basic connectivity tests"
+
+  # ============================================================================
+  # 4. 示例文件 - 精确映射到对应测试
+  # ============================================================================
+  
+  # Getting Started 示例
+  - pattern: "examples/getting_started/basic_chat.py"
+    categories:
+      - "basic_chat"
+    description: "Basic chat example - triggers basic chat test"
+
+  - pattern: "examples/getting_started/async_basic_chat.py"
+    categories:
+      - "async_basic_chat"
+    description: "Async basic chat example - triggers async basic chat test"
+
+  - pattern: "examples/getting_started/quick_start.py"
+    categories:
+      - "comprehensive_demos"
+    description: "Quick start example - triggers comprehensive demo test"
+
+  - pattern: "examples/getting_started/hello_world.py"
+    categories:
+      - "connectivity"
+    description: "Hello world example - triggers connectivity test"
+
+  # Chat Features 示例
+  - pattern: "examples/chat_features/model_switching.py"
+    categories:
+      - "model_switching"
+    description: "Model switching example - triggers model switching test"
+
+  - pattern: "examples/chat_features/streaming_chat.py"
+    categories:
+      - "sync_live_stream"
+    description: "Sync streaming chat example - triggers sync streaming test"
+
+  - pattern: "examples/chat_features/async_streaming_chat.py"
+    categories:
+      - "async_streaming_chat"
+    description: "Async streaming chat example - triggers async streaming test"
+
+  # Advanced Features 示例
+  - pattern: "examples/advanced_features/continuous_conversation.py"
+    categories:
+      - "continuous_conversation"
+    description: "Continuous conversation example - triggers continuous conversation test"
+
+  - pattern: "examples/advanced_features/deep_research_example.py"
+    categories:
+      - "deep_research"
+    description: "Deep research example - triggers deep research test"
+
+  - pattern: "examples/advanced_features/process_task_example.py"
+    categories:
+      - "process_task"
+    description: "Process task example - triggers process task test"
+
+  - pattern: "examples/advanced_features/stream_process_task_example.py"
+    categories:
+      - "stream_process_task"
+    description: "Stream process task example - triggers stream process task test"
+
+  # Model Management 示例
+  - pattern: "examples/model_management/model_operations.py"
+    categories:
+      - "model_management"
+    description: "Model operations example - triggers model management test"
+
+  - pattern: "examples/model_management/async_model_operations.py"
+    categories:
+      - "async_model_operations"
+    description: "Async model operations example - triggers async model test"
+
+  # Notes API 示例
+  - pattern: "examples/notes_api/basic_notes.py"
+    categories:
+      - "notes_api"
+    description: "Basic notes example - triggers notes API test"
+
+  # Prompts API 示例
+  - pattern: "examples/prompts_api/basic_prompts.py"
+    categories:
+      - "prompts_api"
+    description: "Basic prompts example - triggers prompts API test"
+
+  - pattern: "examples/prompts_api/advanced_prompts.py"
+    categories:
+      - "prompts_api"
+    description: "Advanced prompts example - triggers prompts API test"
+
+  # RAG Knowledge 示例
+  - pattern: "examples/rag_knowledge/file_rag.py"
+    categories:
+      - "rag_integration"
+    description: "File RAG example - triggers RAG integration test"
+
+  # Integration 示例
+  - pattern: "examples/integration/test_integration_async_client_live.py"
+    categories:
+      - "async_live_client"
+    description: "Async client live test - triggers async live client test"
+
+  - pattern: "examples/integration/test_integration_async_stream_chat.py"
+    categories:
+      - "async_live_stream"
+    description: "Async stream chat live test - triggers async live stream test"
+
+  - pattern: "examples/integration/test_integration_async_model_ops.py"
+    categories:
+      - "async_live_model_ops"
+    description: "Async model ops live test - triggers async live model ops test"
+
+  - pattern: "examples/integration/test_integration_openwebui_chat_client.py"
+    categories:
+      - "sync_live_client"
+    description: "Sync client live test - triggers sync live client test"
+
+  - pattern: "examples/integration/test_integration_sync_stream_chat.py"
+    categories:
+      - "sync_live_stream"
+    description: "Sync stream chat live test - triggers sync live stream test"
+
+  - pattern: "examples/integration/test_integration_decision_model.py"
+    categories:
+      - "decision_model"
+    description: "Decision model test - triggers decision model test"
+
+  # ============================================================================
+  # 5. 测试文件 - 精确映射
+  # ============================================================================
+  
+  - pattern: "tests/test_notes_functionality.py"
+    categories:
+      - "notes_api"
+    description: "Notes functionality tests - triggers notes API test"
+
+  - pattern: "tests/test_prompts_functionality.py"
+    categories:
+      - "prompts_api"
+    description: "Prompts functionality tests - triggers prompts API test"
 
   - pattern: "tests/test_deep_research.py"
-    categories: ["deep_research"]
+    categories:
+      - "deep_research"
+    description: "Deep research tests - triggers deep research test"
 
   - pattern: "tests/test_task_processing.py"
-    categories: ["process_task", "stream_process_task", "decision_model"]
+    categories:
+      - "process_task"
+      - "stream_process_task"
+      - "decision_model"
+    description: "Task processing tests - triggers task processing tests"
+
+  - pattern: "tests/test_async_client.py"
+    categories:
+      - "async_basic_chat"
+      - "async_live_client"
+    description: "Async client tests - triggers async client tests"
+
+  - pattern: "tests/test_chat_functionality.py"
+    categories:
+      - "basic_chat"
+      - "sync_live_client"
+    description: "Chat functionality tests - triggers chat tests"
+
+  - pattern: "tests/test_knowledge_base.py"
+    categories:
+      - "rag_integration"
+    description: "Knowledge base tests - triggers RAG tests"
+
+  # ============================================================================
+  # 6. 通配符模式 - 作为后备（优先级最低）
+  # ============================================================================
+  
+  # 只有当上面的精确模式都不匹配时，才会使用这些通配符
+  # 注意：这些模式应该非常保守，避免过度触发测试
+  
+  # 核心包的__init__.py变更
+  - pattern: "openwebui_chat_client/__init__.py"
+    categories:
+      - "connectivity"
+    description: "Package init - triggers basic connectivity test"
+
+  # 配置文件变更
+  - pattern: "openwebui_chat_client/core/__init__.py"
+    categories:
+      - "connectivity"
+    description: "Core init - triggers basic connectivity test"
+
+  - pattern: "openwebui_chat_client/modules/__init__.py"
+    categories:
+      - "connectivity"
+    description: "Modules init - triggers basic connectivity test"
 
 # Default categories to run when no specific mapping is found
 # This ensures that at least basic functionality is tested for any changes

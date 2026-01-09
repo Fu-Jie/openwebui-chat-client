@@ -1,8 +1,5 @@
 import unittest
-from unittest.mock import Mock, patch, MagicMock, call
-import json
-import uuid
-from io import BytesIO
+from unittest.mock import Mock, patch
 
 from openwebui_chat_client.openwebui_chat_client import OpenWebUIClient
 
@@ -15,7 +12,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        
+
         # Create client with skip_model_refresh to prevent HTTP requests during initialization
         self.client = OpenWebUIClient(
             base_url=self.base_url,
@@ -123,9 +120,17 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
 
         # Mock executor and futures
         mock_future1 = Mock()
-        mock_future1.result.return_value = ("Response 1", [], None)  # content, sources, follow_ups
+        mock_future1.result.return_value = (
+            "Response 1",
+            [],
+            None,
+        )  # content, sources, follow_ups
         mock_future2 = Mock()
-        mock_future2.result.return_value = ("Response 2", [], None)  # content, sources, follow_ups
+        mock_future2.result.return_value = (
+            "Response 2",
+            [],
+            None,
+        )  # content, sources, follow_ups
 
         mock_executor_instance = Mock()
         mock_executor_instance.submit.side_effect = [mock_future1, mock_future2]
@@ -136,7 +141,7 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         # Mock as_completed to return futures in order
         mock_as_completed.return_value = [mock_future1, mock_future2]
         mock_update.return_value = True
-        
+
         # Configure the mocked method to return appropriate values for each model
         mock_get_response.side_effect = [
             ("Response 1", [], None),  # For model1
@@ -180,7 +185,11 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
             yield "chunk1"
             yield "chunk2"
             yield "chunk3"
-            return "Full response", [], None  # Return 3 values: content, sources, follow_ups
+            return (
+                "Full response",
+                [],
+                None,
+            )  # Return 3 values: content, sources, follow_ups
 
         mock_ask_stream.return_value = mock_stream_generator()
 
@@ -241,9 +250,12 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
 
         mock_post.assert_called_once_with(
             f"{self.base_url}/api/chat/completions",
-            json={"model": self.default_model, "messages": messages, "stream": False,
-                    "parent_message": {}
-                    },    
+            json={
+                "model": self.default_model,
+                "messages": messages,
+                "stream": False,
+                "parent_message": {},
+            },
             headers=self.client.json_headers,
         )
 

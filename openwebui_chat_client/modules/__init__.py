@@ -2,4 +2,4 @@
 
 from .prompts_manager import PromptsManager
 
-__all__ = ['PromptsManager']
+__all__ = ["PromptsManager"]

@@ -1,10 +1,23 @@
 # GitHub Actions 工作流说明
 
-本目录包含三个主要的CI/CD工作流，全部采用**按需测试**策略，只运行与代码变更相关的测试。
+本目录包含完整的CI/CD工作流，采用**按需测试**策略和**代码质量检查**，确保高效且可靠的开发流程。
 
 ## 工作流概览
 
-### 1. test.yml - 单元测试工作流
+| 工作流 | 用途 | 触发条件 |
+|--------|------|----------|
+| `test.yml` | 单元测试 | Push/PR到main分支 |
+| `integration-test.yml` | 集成测试 | Test工作流完成后 |
+| `code-quality.yml` | 代码质量检查 | Python文件变更 |
+| `coverage.yml` | 代码覆盖率 | 源码/测试变更 |
+| `dependency-review.yml` | 依赖安全审查 | PR中依赖变更 |
+| `pr-automation.yml` | PR自动化 | PR创建/更新 |
+| `publish.yml` | 发布到PyPI | CHANGELOG更新 |
+| `deploy.yml` | 文档部署 | 文档变更 |
+
+---
+
+## 1. test.yml - 单元测试工作流
 
 **触发条件:**
 - Push到main/master分支
@@ -12,240 +25,259 @@
 - 手动触发
 
 **跳过条件（paths-ignore）:**
-当变更仅涉及以下文件时，整个工作流将被跳过：
-- `docs/**` - 文档目录
-- `*.md` - 所有Markdown文件
-- `mkdocs.yml` - MkDocs配置
-- `.github/workflows/deploy.yml` - 文档部署工作流
-- `LICENSE` - 许可证文件
-- `.gitignore` - Git忽略配置
+- `docs/**`, `*.md`, `mkdocs.yml`, `LICENSE`, `.gitignore`
 
-**智能测试选择:**
-- 自动检测修改的文件
-- 根据源代码到测试文件的映射，只运行相关的单元测试
-- 文档和配置文件变更不触发测试
-- 核心文件变更会触发所有测试
-
-**测试矩阵:**
-- Python 3.8-3.13多版本并行测试
+**特性:**
+- ✅ 智能测试选择：只运行与变更相关的测试
+- ✅ 多Python版本矩阵：3.8-3.13
+- ✅ pip缓存加速
+- ✅ 并发控制：取消重复运行
 
 **工作流程:**
 ```
-检测变更文件 → 确定测试范围 → 运行选定的测试 → 生成测试总结
+检测变更文件 → 确定测试范围 → 并行运行测试 → 生成总结
 ```
 
-### 2. integration-test.yml - 集成测试工作流
+---
+
+## 2. integration-test.yml - 集成测试工作流
 
 **触发条件:**
-- Test工作流成功完成后自动触发
-- Push到main/master分支
-- Pull Request到main/master分支
-- 手动触发
+- Test工作流成功完成后
+- Push/PR到main分支
+- 手动触发（支持运行所有测试）
 
-**跳过条件（paths-ignore）:**
-当变更仅涉及以下文件时，直接push和pull_request触发的工作流将被跳过：
-- `docs/**` - 文档目录
-- `*.md` - 所有Markdown文件
-- `mkdocs.yml` - MkDocs配置
-- `.github/workflows/deploy.yml` - 文档部署工作流
-- `LICENSE` - 许可证文件
-- `.gitignore` - Git忽略配置
-
-**文档检测逻辑:**
-即使通过`workflow_run`触发，检测脚本也会识别文档文件并返回空的测试列表，从而跳过集成测试。
-
-**智能测试选择:**
-- 基于`.github/test-mapping.yml`配置
-- 检测文件变更并映射到集成测试类别
-- 只运行与变更相关的集成测试类别
-- 文档文件变更会返回空列表，跳过所有集成测试
-- 支持手动覆盖，运行所有测试
+**特性:**
+- ✅ 基于`test-mapping.yml`的智能测试选择
+- ✅ 矩阵策略并行运行测试类别
+- ✅ 支持手动覆盖运行所有测试
+- ✅ 环境变量灵活配置
 
 **测试类别:**
-- connectivity（连接性测试）
-- basic_chat（基础聊天）
-- notes_api（笔记API）
-- prompts_api（提示词API）
-- rag_integration（RAG集成）
-- model_management（模型管理）
-- model_switching（模型切换）
-- comprehensive_demos（综合演示）
-- continuous_conversation（连续对话）
-- deep_research（深度研究）
+- connectivity, basic_chat, notes_api, prompts_api
+- rag_integration, model_management, model_switching
+- comprehensive_demos, continuous_conversation, deep_research
+- async_basic_chat, async_streaming_chat, async_model_operations
 
-**工作流程:**
-```
-检测变更文件 → 映射到测试类别 → 并行运行选定类别 → 生成测试总结
-```
+---
 
-### 3. publish.yml - 发布工作流
+## 3. code-quality.yml - 代码质量检查 🆕
 
 **触发条件:**
-- CHANGELOG.md文件更新时自动触发
-- 只在CHANGELOG中出现正式版本号时执行发布（如`[0.1.14]`）
-- `[Unreleased]`条目不会触发发布
+- Python文件变更
+- pyproject.toml变更
 
-**智能测试选择（发布前）:**
-- 比较当前版本与上一个版本标签之间的所有变更
-- 只运行与这些变更相关的单元测试和集成测试
-- 首次发布时运行所有测试
+**检查项目:**
+| 工具 | 用途 | 阻断性 |
+|------|------|--------|
+| Black | 代码格式化 | ✅ 阻断 |
+| isort | 导入排序 | ✅ 阻断 |
+| Ruff | 代码检查 | ✅ 阻断 |
+| mypy | 类型检查 | ⚠️ 非阻断 |
+| Bandit | 安全扫描 | ⚠️ 非阻断 |
+| pip-audit | 依赖漏洞 | ⚠️ 非阻断 |
+
+**本地运行:**
+```bash
+# 安装开发依赖
+pip install -e ".[dev]"
+
+# 格式化代码
+black openwebui_chat_client/ tests/
+isort openwebui_chat_client/ tests/
+
+# 检查代码
+ruff check openwebui_chat_client/ tests/
+mypy openwebui_chat_client/
+
+# 安全扫描
+bandit -r openwebui_chat_client/
+pip-audit
+```
+
+---
+
+## 4. coverage.yml - 代码覆盖率 🆕
+
+**触发条件:**
+- 源码或测试文件变更
+
+**特性:**
+- ✅ 生成覆盖率报告
+- ✅ 上传到Codecov（需配置CODECOV_TOKEN）
+- ✅ 在PR中显示覆盖率摘要
+
+---
+
+## 5. dependency-review.yml - 依赖安全审查 🆕
+
+**触发条件:**
+- PR中依赖文件变更（pyproject.toml, setup.py, requirements*.txt）
+
+**特性:**
+- ✅ 检测新增依赖的安全漏洞
+- ✅ 检查许可证合规性
+- ✅ 在PR中添加评论摘要
+- ✅ 检查过时依赖
+
+---
+
+## 6. pr-automation.yml - PR自动化 🆕
+
+**触发条件:**
+- PR创建、更新、标签变更
+
+**特性:**
+- ✅ 自动标签：根据变更文件添加标签
+- ✅ 大小标签：XS/S/M/L/XL
+- ✅ PR检查清单：描述、标题格式
+- ✅ 欢迎首次贡献者
+
+**标签配置:** `.github/labeler.yml`
+
+---
+
+## 7. publish.yml - 发布工作流
+
+**触发条件:**
+- CHANGELOG.md更新且包含有效版本号
 
 **发布流程:**
 ```
-检测版本 → 创建Git标签 → 检测测试范围 → 运行单元测试 → 运行集成测试 → 构建包 → 发布到PyPI → 创建GitHub Release
+检测版本 → 创建Git标签 → 运行测试 → 构建包 → 发布PyPI → 创建GitHub Release
 ```
 
-## 按需测试的工作原理
+**版本格式要求:**
+- `[X.Y.Z]` - 正式版本
+- `[X.Y.Z-beta.1]` - 预发布版本
+- `[Unreleased]` - 不触发发布
 
-### 单元测试映射
+---
 
-通过`.github/scripts/detect_unit_tests.py`脚本实现：
+## 8. deploy.yml - 文档部署
 
-```python
-# 源文件到测试文件的映射示例
-"openwebui_chat_client/modules/notes_manager.py" → test_notes_functionality.py
-"openwebui_chat_client/modules/prompts_manager.py" → test_prompts_functionality.py
-```
+**触发条件:**
+- docs/目录变更
+- mkdocs.yml变更
 
-**规则:**
-- 修改核心文件（如`__init__.py`）→ 运行所有测试
-- 修改特定模块 → 只运行该模块的测试
-- 修改文档/配置 → 跳过测试
-- 修改测试文件本身 → 只运行该测试
+**部署目标:** GitHub Pages
 
-### 集成测试映射
-
-通过`.github/test-mapping.yml`配置文件定义：
-
-```yaml
-file_mappings:
-  - pattern: "openwebui_chat_client/modules/notes_manager.py"
-    categories: ["notes_api"]
-  
-  - pattern: "openwebui_chat_client/**/*chat*.py"
-    categories: ["basic_chat", "model_switching"]
-```
+---
 
 ## 配置说明
 
-### 环境变量和密钥
+### 必需的仓库密钥
 
-**必需的仓库密钥（用于集成测试和发布）:**
-- `OUI_BASE_URL` - OpenWebUI实例URL
-- `OUI_AUTH_TOKEN` - API认证令牌
-- `PYPI_API_TOKEN` - PyPI发布令牌
+| 密钥 | 用途 | 必需 |
+|------|------|------|
+| `OUI_BASE_URL` | OpenWebUI实例URL | 集成测试 |
+| `OUI_AUTH_TOKEN` | API认证令牌 | 集成测试 |
+| `PYPI_API_TOKEN` | PyPI发布令牌 | 发布 |
+| `CODECOV_TOKEN` | Codecov上传令牌 | 覆盖率（可选） |
 
-**可选密钥:**
-- `OUI_DEFAULT_MODEL` - 默认模型ID
-- `OUI_PARALLEL_MODELS` - 并行模型列表
+### 可选密钥
 
-### 手动运行测试
+| 密钥 | 用途 | 默认值 |
+|------|------|--------|
+| `OUI_DEFAULT_MODEL` | 默认模型ID | gpt-4.1 |
+| `OUI_PARALLEL_MODELS` | 并行模型列表 | gpt-4.1,gpt-4o |
 
-**运行所有集成测试:**
+---
+
+## 本地开发指南
+
+### 安装开发依赖
+
 ```bash
-# 使用workflow_dispatch，设置run_all_tests=true
+pip install -e ".[dev,test]"
 ```
 
-**本地运行特定类别的集成测试:**
+### 运行代码质量检查
+
 ```bash
-python .github/scripts/run_all_integration_tests.py --category notes_api
+# 格式化
+black openwebui_chat_client/ tests/
+isort openwebui_chat_client/ tests/
+
+# 检查
+ruff check openwebui_chat_client/ tests/
+mypy openwebui_chat_client/
 ```
 
-**本地测试检测逻辑:**
+### 运行测试
+
 ```bash
-# 检测单元测试范围
+# 单元测试
+python -m pytest tests/ -v
+
+# 带覆盖率
+python -m pytest tests/ -v --cov=openwebui_chat_client --cov-report=html
+
+# 集成测试
+python .github/scripts/run_all_integration_tests.py --category basic_chat
+```
+
+### 检测测试范围
+
+```bash
+# 单元测试范围
 python .github/scripts/detect_unit_tests.py HEAD~1 HEAD
 
-# 检测集成测试范围
+# 集成测试范围
 python .github/scripts/detect_required_tests.py HEAD~1 HEAD
 ```
 
-## 优势
-
-### 1. 效率提升
-- ⚡ 只运行必要的测试，节省CI时间
-- 🚀 更快的反馈循环
-- 💰 降低CI/CD资源消耗
-
-### 2. 精准度
-- 🎯 准确识别受影响的测试
-- 🔍 避免运行无关测试
-- ✅ 确保所有相关测试都被执行
-
-### 3. 可维护性
-- 📝 清晰的映射配置
-- 🔧 易于添加新的测试映射
-- 📊 详细的测试执行报告
+---
 
 ## 最佳实践
 
-### 添加新功能时
+### 提交前检查
 
-1. **创建源代码文件**
-2. **创建对应的测试文件**
-3. **更新映射配置:**
-   - 在`detect_unit_tests.py`中添加源文件到测试的映射
-   - 在`test-mapping.yml`中添加集成测试映射
-4. **提交代码** - 工作流会自动运行相关测试
+1. 运行格式化：`black . && isort .`
+2. 运行检查：`ruff check .`
+3. 运行测试：`pytest tests/ -v`
 
-### 发布新版本时
+### 添加新功能
 
-1. **开发期间** - 在CHANGELOG的`[Unreleased]`部分记录所有变更
-2. **准备发布** - 将`[Unreleased]`改为具体版本号（如`[0.1.15]`）
-3. **推送到main** - 工作流会自动：
-   - 检测上个版本以来的所有变更
-   - 只运行受影响的测试
-   - 创建标签并发布到PyPI
+1. 创建源代码和测试文件
+2. 更新`detect_unit_tests.py`中的映射
+3. 更新`test-mapping.yml`中的集成测试映射
+4. 更新CHANGELOG的`[Unreleased]`部分
 
-### 调试测试失败
+### 发布新版本
 
-如果测试失败：
-1. 查看GitHub Actions日志，了解哪些测试被运行
-2. 本地复现问题
-3. 修复后推送，只会重新运行相关的测试
+1. 将`[Unreleased]`改为`[X.Y.Z] - YYYY-MM-DD`
+2. 同步更新`pyproject.toml`和`__init__.py`中的版本号
+3. 推送到main分支，工作流自动发布
 
-## 维护指南
-
-### 更新测试映射
-
-**单元测试映射** (`.github/scripts/detect_unit_tests.py`):
-```python
-SOURCE_TO_TEST_MAPPING = {
-    "新的源文件路径": ["对应的测试名称"],
-}
-```
-
-**集成测试映射** (`.github/test-mapping.yml`):
-```yaml
-file_mappings:
-  - pattern: "新的文件模式"
-    categories: ["相关的测试类别"]
-```
-
-### 添加新的测试类别
-
-1. 在`test-mapping.yml`的`test_categories`部分定义新类别
-2. 添加文件模式映射到该类别
-3. 创建对应的集成测试脚本
+---
 
 ## 故障排除
 
-### 问题: 测试没有运行
-- 检查文件是否在跳过列表中（如`.md`文件）
-- 验证文件模式是否正确配置在映射中
-- 查看工作流日志中的"检测"步骤输出
+### 代码质量检查失败
 
-### 问题: 运行了过多的测试
-- 检查是否有文件触发了"运行所有测试"（如`pyproject.toml`）
-- 优化映射，使其更加精确
+```bash
+# 查看具体问题
+black --check --diff openwebui_chat_client/
+ruff check openwebui_chat_client/ --show-fixes
+```
 
-### 问题: 遗漏了某些测试
-- 在映射配置中添加缺失的文件模式
-- 考虑使用更宽泛的glob模式
+### 测试未运行
+
+- 检查文件是否在paths-ignore列表中
+- 验证文件模式是否在映射配置中
+- 查看工作流日志中的检测步骤
+
+### 发布未触发
+
+- 确保CHANGELOG第一个版本不是`[Unreleased]`
+- 验证版本号格式正确
+- 检查Git标签是否已存在
+
+---
 
 ## 相关文档
 
 - [INTEGRATION_TESTING.md](../INTEGRATION_TESTING.md) - 集成测试详细说明
 - [test-mapping.yml](../test-mapping.yml) - 测试映射配置
-- [detect_unit_tests.py](../scripts/detect_unit_tests.py) - 单元测试检测脚本
-- [detect_required_tests.py](../scripts/detect_required_tests.py) - 集成测试检测脚本
+- [labeler.yml](../labeler.yml) - PR标签配置

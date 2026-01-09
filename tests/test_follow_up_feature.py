@@ -1,6 +1,7 @@
-import unittest
 import json  # Added this import
-from unittest.mock import MagicMock, patch, call
+import unittest
+from unittest.mock import MagicMock, patch
+
 from openwebui_chat_client import OpenWebUIClient
 
 
@@ -18,7 +19,9 @@ class TestFollowUpFeature(unittest.TestCase):
         # Mock the session object to control API responses for other methods
         self.mock_session = MagicMock()
         self.client.session = self.mock_session
-        self.client._base_client.session = self.mock_session  # Also mock the base client session
+        self.client._base_client.session = (
+            self.mock_session
+        )  # Also mock the base client session
 
     def test_extract_json_from_content_direct_json(self):
         """Test extracting JSON from direct JSON content."""
@@ -29,7 +32,7 @@ class TestFollowUpFeature(unittest.TestCase):
 
     def test_extract_json_from_content_markdown_json_block(self):
         """Test extracting JSON from markdown ```json``` blocks."""
-        content = '''```json
+        content = """```json
 {
   "follow_ups": [
     "如果订单表和出库单表之间还有其他关联字段，会影响我们的查询逻辑吗？",
@@ -39,7 +42,7 @@ class TestFollowUpFeature(unittest.TestCase):
     "除了SignTime，还有其他字段可以用来确认签收时间吗？"
   ]
 }
-```'''
+```"""
         result = self.client._extract_json_from_content(content)
         expected = {
             "follow_ups": [
@@ -47,18 +50,18 @@ class TestFollowUpFeature(unittest.TestCase):
                 "在实际业务中，是否存在订单没有关联出库单的情况？如果有，如何处理这些订单？",
                 "如果SignTime字段在某些出库单中为空，会影响MAX(SignTime)的计算结果吗？",
                 "能否提供一个具体的订单号示例，让我看看查询结果是什么样的？",
-                "除了SignTime，还有其他字段可以用来确认签收时间吗？"
+                "除了SignTime，还有其他字段可以用来确认签收时间吗？",
             ]
         }
         self.assertEqual(result, expected)
 
     def test_extract_json_from_content_markdown_code_block(self):
         """Test extracting JSON from markdown ``` blocks without json specifier."""
-        content = '''```
+        content = """```
 {
   "follow_ups": ["Question A", "Question B"]
 }
-```'''
+```"""
         result = self.client._extract_json_from_content(content)
         expected = {"follow_ups": ["Question A", "Question B"]}
         self.assertEqual(result, expected)
@@ -72,11 +75,11 @@ class TestFollowUpFeature(unittest.TestCase):
 
     def test_extract_json_from_content_mixed_text(self):
         """Test extracting JSON from content with surrounding text."""
-        content = '''Here is the JSON response:
+        content = """Here is the JSON response:
 {
   "follow_ups": ["Mixed Question 1", "Mixed Question 2"]
 }
-Hope this helps!'''
+Hope this helps!"""
         result = self.client._extract_json_from_content(content)
         expected = {"follow_ups": ["Mixed Question 1", "Mixed Question 2"]}
         self.assertEqual(result, expected)
@@ -85,10 +88,10 @@ Hope this helps!'''
         """Test that empty content returns None."""
         result = self.client._extract_json_from_content("")
         self.assertIsNone(result)
-        
+
         result = self.client._extract_json_from_content("   ")
         self.assertIsNone(result)
-        
+
         result = self.client._extract_json_from_content(None)
         self.assertIsNone(result)
 
@@ -97,24 +100,24 @@ Hope this helps!'''
         content = "This is not JSON at all"
         result = self.client._extract_json_from_content(content)
         self.assertIsNone(result)
-        
+
         content = "```json\n{invalid json}\n```"
         result = self.client._extract_json_from_content(content)
         self.assertIsNone(result)
 
     def test_extract_json_from_content_whitespace_handling(self):
         """Test that extra whitespace is handled properly."""
-        content = '''
-        
+        content = """
+
         ```json
-        
+
         {
           "follow_ups": ["Whitespace Question"]
         }
-        
+
         ```
-        
-        '''
+
+        """
         result = self.client._extract_json_from_content(content)
         expected = {"follow_ups": ["Whitespace Question"]}
         self.assertEqual(result, expected)
@@ -166,9 +169,7 @@ Hope this helps!'''
             mock_create_response if "/api/v1/chats/new" in args[0] else MagicMock()
         )
 
-    @patch(
-        "openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat"
-    )
+    @patch("openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat")
     def test_chat_with_follow_up(self, mock_update_remote_chat):
         """Test that `chat` with `enable_follow_up=True` calls the follow-up API."""
         self._mock_chat_creation_and_loading()
@@ -237,14 +238,16 @@ Hope this helps!'''
 
         # Check the final message has follow-ups
         current_id = self.client.chat_object_from_server["chat"]["history"]["currentId"]
-        self.assertIsNotNone(current_id, "current_id should not be None after chat operation")
-        last_message = self.client.chat_object_from_server["chat"]["history"]["messages"][current_id]
+        self.assertIsNotNone(
+            current_id, "current_id should not be None after chat operation"
+        )
+        last_message = self.client.chat_object_from_server["chat"]["history"][
+            "messages"
+        ][current_id]
         self.assertIn("followUps", last_message)
         self.assertEqual(last_message["followUps"], ["Follow-up 1", "Follow-up 2"])
 
-    @patch(
-        "openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat"
-    )
+    @patch("openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat")
     def test_chat_with_follow_up_markdown_format(self, mock_update_remote_chat):
         """Test that `chat` with `enable_follow_up=True` works with markdown-formatted JSON response."""
         self._mock_chat_creation_and_loading()
@@ -262,7 +265,7 @@ Hope this helps!'''
         mock_follow_up_response = MagicMock()
         mock_follow_up_response.raise_for_status.return_value = None
         # This mimics the problematic format mentioned in the issue
-        problematic_content = '''```json
+        problematic_content = """```json
 {
   "follow_ups": [
     "如果订单表和出库单表之间还有其他关联字段，会影响我们的查询逻辑吗？",
@@ -272,15 +275,9 @@ Hope this helps!'''
     "除了SignTime，还有其他字段可以用来确认签收时间吗？"
   ]
 }
-```'''
+```"""
         mock_follow_up_response.json.return_value = {
-            "choices": [
-                {
-                    "message": {
-                        "content": problematic_content
-                    }
-                }
-            ]
+            "choices": [{"message": {"content": problematic_content}}]
         }
 
         # Set up side effects based on URL
@@ -310,7 +307,7 @@ Hope this helps!'''
             "在实际业务中，是否存在订单没有关联出库单的情况？如果有，如何处理这些订单？",
             "如果SignTime字段在某些出库单中为空，会影响MAX(SignTime)的计算结果吗？",
             "能否提供一个具体的订单号示例，让我看看查询结果是什么样的？",
-            "除了SignTime，还有其他字段可以用来确认签收时间吗？"
+            "除了SignTime，还有其他字段可以用来确认签收时间吗？",
         ]
         self.assertEqual(result["follow_ups"], expected_follow_ups)
 
@@ -323,8 +320,12 @@ Hope this helps!'''
 
         # Check the final message has follow-ups
         current_id = self.client.chat_object_from_server["chat"]["history"]["currentId"]
-        self.assertIsNotNone(current_id, "current_id should not be None after chat operation")
-        last_message = self.client.chat_object_from_server["chat"]["history"]["messages"][current_id]
+        self.assertIsNotNone(
+            current_id, "current_id should not be None after chat operation"
+        )
+        last_message = self.client.chat_object_from_server["chat"]["history"][
+            "messages"
+        ][current_id]
         self.assertIn("followUps", last_message)
         self.assertEqual(last_message["followUps"], expected_follow_ups)
 

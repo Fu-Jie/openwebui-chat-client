@@ -5,25 +5,27 @@ Handles all chat operations including creation, messaging, management, and strea
 
 import json
 import logging
-import os
 import random
 import re
-import requests
 import time
 import uuid
-from typing import Optional, List, Dict, Any, Union, Generator, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+
+import requests
 
 logger = logging.getLogger(__name__)
 
 # Constants for decision model context handling
-DECISION_CONTEXT_MAX_LENGTH = 10000  # Maximum characters for context in decision prompts
+DECISION_CONTEXT_MAX_LENGTH = (
+    10000  # Maximum characters for context in decision prompts
+)
 
 
 class ChatManager:
     """
     Handles all chat-related operations for the OpenWebUI client.
-    
+
     This class manages:
     - Chat creation and management
     - Single and multi-model conversations
@@ -32,16 +34,16 @@ class ChatManager:
     - Chat archiving and bulk operations
     - Message management and placeholder handling
     """
-    
+
     def __init__(self, base_client):
         """
         Initialize the chat manager.
-        
+
         Args:
             base_client: The base client instance for making API requests
         """
         self.base_client = base_client
-    
+
     def chat(
         self,
         question: str,
@@ -59,7 +61,7 @@ class ChatManager:
     ) -> Optional[Dict[str, Any]]:
         """
         Send a chat message with a single model.
-        
+
         Args:
             question: The user's question/message
             chat_title: Title for the chat conversation
@@ -73,7 +75,7 @@ class ChatManager:
             enable_follow_up: Whether to generate follow-up suggestions
             enable_auto_tagging: Whether to automatically generate tags
             enable_auto_titling: Whether to automatically generate title
-            
+
         Returns:
             Dictionary containing response, chat_id, message_id and optional suggestions
         """
@@ -97,29 +99,42 @@ class ChatManager:
         logger.info("=" * 60)
 
         # Use the main client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_find_or_create_chat_by_title"):
             try:
                 # Check if this is likely a mocked method or real method
-                method = getattr(parent_client, '_find_or_create_chat_by_title')
-                is_mock = hasattr(method, '_mock_name') or hasattr(method, 'return_value') or str(type(method)).find('Mock') != -1
-                
+                method = parent_client._find_or_create_chat_by_title
+                is_mock = (
+                    hasattr(method, "_mock_name")
+                    or hasattr(method, "return_value")
+                    or str(type(method)).find("Mock") != -1
+                )
+
                 if is_mock:
                     # This is a mocked method, safe to call
                     parent_client._find_or_create_chat_by_title(chat_title)
                 else:
                     # This is a real method that might make network calls, use fallback
-                    logger.info(f"Using ChatManager's own _find_or_create_chat_by_title instead of parent client delegation for '{chat_title}'")
+                    logger.info(
+                        f"Using ChatManager's own _find_or_create_chat_by_title instead of parent client delegation for '{chat_title}'"
+                    )
                     self._find_or_create_chat_by_title(chat_title)
-                    
+
             except Exception as e:
-                logger.warning(f"Parent client _find_or_create_chat_by_title failed: {e}")
+                logger.warning(
+                    f"Parent client _find_or_create_chat_by_title failed: {e}"
+                )
                 self._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
 
-        if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
-            logger.error("Chat object not loaded or malformed, cannot proceed with chat.")
+        if (
+            not self.base_client.chat_object_from_server
+            or "chat" not in self.base_client.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not loaded or malformed, cannot proceed with chat."
+            )
             return None
 
         # Handle model switching for an existing chat
@@ -128,17 +143,20 @@ class ChatManager:
             logger.warning(f"  > Changing from: '{self.base_client.model_id}'")
             logger.warning(f"  > Changing to:   '{model_id}'")
             self.base_client.model_id = model_id
-            if self.base_client.chat_object_from_server and "chat" in self.base_client.chat_object_from_server:
+            if (
+                self.base_client.chat_object_from_server
+                and "chat" in self.base_client.chat_object_from_server
+            ):
                 self.base_client.chat_object_from_server["chat"]["models"] = [model_id]
 
         if not self.base_client.chat_id:
             logger.error("Chat initialization failed, cannot proceed.")
             return None
-            
+
         if folder_name:
             # Use parent client's method if available (for test mocking)
-            parent_client = getattr(self.base_client, '_parent_client', None)
-            if parent_client and hasattr(parent_client, 'get_folder_id_by_name'):
+            parent_client = getattr(self.base_client, "_parent_client", None)
+            if parent_client and hasattr(parent_client, "get_folder_id_by_name"):
                 try:
                     folder_id = parent_client.get_folder_id_by_name(folder_name)
                 except Exception as e:
@@ -146,9 +164,9 @@ class ChatManager:
                     folder_id = self.get_folder_id_by_name(folder_name)
             else:
                 folder_id = self.get_folder_id_by_name(folder_name)
-            
+
             if not folder_id:
-                if parent_client and hasattr(parent_client, 'create_folder'):
+                if parent_client and hasattr(parent_client, "create_folder"):
                     try:
                         folder_id = parent_client.create_folder(folder_name)
                     except Exception as e:
@@ -156,11 +174,17 @@ class ChatManager:
                         folder_id = self.create_folder(folder_name)
                 else:
                     folder_id = self.create_folder(folder_name)
-            
-            if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
-                if parent_client and hasattr(parent_client, 'move_chat_to_folder'):
+
+            if (
+                folder_id
+                and self.base_client.chat_object_from_server.get("folder_id")
+                != folder_id
+            ):
+                if parent_client and hasattr(parent_client, "move_chat_to_folder"):
                     try:
-                        parent_client.move_chat_to_folder(self.base_client.chat_id, folder_id)
+                        parent_client.move_chat_to_folder(
+                            self.base_client.chat_id, folder_id
+                        )
                     except Exception as e:
                         logger.warning(f"Parent client move_chat_to_folder failed: {e}")
                         self.move_chat_to_folder(self.base_client.chat_id, folder_id)
@@ -168,8 +192,12 @@ class ChatManager:
                     self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
         # Use the main client's _ask method if available and mocked (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_ask') and hasattr(parent_client._ask, '_mock_name'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if (
+            parent_client
+            and hasattr(parent_client, "_ask")
+            and hasattr(parent_client._ask, "_mock_name")
+        ):
             response, message_id, follow_ups = parent_client._ask(
                 question,
                 image_paths,
@@ -190,8 +218,8 @@ class ChatManager:
         if response:
             if tags:
                 # Use parent client's method if available (for test mocking)
-                parent_client = getattr(self.base_client, '_parent_client', None)
-                if parent_client and hasattr(parent_client, 'set_chat_tags'):
+                parent_client = getattr(self.base_client, "_parent_client", None)
+                if parent_client and hasattr(parent_client, "set_chat_tags"):
                     try:
                         parent_client.set_chat_tags(self.base_client.chat_id, tags)
                     except Exception as e:
@@ -204,7 +232,7 @@ class ChatManager:
             api_messages_for_tasks = self._build_linear_history_for_api(
                 self.base_client.chat_object_from_server["chat"]
             )
-            
+
             return_data = {
                 "response": response,
                 "chat_id": self.base_client.chat_id,
@@ -215,22 +243,32 @@ class ChatManager:
                 suggested_tags = self._get_tags(api_messages_for_tasks)
                 if suggested_tags:
                     # Use parent client's method if available (for test mocking)
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                        parent_client.set_chat_tags(self.base_client.chat_id, suggested_tags)
+                    parent_client = getattr(self.base_client, "_parent_client", None)
+                    if parent_client and hasattr(parent_client, "set_chat_tags"):
+                        parent_client.set_chat_tags(
+                            self.base_client.chat_id, suggested_tags
+                        )
                     else:
                         self.set_chat_tags(self.base_client.chat_id, suggested_tags)
                     return_data["suggested_tags"] = suggested_tags
 
-            if enable_auto_titling and len(
-                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
-            ) <= 2:
+            if (
+                enable_auto_titling
+                and len(
+                    self.base_client.chat_object_from_server["chat"]["history"][
+                        "messages"
+                    ]
+                )
+                <= 2
+            ):
                 suggested_title = self._get_title(api_messages_for_tasks)
                 if suggested_title:
                     # Use parent client's method if available (for test mocking)
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'rename_chat'):
-                        parent_client.rename_chat(self.base_client.chat_id, suggested_title)
+                    parent_client = getattr(self.base_client, "_parent_client", None)
+                    if parent_client and hasattr(parent_client, "rename_chat"):
+                        parent_client.rename_chat(
+                            self.base_client.chat_id, suggested_title
+                        )
                     else:
                         self.rename_chat(self.base_client.chat_id, suggested_title)
                     return_data["suggested_title"] = suggested_title
@@ -273,36 +311,52 @@ class ChatManager:
         logger.info("=" * 60)
 
         # Use main client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_find_or_create_chat_by_title"):
             try:
                 # Check if this is likely a mocked method or real method
-                method = getattr(parent_client, '_find_or_create_chat_by_title')
-                is_mock = hasattr(method, '_mock_name') or hasattr(method, 'return_value') or str(type(method)).find('Mock') != -1
-                
+                method = parent_client._find_or_create_chat_by_title
+                is_mock = (
+                    hasattr(method, "_mock_name")
+                    or hasattr(method, "return_value")
+                    or str(type(method)).find("Mock") != -1
+                )
+
                 if is_mock:
                     # This is a mocked method, safe to call
                     parent_client._find_or_create_chat_by_title(chat_title)
                 else:
                     # This is a real method that might make network calls, use fallback
-                    logger.info(f"Using ChatManager's own _find_or_create_chat_by_title instead of parent client delegation for '{chat_title}'")
+                    logger.info(
+                        f"Using ChatManager's own _find_or_create_chat_by_title instead of parent client delegation for '{chat_title}'"
+                    )
                     self._find_or_create_chat_by_title(chat_title)
-                    
+
             except Exception as e:
-                logger.warning(f"Parent client _find_or_create_chat_by_title failed: {e}")
+                logger.warning(
+                    f"Parent client _find_or_create_chat_by_title failed: {e}"
+                )
                 self._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
 
-        if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
+        if (
+            not self.base_client.chat_object_from_server
+            or "chat" not in self.base_client.chat_object_from_server
+        ):
             logger.error(
                 "Chat object not loaded or malformed, cannot proceed with parallel chat."
             )
             return None
 
         # Handle model set changes for existing parallel chats
-        if self.base_client.chat_object_from_server and "chat" in self.base_client.chat_object_from_server:
-            current_models = self.base_client.chat_object_from_server["chat"].get("models", [])
+        if (
+            self.base_client.chat_object_from_server
+            and "chat" in self.base_client.chat_object_from_server
+        ):
+            current_models = self.base_client.chat_object_from_server["chat"].get(
+                "models", []
+            )
             if set(current_models) != set(model_ids):
                 logger.warning(f"Parallel model set changed for chat '{chat_title}'.")
                 logger.warning(f"  > From: {current_models}")
@@ -317,13 +371,17 @@ class ChatManager:
             folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
                 folder_name
             )
-            if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
+            if (
+                folder_id
+                and self.base_client.chat_object_from_server.get("folder_id")
+                != folder_id
+            ):
                 self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
         chat_core = self.base_client.chat_object_from_server["chat"]
         # Ensure chat_core has the required history structure
         chat_core.setdefault("history", {"messages": {}, "currentId": None})
-        
+
         api_rag_payload, storage_rag_payloads = self._handle_rag_references(
             rag_files, rag_collections
         )
@@ -353,14 +411,16 @@ class ChatManager:
             )
         logger.info(f"Querying {len(model_ids)} models in parallel...")
         responses: Dict[str, Dict[str, Any]] = {}
-        
+
         # Use main client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        
+        parent_client = getattr(self.base_client, "_parent_client", None)
+
         with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
             future_to_model = {}
             for model_id in model_ids:
-                if parent_client and hasattr(parent_client, '_get_single_model_response_in_parallel'):
+                if parent_client and hasattr(
+                    parent_client, "_get_single_model_response_in_parallel"
+                ):
                     # For testing - use the main client's mocked method
                     future = executor.submit(
                         parent_client._get_single_model_response_in_parallel,
@@ -445,10 +505,10 @@ class ChatManager:
 
         logger.info("Updating chat history on the backend...")
         logger.info("First update to save main responses...")
-        
+
         # Use parent client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_update_remote_chat'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_update_remote_chat"):
             try:
                 update_success = parent_client._update_remote_chat()
             except Exception as e:
@@ -456,7 +516,7 @@ class ChatManager:
                 update_success = self._update_remote_chat()
         else:
             update_success = self._update_remote_chat()
-            
+
         if update_success:
             logger.info("Main responses saved successfully!")
 
@@ -469,11 +529,11 @@ class ChatManager:
             ):
                 logger.info("Updating chat again with follow-up suggestions...")
                 # Use parent client's method if available (for test mocking)
-                if parent_client and hasattr(parent_client, '_update_remote_chat'):
+                if parent_client and hasattr(parent_client, "_update_remote_chat"):
                     follow_up_update_success = parent_client._update_remote_chat()
                 else:
                     follow_up_update_success = self._update_remote_chat()
-                    
+
                 if follow_up_update_success:
                     logger.info("Follow-up suggestions saved successfully!")
                 else:
@@ -488,13 +548,15 @@ class ChatManager:
                 if isinstance(v, dict):
                     final_responses[k] = {
                         "content": v.get("content"),
-                        "follow_ups": v.get("followUps")
+                        "follow_ups": v.get("followUps"),
                     }
                 else:
-                    logger.warning(f"Response for model {k} is not a dictionary: {type(v)}")
+                    logger.warning(
+                        f"Response for model {k} is not a dictionary: {type(v)}"
+                    )
                     final_responses[k] = {
                         "content": str(v) if v is not None else None,
-                        "follow_ups": None
+                        "follow_ups": None,
                     }
 
             return_data = {
@@ -513,36 +575,23 @@ class ChatManager:
                     self.set_chat_tags(self.base_client.chat_id, suggested_tags)
                     return_data["suggested_tags"] = suggested_tags
 
-            if enable_auto_titling and len(
-                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
-            ) <= 2:
+            if (
+                enable_auto_titling
+                and len(
+                    self.base_client.chat_object_from_server["chat"]["history"][
+                        "messages"
+                    ]
+                )
+                <= 2
+            ):
                 suggested_title = self._get_title(api_messages_for_tasks)
                 if suggested_title:
                     self.rename_chat(self.base_client.chat_id, suggested_title)
                     return_data["suggested_title"] = suggested_title
-            
+
             return return_data
 
         return None
-
-        if not model_responses:
-            logger.error("No successful responses from parallel models.")
-            return None
-
-        # Apply tags if provided
-        if tags:
-            # Use parent client's method if available (for test mocking)
-            parent_client = getattr(self.base_client, '_parent_client', None)
-            if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                parent_client.set_chat_tags(self.base_client.chat_id, tags)
-            else:
-                self.set_chat_tags(self.base_client.chat_id, tags)
-
-        # Auto-tagging and auto-titling (use first successful response)
-        return_data = {
-            "responses": model_responses,
-            "chat_id": self.base_client.chat_id,
-        }
 
         if enable_auto_tagging or enable_auto_titling:
             api_messages_for_tasks = self._build_linear_history_for_api(
@@ -553,22 +602,32 @@ class ChatManager:
                 suggested_tags = self._get_tags(api_messages_for_tasks)
                 if suggested_tags:
                     # Use parent client's method if available (for test mocking)
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'set_chat_tags'):
-                        parent_client.set_chat_tags(self.base_client.chat_id, suggested_tags)
+                    parent_client = getattr(self.base_client, "_parent_client", None)
+                    if parent_client and hasattr(parent_client, "set_chat_tags"):
+                        parent_client.set_chat_tags(
+                            self.base_client.chat_id, suggested_tags
+                        )
                     else:
                         self.set_chat_tags(self.base_client.chat_id, suggested_tags)
                     return_data["suggested_tags"] = suggested_tags
 
-            if enable_auto_titling and len(
-                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
-            ) <= 2:
+            if (
+                enable_auto_titling
+                and len(
+                    self.base_client.chat_object_from_server["chat"]["history"][
+                        "messages"
+                    ]
+                )
+                <= 2
+            ):
                 suggested_title = self._get_title(api_messages_for_tasks)
                 if suggested_title:
                     # Use parent client's method if available (for test mocking)
-                    parent_client = getattr(self.base_client, '_parent_client', None)
-                    if parent_client and hasattr(parent_client, 'rename_chat'):
-                        parent_client.rename_chat(self.base_client.chat_id, suggested_title)
+                    parent_client = getattr(self.base_client, "_parent_client", None)
+                    if parent_client and hasattr(parent_client, "rename_chat"):
+                        parent_client.rename_chat(
+                            self.base_client.chat_id, suggested_title
+                        )
                     else:
                         self.rename_chat(self.base_client.chat_id, suggested_title)
                     return_data["suggested_title"] = suggested_title
@@ -593,9 +652,7 @@ class ChatManager:
         wait_before_request: float = 10.0,  # New: Wait time after initializing placeholders (seconds)
         enable_auto_tagging: bool = False,
         enable_auto_titling: bool = False,
-    ) -> Generator[
-        str, None, Optional[Dict[str, Any]]
-    ]:
+    ) -> Generator[str, None, Optional[Dict[str, Any]]]:
         """
         Initiates a streaming chat session. Yields content chunks as they are received.
         At the end of the stream, returns the full response content, sources, and follow-up suggestions.
@@ -621,8 +678,13 @@ class ChatManager:
 
         self._find_or_create_chat_by_title(chat_title)
 
-        if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
-            logger.error("Chat object not loaded or malformed, cannot proceed with stream.")
+        if (
+            not self.base_client.chat_object_from_server
+            or "chat" not in self.base_client.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not loaded or malformed, cannot proceed with stream."
+            )
             return  # End generator
 
         if not self.base_client.chat_id:
@@ -633,7 +695,11 @@ class ChatManager:
             folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
                 folder_name
             )
-            if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
+            if (
+                folder_id
+                and self.base_client.chat_object_from_server.get("folder_id")
+                != folder_id
+            ):
                 self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
         try:
@@ -643,13 +709,18 @@ class ChatManager:
             )
 
             # 2. If this is the first streaming request and wait time is set, wait for specified seconds
-            if getattr(self.base_client, '_first_stream_request', True) and wait_before_request > 0:
+            if (
+                getattr(self.base_client, "_first_stream_request", True)
+                and wait_before_request > 0
+            ):
                 logger.info(
                     f"⏱️ First stream request: Waiting {wait_before_request} seconds before requesting AI response..."
                 )
                 time.sleep(wait_before_request)
                 logger.info("⏱️ Wait completed, starting AI request...")
-                self.base_client._first_stream_request = False  # Mark as not first request
+                self.base_client._first_stream_request = (
+                    False  # Mark as not first request
+                )
 
             # 3. Call _ask_stream method, which now uses placeholder messages
             final_response_content, final_sources, follow_ups = (
@@ -668,8 +739,8 @@ class ChatManager:
 
             if tags:
                 # Use parent client's method if available (for test mocking)
-                parent_client = getattr(self.base_client, '_parent_client', None)
-                if parent_client and hasattr(parent_client, 'set_chat_tags'):
+                parent_client = getattr(self.base_client, "_parent_client", None)
+                if parent_client and hasattr(parent_client, "set_chat_tags"):
                     parent_client.set_chat_tags(self.base_client.chat_id, tags)
                 else:
                     self.set_chat_tags(self.base_client.chat_id, tags)
@@ -690,9 +761,15 @@ class ChatManager:
                     self.set_chat_tags(self.base_client.chat_id, suggested_tags)
                     return_data["suggested_tags"] = suggested_tags
 
-            if enable_auto_titling and len(
-                self.base_client.chat_object_from_server["chat"]["history"]["messages"]
-            ) <= 2:
+            if (
+                enable_auto_titling
+                and len(
+                    self.base_client.chat_object_from_server["chat"]["history"][
+                        "messages"
+                    ]
+                )
+                <= 2
+            ):
                 suggested_title = self._get_title(api_messages_for_tasks)
                 if suggested_title:
                     self.rename_chat(self.base_client.chat_id, suggested_title)
@@ -707,7 +784,7 @@ class ChatManager:
     def set_chat_tags(self, chat_id: str, tags: List[str]):
         """
         Set tags for a chat conversation.
-        
+
         Args:
             chat_id: ID of the chat to tag
             tags: List of tag names to apply
@@ -717,7 +794,9 @@ class ChatManager:
         logger.info(f"Applying tags {tags} to chat {chat_id[:8]}...")
         url_get = f"{self.base_client.base_url}/api/v1/chats/{chat_id}/tags"
         try:
-            response = self.base_client.session.get(url_get, headers=self.base_client.json_headers)
+            response = self.base_client.session.get(
+                url_get, headers=self.base_client.json_headers
+            )
             response.raise_for_status()
             existing_tags = {tag["name"] for tag in response.json()}
         except requests.exceptions.RequestException:
@@ -728,7 +807,9 @@ class ChatManager:
             if tag_name not in existing_tags:
                 try:
                     self.base_client.session.post(
-                        url_post, json={"name": tag_name}, headers=self.base_client.json_headers
+                        url_post,
+                        json={"name": tag_name},
+                        headers=self.base_client.json_headers,
                     ).raise_for_status()
                     logger.info(f"  + Added tag: '{tag_name}'")
                 except requests.exceptions.RequestException as e:
@@ -741,17 +822,17 @@ class ChatManager:
         chat_id: str,
         title: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        folder_name: Optional[str] = None
+        folder_name: Optional[str] = None,
     ) -> bool:
         """
         Update various metadata for a chat.
-        
+
         Args:
             chat_id: ID of the chat to update
             title: New title for the chat
             tags: New tags to apply to the chat
             folder_name: Folder to move the chat to
-            
+
         Returns:
             True if all updates were successful, False otherwise
         """
@@ -777,7 +858,9 @@ class ChatManager:
         # Update folder
         if folder_name is not None:
             try:
-                folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(folder_name)
+                folder_id = self.get_folder_id_by_name(
+                    folder_name
+                ) or self.create_folder(folder_name)
                 if folder_id:
                     self.move_chat_to_folder(chat_id, folder_id)
                 else:
@@ -791,11 +874,11 @@ class ChatManager:
     def switch_chat_model(self, chat_id: str, model_ids: Union[str, List[str]]) -> bool:
         """
         Switch the model(s) for an existing chat.
-        
+
         Args:
             chat_id: ID of the chat to update
             model_ids: Single model ID or list of model IDs
-            
+
         Returns:
             True if the switch was successful, False otherwise
         """
@@ -814,50 +897,64 @@ class ChatManager:
 
         try:
             # Use parent client's method if available (for test mocking)
-            parent_client = getattr(self.base_client, '_parent_client', None)
-            if parent_client and hasattr(parent_client, '_load_chat_details'):
+            parent_client = getattr(self.base_client, "_parent_client", None)
+            if parent_client and hasattr(parent_client, "_load_chat_details"):
                 load_success = parent_client._load_chat_details(chat_id)
             else:
                 load_success = self._load_chat_details(chat_id)
-                
+
             if not load_success:
                 logger.error(f"Failed to load chat details for {chat_id}")
                 return False
 
             # Check if we're switching to the same model
-            current_models = self.base_client.chat_object_from_server.get("chat", {}).get("models", [])
+            current_models = self.base_client.chat_object_from_server.get(
+                "chat", {}
+            ).get("models", [])
             if current_models == model_ids:
                 logger.info(f"Chat {chat_id[:8]}... already using models: {model_ids}")
                 return True
 
             # Update the models in the chat object
             self.base_client.chat_object_from_server["chat"]["models"] = model_ids
-            self.base_client.model_id = model_ids[0] if model_ids else self.base_client.default_model_id
+            self.base_client.model_id = (
+                model_ids[0] if model_ids else self.base_client.default_model_id
+            )
 
             # Update on server
-            if parent_client and hasattr(parent_client, '_update_remote_chat'):
+            if parent_client and hasattr(parent_client, "_update_remote_chat"):
                 try:
                     update_success = parent_client._update_remote_chat()
                 except Exception as e:
                     logger.warning(f"Parent client _update_remote_chat failed: {e}")
                     # Call the main client's method if this is being used by switch_chat_model
-                    if (self.base_client._parent_client and 
-                        hasattr(self.base_client._parent_client, '_update_remote_chat')):
+                    if self.base_client._parent_client and hasattr(
+                        self.base_client._parent_client, "_update_remote_chat"
+                    ):
                         try:
-                            update_success = self.base_client._parent_client._update_remote_chat()
+                            update_success = (
+                                self.base_client._parent_client._update_remote_chat()
+                            )
                         except Exception as e2:
-                            logger.warning(f"Base client parent _update_remote_chat failed: {e2}")
+                            logger.warning(
+                                f"Base client parent _update_remote_chat failed: {e2}"
+                            )
                             update_success = self._update_remote_chat()
                     else:
                         update_success = self._update_remote_chat()
             else:
                 # Call the main client's method if this is being used by switch_chat_model
-                if (self.base_client._parent_client and 
-                    hasattr(self.base_client._parent_client, '_update_remote_chat')):
+                if self.base_client._parent_client and hasattr(
+                    self.base_client._parent_client, "_update_remote_chat"
+                ):
                     try:
-                        update_success = self.base_client._parent_client._update_remote_chat()
+                        update_success = (
+                            self.base_client._parent_client._update_remote_chat()
+                        )
                     except Exception as e:
-                        logger.warning(f"Base client parent _update_remote_chat failed: {e}")
+                        logger.warning(
+                            f"Base client parent _update_remote_chat failed: {e}"
+                        )
                         update_success = self._update_remote_chat()
                 else:
                     update_success = self._update_remote_chat()
@@ -880,10 +977,10 @@ class ChatManager:
     def list_chats(self, page: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
         """
         List all chats for the current user.
-        
+
         Args:
             page: Optional page number for pagination
-            
+
         Returns:
             List of chat dictionaries or None if failed
         """
@@ -895,9 +992,7 @@ class ChatManager:
 
         try:
             response = self.base_client.session.get(
-                url, 
-                params=params, 
-                headers=self.base_client.json_headers
+                url, params=params, headers=self.base_client.json_headers
             )
             response.raise_for_status()
             chats = response.json()
@@ -910,10 +1005,10 @@ class ChatManager:
     def get_chats_by_folder(self, folder_id: str) -> Optional[List[Dict[str, Any]]]:
         """
         Get all chats in a specific folder.
-        
+
         Args:
             folder_id: ID of the folder
-            
+
         Returns:
             List of chat dictionaries in the folder or None if failed
         """
@@ -921,7 +1016,9 @@ class ChatManager:
         url = f"{self.base_client.base_url}/api/v1/chats/folder/{folder_id}"
 
         try:
-            response = self.base_client.session.get(url, headers=self.base_client.json_headers)
+            response = self.base_client.session.get(
+                url, headers=self.base_client.json_headers
+            )
             response.raise_for_status()
             chats = response.json()
             logger.info(f"Successfully retrieved {len(chats)} chats from folder.")
@@ -933,10 +1030,10 @@ class ChatManager:
     def archive_chat(self, chat_id: str) -> bool:
         """
         Archive a chat conversation.
-        
+
         Args:
             chat_id: ID of the chat to archive
-            
+
         Returns:
             True if archiving was successful, False otherwise
         """
@@ -944,7 +1041,9 @@ class ChatManager:
         url = f"{self.base_client.base_url}/api/v1/chats/{chat_id}/archive"
 
         try:
-            response = self.base_client.session.post(url, headers=self.base_client.json_headers)
+            response = self.base_client.session.post(
+                url, headers=self.base_client.json_headers
+            )
             response.raise_for_status()
             logger.info(f"Successfully archived chat: {chat_id}")
             return True
@@ -955,19 +1054,19 @@ class ChatManager:
     def delete_all_chats(self) -> bool:
         """
         Delete ALL chat conversations for the current user.
-        
+
         ⚠️ WARNING: This is a DESTRUCTIVE operation!
         This method will permanently delete ALL chats associated with the current user account.
         This action CANNOT be undone. Use with extreme caution.
-        
+
         This method is useful for:
         - Cleaning up test data after integration tests
         - Resetting an account to a clean state
         - Bulk cleanup operations
-        
+
         Returns:
             True if deletion was successful, False otherwise
-            
+
         Example:
             ```python
             # ⚠️ WARNING: This will delete ALL your chats!
@@ -980,7 +1079,9 @@ class ChatManager:
         url = f"{self.base_client.base_url}/api/v1/chats/"
 
         try:
-            response = self.base_client.session.delete(url, headers=self.base_client.json_headers)
+            response = self.base_client.session.delete(
+                url, headers=self.base_client.json_headers
+            )
             response.raise_for_status()
             logger.info("✅ Successfully deleted all chats")
             return True
@@ -991,10 +1092,10 @@ class ChatManager:
     def create_folder(self, name: str) -> Optional[str]:
         """
         Create a new folder for organizing chats.
-        
+
         Args:
             name: Name of the folder to create
-            
+
         Returns:
             Folder ID if creation was successful, None otherwise
         """
@@ -1004,16 +1105,16 @@ class ChatManager:
 
         try:
             response = self.base_client.session.post(
-                url, 
-                json=payload, 
-                headers=self.base_client.json_headers
+                url, json=payload, headers=self.base_client.json_headers
             )
             response.raise_for_status()
             logger.info(f"Successfully sent request to create folder '{name}'.")
             # Use parent client if available (for test mocking)
-            if (hasattr(self.base_client, '_parent_client') and 
-                self.base_client._parent_client and
-                hasattr(self.base_client._parent_client, 'get_folder_id_by_name')):
+            if (
+                hasattr(self.base_client, "_parent_client")
+                and self.base_client._parent_client
+                and hasattr(self.base_client._parent_client, "get_folder_id_by_name")
+            ):
                 try:
                     return self.base_client._parent_client.get_folder_id_by_name(name)
                 except Exception as e:
@@ -1029,22 +1130,24 @@ class ChatManager:
     def _find_or_create_chat_by_title(self, title: str):
         """Find an existing chat by title or create a new one."""
         logger.info(f"🔍 _find_or_create_chat_by_title() started for '{title}'")
-        
+
         # Check if we should skip title search (for continuous conversations with auto-titling)
-        if getattr(self.base_client, '_skip_title_search', False):
-            logger.info(f"🔄 Skipping title search, using existing chat_id: {self.base_client.chat_id}")
+        if getattr(self.base_client, "_skip_title_search", False):
+            logger.info(
+                f"🔄 Skipping title search, using existing chat_id: {self.base_client.chat_id}"
+            )
             # Load chat details for the existing chat_id
             if self.base_client.chat_id:
                 self._load_chat_details(self.base_client.chat_id)
             return
-        
+
         if existing_chat := self._search_latest_chat_by_title(title):
             logger.info(f"✅ Found existing chat '{title}', loading details...")
             self._load_chat_details(existing_chat["id"])
         else:
             logger.info(f"ℹ️ Chat '{title}' not found, creating a new one...")
             if new_chat_id := self._create_new_chat(title):
-                logger.info(f"✅ New chat created, loading details...")
+                logger.info("✅ New chat created, loading details...")
                 self._load_chat_details(new_chat_id)
             else:
                 logger.error(f"❌ Failed to create new chat '{title}'")
@@ -1052,41 +1155,45 @@ class ChatManager:
     def _search_latest_chat_by_title(self, title: str) -> Optional[Dict[str, Any]]:
         """Search for the latest chat with the given title."""
         logger.info(f"🔍 Globally searching for chat with title '{title}'...")
-        
+
         try:
-            logger.info(f"📡 GET request to: {self.base_client.base_url}/api/v1/chats/search")
+            logger.info(
+                f"📡 GET request to: {self.base_client.base_url}/api/v1/chats/search"
+            )
             logger.info(f"   Search text: '{title}'")
-            
+
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/v1/chats/search",
                 params={"text": title},
                 headers=self.base_client.json_headers,
-                timeout=30  # Add explicit timeout
+                timeout=30,  # Add explicit timeout
             )
-            
+
             logger.info(f"📡 Search response: Status {response.status_code}")
             response.raise_for_status()
-            
+
             chats = response.json()
             logger.info(f"📄 Found {len(chats) if chats else 0} total search results")
-            
+
             if not chats:
                 logger.info(f"ℹ️ No chats found with title '{title}'")
                 return None
-                
+
             # Filter chats by title and find the most recent one
             matching_chats = [chat for chat in chats if chat.get("title") == title]
             logger.info(f"🔍 Filtered to {len(matching_chats)} exact title matches")
-            
+
             if not matching_chats:
                 logger.info(f"ℹ️ No chats found with exact title '{title}'")
                 return None
-                
+
             # Return the most recent chat (highest updated_at)
             latest_chat = max(matching_chats, key=lambda x: x.get("updated_at", 0))
-            logger.info(f"✅ Found latest chat with title '{title}': {latest_chat['id'][:8]}...")
+            logger.info(
+                f"✅ Found latest chat with title '{title}': {latest_chat['id'][:8]}..."
+            )
             return latest_chat
-            
+
         except requests.exceptions.Timeout as e:
             logger.error(f"❌ Chat search timeout after 30s: {e}")
             return None
@@ -1094,7 +1201,9 @@ class ChatManager:
             logger.error(f"❌ Chat search connection error: {e}")
             return None
         except requests.exceptions.HTTPError as e:
-            logger.error(f"❌ Chat search HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
+            logger.error(
+                f"❌ Chat search HTTP error {e.response.status_code if e.response else 'unknown'}: {e}"
+            )
             return None
         except (KeyError, json.JSONDecodeError) as e:
             logger.error(f"❌ Chat search JSON/key error: {e}")
@@ -1106,23 +1215,25 @@ class ChatManager:
     def _create_new_chat(self, title: str) -> Optional[str]:
         """Create a new chat with the given title."""
         logger.info(f"🆕 Creating new chat with title '{title}'...")
-        
+
         try:
-            logger.info(f"📡 POST request to: {self.base_client.base_url}/api/v1/chats/new")
-            
+            logger.info(
+                f"📡 POST request to: {self.base_client.base_url}/api/v1/chats/new"
+            )
+
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/chats/new",
                 json={"chat": {"title": title}},
                 headers=self.base_client.json_headers,
-                timeout=30  # Add explicit timeout
+                timeout=30,  # Add explicit timeout
             )
-            
+
             logger.info(f"📡 Create response: Status {response.status_code}")
             response.raise_for_status()
-            
+
             chat_data = response.json()
             chat_id = chat_data.get("id")
-            
+
             if chat_id:
                 logger.info(f"✅ Successfully created chat with ID: {chat_id[:8]}...")
                 return chat_id
@@ -1130,7 +1241,7 @@ class ChatManager:
                 logger.error("❌ Chat creation response did not contain an ID")
                 logger.error(f"   Response data: {chat_data}")
                 return None
-                
+
         except requests.exceptions.Timeout as e:
             logger.error(f"❌ Chat creation timeout after 30s: {e}")
             return None
@@ -1138,12 +1249,14 @@ class ChatManager:
             logger.error(f"❌ Chat creation connection error: {e}")
             return None
         except requests.exceptions.HTTPError as e:
-            logger.error(f"❌ Chat creation HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
+            logger.error(
+                f"❌ Chat creation HTTP error {e.response.status_code if e.response else 'unknown'}: {e}"
+            )
             if e.response:
                 try:
                     error_data = e.response.json()
                     logger.error(f"   Error details: {error_data}")
-                except:
+                except Exception:
                     logger.error(f"   Raw response: {e.response.text[:500]}")
             return None
         except (KeyError, json.JSONDecodeError) as e:
@@ -1153,78 +1266,100 @@ class ChatManager:
             logger.error(f"❌ Unexpected error in chat creation: {e}")
             return None
 
-    def _load_chat_details(self, chat_id: str, max_retries: int = 3, retry_delay: float = 1.0) -> bool:
+    def _load_chat_details(
+        self, chat_id: str, max_retries: int = 3, retry_delay: float = 1.0
+    ) -> bool:
         """Load chat details from server.
-        
+
         Args:
             chat_id: The ID of the chat to load
             max_retries: Maximum number of retries for transient errors (default: 3)
             retry_delay: Delay in seconds between retries (default: 1.0)
         """
         logger.info(f"📂 Loading chat details for: {chat_id}")
-        
+
         # Use parent client's method if available and mocked (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_load_chat_details'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_load_chat_details"):
             # Check if this is likely a mocked method or real method
-            method = getattr(parent_client, '_load_chat_details')
-            is_mock = hasattr(method, '_mock_name') or hasattr(method, 'return_value') or str(type(method)).find('Mock') != -1
-            
+            method = parent_client._load_chat_details
+            is_mock = (
+                hasattr(method, "_mock_name")
+                or hasattr(method, "return_value")
+                or str(type(method)).find("Mock") != -1
+            )
+
             if is_mock:
                 # This is a mocked method, safe to call
                 logger.info("   Using parent client _load_chat_details (mocked)")
                 return parent_client._load_chat_details(chat_id)
             else:
                 # This is a real method, use our own implementation
-                logger.info(f"   Using ChatManager's own _load_chat_details instead of parent client delegation")
-        
+                logger.info(
+                    "   Using ChatManager's own _load_chat_details instead of parent client delegation"
+                )
+
         last_error = None
         for attempt in range(max_retries):
             try:
                 if attempt > 0:
-                    logger.info(f"🔄 Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay...")
+                    logger.info(
+                        f"🔄 Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay..."
+                    )
                     time.sleep(retry_delay)
-                
-                logger.info(f"📡 GET request to: {self.base_client.base_url}/api/v1/chats/{chat_id}")
-                
-                response = self.base_client.session.get(
-                    f"{self.base_client.base_url}/api/v1/chats/{chat_id}", 
-                    headers=self.base_client.json_headers,
-                    timeout=30  # Add explicit timeout
+
+                logger.info(
+                    f"📡 GET request to: {self.base_client.base_url}/api/v1/chats/{chat_id}"
                 )
-                
+
+                response = self.base_client.session.get(
+                    f"{self.base_client.base_url}/api/v1/chats/{chat_id}",
+                    headers=self.base_client.json_headers,
+                    timeout=30,  # Add explicit timeout
+                )
+
                 logger.info(f"📡 Load response: Status {response.status_code}")
-                
+
                 # Handle 401 errors with retry (can be transient after chat creation)
                 if response.status_code == 401:
-                    logger.warning(f"⚠️ Got 401 Unauthorized on attempt {attempt + 1}/{max_retries}")
+                    logger.warning(
+                        f"⚠️ Got 401 Unauthorized on attempt {attempt + 1}/{max_retries}"
+                    )
                     if attempt < max_retries - 1:
-                        last_error = f"401 Unauthorized"
+                        last_error = "401 Unauthorized"
                         continue  # Retry
                     else:
                         response.raise_for_status()  # Will raise HTTPError on last attempt
-                
+
                 response.raise_for_status()
-                
+
                 details = response.json()
-                logger.info(f"📄 Chat details response: {len(str(details)) if details else 0} chars")
-                
+                logger.info(
+                    f"📄 Chat details response: {len(str(details)) if details else 0} chars"
+                )
+
                 # Check for None/empty response specifically
                 if details is None:
-                    logger.error(f"❌ Empty/None response when loading chat details for {chat_id}")
+                    logger.error(
+                        f"❌ Empty/None response when loading chat details for {chat_id}"
+                    )
                     return False
-                    
+
                 if details:
                     logger.info("✅ Processing chat details...")
                     self.base_client.chat_id = chat_id
                     self.base_client.chat_object_from_server = details
-                    
-                    chat_core = self.base_client.chat_object_from_server.setdefault("chat", {})
+
+                    chat_core = self.base_client.chat_object_from_server.setdefault(
+                        "chat", {}
+                    )
                     chat_core.setdefault("history", {"messages": {}, "currentId": None})
-                    
+
                     logger.info(f"   Chat title: {chat_core.get('title', 'N/A')}")
-                    logger.info(f"   Messages: {len(chat_core.get('history', {}).get('messages', {}))}")
-                    
+                    logger.info(
+                        f"   Messages: {len(chat_core.get('history', {}).get('messages', {}))}"
+                    )
+
                     # Ensure 'models' is a list
                     models_list = chat_core.get("models", [])
                     if isinstance(models_list, list) and models_list:
@@ -1232,14 +1367,18 @@ class ChatManager:
                         logger.info(f"   Model from chat: {self.base_client.model_id}")
                     else:
                         self.base_client.model_id = self.base_client.default_model_id
-                        logger.info(f"   Using default model: {self.base_client.model_id}")
-                        
+                        logger.info(
+                            f"   Using default model: {self.base_client.model_id}"
+                        )
+
                     logger.info(f"✅ Successfully loaded chat details for: {chat_id}")
                     return True
                 else:
-                    logger.error(f"❌ Empty response when loading chat details for {chat_id}")
+                    logger.error(
+                        f"❌ Empty response when loading chat details for {chat_id}"
+                    )
                     return False
-                    
+
             except requests.exceptions.Timeout as e:
                 logger.error(f"❌ Chat details load timeout after 30s: {e}")
                 last_error = str(e)
@@ -1253,12 +1392,14 @@ class ChatManager:
                     continue  # Retry on connection error
                 return False
             except requests.exceptions.HTTPError as e:
-                logger.error(f"❌ Chat details load HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
+                logger.error(
+                    f"❌ Chat details load HTTP error {e.response.status_code if e.response else 'unknown'}: {e}"
+                )
                 if e.response:
                     try:
                         error_data = e.response.json()
                         logger.error(f"   Error details: {error_data}")
-                    except:
+                    except Exception:
                         logger.error(f"   Raw response: {e.response.text[:500]}")
                 return False
             except json.JSONDecodeError as e:
@@ -1267,38 +1408,56 @@ class ChatManager:
             except Exception as e:
                 logger.error(f"❌ Unexpected error loading chat details: {e}")
                 return False
-        
+
         # If we exhausted all retries
-        logger.error(f"❌ Failed to load chat details after {max_retries} attempts. Last error: {last_error}")
+        logger.error(
+            f"❌ Failed to load chat details after {max_retries} attempts. Last error: {last_error}"
+        )
         return False
-    
-    def _ask(self, question: str, image_paths: Optional[List[str]] = None, 
-             rag_files: Optional[List[str]] = None, rag_collections: Optional[List[str]] = None,
-             tool_ids: Optional[List[str]] = None, enable_follow_up: bool = False) -> Tuple[Optional[str], Optional[str], Optional[List[str]]]:
+
+    def _ask(
+        self,
+        question: str,
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+    ) -> Tuple[Optional[str], Optional[str], Optional[List[str]]]:
         """Send a message and get response."""
-        logger.info(f'🔍 _ask() method started')
-        logger.info(f'   Question: "{question[:100]}{"..." if len(question) > 100 else ""}"')
-        logger.info(f'   Chat ID: {self.base_client.chat_id}')
-        logger.info(f'   Model ID: {self.base_client.model_id}')
-        logger.info(f'   RAG files: {len(rag_files) if rag_files else 0}')
-        logger.info(f'   RAG collections: {len(rag_collections) if rag_collections else 0}')
-        logger.info(f'   Image paths: {len(image_paths) if image_paths else 0}')
-        logger.info(f'   Tool IDs: {len(tool_ids) if tool_ids else 0}')
-        
+        logger.info("🔍 _ask() method started")
+        logger.info(
+            f'   Question: "{question[:100]}{"..." if len(question) > 100 else ""}"'
+        )
+        logger.info(f"   Chat ID: {self.base_client.chat_id}")
+        logger.info(f"   Model ID: {self.base_client.model_id}")
+        logger.info(f"   RAG files: {len(rag_files) if rag_files else 0}")
+        logger.info(
+            f"   RAG collections: {len(rag_collections) if rag_collections else 0}"
+        )
+        logger.info(f"   Image paths: {len(image_paths) if image_paths else 0}")
+        logger.info(f"   Tool IDs: {len(tool_ids) if tool_ids else 0}")
+
         if not self.base_client.chat_id:
             logger.error("❌ No chat_id available, cannot process question")
             return None, None, None
-            
-        logger.info('📋 Processing question: "{}"'.format(question[:50] + "..." if len(question) > 50 else question))
-        
+
+        logger.info(
+            '📋 Processing question: "{}"'.format(
+                question[:50] + "..." if len(question) > 50 else question
+            )
+        )
+
         try:
             logger.info("🔧 Setting up chat core and model configuration...")
             chat_core = self.base_client.chat_object_from_server["chat"]
             chat_core["models"] = [self.base_client.model_id]
-            
+
             # Ensure chat_core has the required history structure
             chat_core.setdefault("history", {"messages": {}, "currentId": None})
-            logger.info(f"✅ Chat core setup complete. History has {len(chat_core['history']['messages'])} messages")
+            logger.info(
+                f"✅ Chat core setup complete. History has {len(chat_core['history']['messages'])} messages"
+            )
         except Exception as e:
             logger.error(f"❌ Failed to setup chat core: {e}")
             return None, None, None
@@ -1308,11 +1467,13 @@ class ChatManager:
             api_rag_payload, storage_rag_payloads = self._handle_rag_references(
                 rag_files, rag_collections
             )
-            logger.info(f"✅ RAG processing complete. API payload: {bool(api_rag_payload)}, Storage payloads: {len(storage_rag_payloads)}")
+            logger.info(
+                f"✅ RAG processing complete. API payload: {bool(api_rag_payload)}, Storage payloads: {len(storage_rag_payloads)}"
+            )
         except Exception as e:
             logger.error(f"❌ Failed to handle RAG references: {e}")
             return None, None, None
-            
+
         try:
             logger.info("📜 Building API message history...")
             api_messages = self._build_linear_history_for_api(chat_core)
@@ -1320,7 +1481,7 @@ class ChatManager:
         except Exception as e:
             logger.error(f"❌ Failed to build API messages: {e}")
             return None, None, None
-        
+
         try:
             logger.info("🖼️ Processing user content (text + images)...")
             current_user_content_parts = [{"type": "text", "text": question}]
@@ -1335,37 +1496,49 @@ class ChatManager:
                         )
                     else:
                         logger.warning(f"   Failed to encode image: {image_path}")
-                        
+
             final_api_content = (
                 question
                 if len(current_user_content_parts) == 1
                 else current_user_content_parts
             )
             api_messages.append({"role": "user", "content": final_api_content})
-            logger.info(f"✅ User content prepared: {len(current_user_content_parts)} parts")
+            logger.info(
+                f"✅ User content prepared: {len(current_user_content_parts)} parts"
+            )
         except Exception as e:
             logger.error(f"❌ Failed to process user content: {e}")
             return None, None, None
 
         try:
-            logger.info("🚀 Calling NON-STREAMING completions API to get model response...")
-            logger.info(f"   Target URL: {self.base_client.base_url}/api/chat/completions")
+            logger.info(
+                "🚀 Calling NON-STREAMING completions API to get model response..."
+            )
+            logger.info(
+                f"   Target URL: {self.base_client.base_url}/api/chat/completions"
+            )
             logger.info(f"   Model: {self.base_client.model_id}")
             logger.info(f"   Messages count: {len(api_messages)}")
             logger.info(f"   RAG enabled: {bool(api_rag_payload)}")
             logger.info(f"   Tools enabled: {bool(tool_ids)}")
-            
+
             assistant_content, sources = (
                 self._get_model_completion(  # Call non-streaming method
-                    self.base_client.chat_id, api_messages, api_rag_payload, self.base_client.model_id, tool_ids
+                    self.base_client.chat_id,
+                    api_messages,
+                    api_rag_payload,
+                    self.base_client.model_id,
+                    tool_ids,
                 )
             )
-            
+
             if assistant_content is None:
                 logger.error("❌ Model completion returned None")
                 return None, None, None
-                
-            logger.info(f"✅ Successfully received model response: {len(assistant_content) if assistant_content else 0} chars")
+
+            logger.info(
+                f"✅ Successfully received model response: {len(assistant_content) if assistant_content else 0} chars"
+            )
             logger.info(f"   Sources: {len(sources)} items")
         except Exception as e:
             logger.error(f"❌ Failed to get model completion: {e}")
@@ -1373,12 +1546,12 @@ class ChatManager:
 
         try:
             logger.info("💾 Building storage messages...")
-            user_message_id, last_message_id = str(uuid.uuid4()), chat_core["history"].get(
-                "currentId"
-            )
+            user_message_id, last_message_id = str(uuid.uuid4()), chat_core[
+                "history"
+            ].get("currentId")
             logger.info(f"   User message ID: {user_message_id}")
             logger.info(f"   Last message ID: {last_message_id}")
-            
+
             storage_user_message = {
                 "id": user_message_id,
                 "parentId": last_message_id,
@@ -1389,7 +1562,7 @@ class ChatManager:
                 "models": [self.base_client.model_id],
                 "timestamp": int(time.time()),
             }
-            
+
             if image_paths:
                 logger.info(f"   Adding {len(image_paths)} images to user message...")
                 for image_path in image_paths:
@@ -1398,10 +1571,10 @@ class ChatManager:
                         storage_user_message["files"].append(
                             {"type": "image", "url": base64_url}
                         )
-                        
+
             storage_user_message["files"].extend(storage_rag_payloads)
             logger.info(f"   User message files: {len(storage_user_message['files'])}")
-            
+
             chat_core["history"]["messages"][user_message_id] = storage_user_message
             if last_message_id:
                 chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
@@ -1411,7 +1584,7 @@ class ChatManager:
 
             assistant_message_id = str(uuid.uuid4())
             logger.info(f"   Assistant message ID: {assistant_message_id}")
-            
+
             storage_assistant_message = {
                 "id": assistant_message_id,
                 "parentId": user_message_id,
@@ -1460,36 +1633,52 @@ class ChatManager:
                         api_messages_for_follow_up = self._build_linear_history_for_api(
                             chat_core
                         )
-                        logger.info(f"   Built {len(api_messages_for_follow_up)} messages for follow-up")
-                        
-                        follow_ups = self._get_follow_up_completions(api_messages_for_follow_up)
-                        
+                        logger.info(
+                            f"   Built {len(api_messages_for_follow_up)} messages for follow-up"
+                        )
+
+                        follow_ups = self._get_follow_up_completions(
+                            api_messages_for_follow_up
+                        )
+
                         if follow_ups:
-                            logger.info(f"✅ Received {len(follow_ups)} follow-up suggestions")
+                            logger.info(
+                                f"✅ Received {len(follow_ups)} follow-up suggestions"
+                            )
                             for i, follow_up in enumerate(follow_ups[:3], 1):
-                                logger.info(f"   {i}. {follow_up[:80]}{'...' if len(follow_up) > 80 else ''}")
-                            
+                                logger.info(
+                                    f"   {i}. {follow_up[:80]}{'...' if len(follow_up) > 80 else ''}"
+                                )
+
                             # Update the specific assistant message with the follow-ups
                             chat_core["history"]["messages"][assistant_message_id][
                                 "followUps"
                             ] = follow_ups
-                            
-                            logger.info("💾 Updating chat with follow-up suggestions...")
+
+                            logger.info(
+                                "💾 Updating chat with follow-up suggestions..."
+                            )
                             # A second update to save the follow-ups
                             if self._update_remote_chat():
-                                logger.info("✅ Successfully updated chat with follow-up suggestions")
+                                logger.info(
+                                    "✅ Successfully updated chat with follow-up suggestions"
+                                )
                             else:
-                                logger.warning("⚠️ Failed to update follow-up suggestions on backend")
+                                logger.warning(
+                                    "⚠️ Failed to update follow-up suggestions on backend"
+                                )
                         else:
                             logger.info("ℹ️ No follow-up suggestions received")
                     except Exception as e:
                         logger.error(f"❌ Error processing follow-ups: {e}")
 
-                logger.info(f"🎉 _ask() method completed successfully")
-                logger.info(f"   Response length: {len(assistant_content) if assistant_content else 0} chars")
+                logger.info("🎉 _ask() method completed successfully")
+                logger.info(
+                    f"   Response length: {len(assistant_content) if assistant_content else 0} chars"
+                )
                 logger.info(f"   Message ID: {assistant_message_id}")
                 logger.info(f"   Follow-ups: {len(follow_ups) if follow_ups else 0}")
-                
+
                 return assistant_content, assistant_message_id, follow_ups
             else:
                 logger.error("❌ Failed to update chat on backend")
@@ -1497,45 +1686,72 @@ class ChatManager:
         except Exception as e:
             logger.error(f"❌ Failed during chat update process: {e}")
             return None, None, None
-    
-    def _ask_stream(self, question: str, image_paths: Optional[List[str]] = None,
-                   rag_files: Optional[List[str]] = None, rag_collections: Optional[List[str]] = None,
-                   tool_ids: Optional[List[str]] = None, enable_follow_up: bool = False,
-                   cleanup_placeholder_messages: bool = False,
-                   placeholder_pool_size: int = 30,
-                   min_available_messages: int = 10) -> Generator[Union[str, Dict], None, None]:
+
+    def _ask_stream(
+        self,
+        question: str,
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+        cleanup_placeholder_messages: bool = False,
+        placeholder_pool_size: int = 30,
+        min_available_messages: int = 10,
+    ) -> Generator[Union[str, Dict], None, None]:
         """Send a message and stream the response."""
         # Use parent client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_ask_stream'):
-            return parent_client._ask_stream(question, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up,
-                                           cleanup_placeholder_messages, placeholder_pool_size, min_available_messages)
-        
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_ask_stream"):
+            return parent_client._ask_stream(
+                question,
+                image_paths,
+                rag_files,
+                rag_collections,
+                tool_ids,
+                enable_follow_up,
+                cleanup_placeholder_messages,
+                placeholder_pool_size,
+                min_available_messages,
+            )
+
         # Fallback implementation - return empty generator if no streaming available
         return iter([])
-    
-    def _get_parallel_model_responses(self, question: str, model_ids: List[str],
-                                    image_paths: Optional[List[str]] = None,
-                                    rag_files: Optional[List[str]] = None,
-                                    rag_collections: Optional[List[str]] = None,
-                                    tool_ids: Optional[List[str]] = None,
-                                    enable_follow_up: bool = False) -> Dict[str, Any]:
+
+    def _get_parallel_model_responses(
+        self,
+        question: str,
+        model_ids: List[str],
+        image_paths: Optional[List[str]] = None,
+        rag_files: Optional[List[str]] = None,
+        rag_collections: Optional[List[str]] = None,
+        tool_ids: Optional[List[str]] = None,
+        enable_follow_up: bool = False,
+    ) -> Dict[str, Any]:
         """Get responses from multiple models in parallel."""
         model_responses = {}
-        
+
         # Use parent client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_get_single_model_response_in_parallel'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(
+            parent_client, "_get_single_model_response_in_parallel"
+        ):
             # For testing - use the parent client's mocked method
             with ThreadPoolExecutor(max_workers=min(len(model_ids), 5)) as executor:
                 future_to_model = {
                     executor.submit(
                         parent_client._get_single_model_response_in_parallel,
-                        model_id, question, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up
+                        model_id,
+                        question,
+                        image_paths,
+                        rag_files,
+                        rag_collections,
+                        tool_ids,
+                        enable_follow_up,
                     ): model_id
                     for model_id in model_ids
                 }
-                
+
                 for future in as_completed(future_to_model):
                     model_id = future_to_model[future]
                     try:
@@ -1554,11 +1770,17 @@ class ChatManager:
                 future_to_model = {
                     executor.submit(
                         self._get_single_model_response_in_parallel,
-                        model_id, question, image_paths, rag_files, rag_collections, tool_ids, enable_follow_up
+                        model_id,
+                        question,
+                        image_paths,
+                        rag_files,
+                        rag_collections,
+                        tool_ids,
+                        enable_follow_up,
                     ): model_id
                     for model_id in model_ids
                 }
-                
+
                 for future in as_completed(future_to_model):
                     model_id = future_to_model[future]
                     try:
@@ -1571,9 +1793,9 @@ class ChatManager:
                     except Exception as e:
                         logger.error(f"Error processing model {model_id}: {e}")
                         model_responses[model_id] = None
-        
+
         return model_responses
-    
+
     def _get_single_model_response_in_parallel(
         self,
         chat_core,
@@ -1603,7 +1825,11 @@ class ChatManager:
             )
             api_messages.append({"role": "user", "content": final_api_content})
             content, sources = self._get_model_completion(
-                self.base_client.chat_id, api_messages, api_rag_payload, model_id, tool_ids
+                self.base_client.chat_id,
+                api_messages,
+                api_rag_payload,
+                model_id,
+                tool_ids,
             )
 
             follow_ups = None
@@ -1614,43 +1840,48 @@ class ChatManager:
                     {"role": "assistant", "content": content}
                 ]
                 follow_ups = self._get_follow_up_completions(temp_history_for_follow_up)
-                logger.info(f"✅ Got {len(follow_ups) if follow_ups else 0} follow-ups for {model_id}")
+                logger.info(
+                    f"✅ Got {len(follow_ups) if follow_ups else 0} follow-ups for {model_id}"
+                )
 
             return content, sources, follow_ups
-            
+
         except Exception as e:
-            logger.error(f"❌ Error in _get_single_model_response_in_parallel for {model_id}: {e}")
+            logger.error(
+                f"❌ Error in _get_single_model_response_in_parallel for {model_id}: {e}"
+            )
             logger.error(f"   Error type: {type(e)}")
             return None, [], None
-    
-    def _build_linear_history_for_api(self, chat_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+
+    def _build_linear_history_for_api(
+        self, chat_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """Build linear message history for API calls."""
         history = chat_data.get("history", {})
         messages = history.get("messages", {})
         current_id = history.get("currentId")
-        
+
         linear_messages = []
         if not current_id:
             return linear_messages
-            
+
         # Build the conversation chain by following parentId relationships backwards
         message_chain = []
         msg_id = current_id
         while msg_id and msg_id in messages:
             message_chain.append(messages[msg_id])
             msg_id = messages[msg_id].get("parentId")
-        
+
         # Reverse to get chronological order
         message_chain.reverse()
-        
+
         # Convert to API format
         for msg in message_chain:
             if msg.get("role") in ["user", "assistant"]:
-                linear_messages.append({
-                    "role": msg["role"],
-                    "content": msg.get("content", "")
-                })
-        
+                linear_messages.append(
+                    {"role": msg["role"], "content": msg.get("content", "")}
+                )
+
         return linear_messages
 
     def _handle_rag_references(
@@ -1662,8 +1893,8 @@ class ChatManager:
             logger.info("Processing RAG files...")
             for file_path in rag_files:
                 # Use parent client's method if available (for test mocking)
-                parent_client = getattr(self.base_client, '_parent_client', None)
-                if parent_client and hasattr(parent_client, '_upload_file'):
+                parent_client = getattr(self.base_client, "_parent_client", None)
+                if parent_client and hasattr(parent_client, "_upload_file"):
                     try:
                         file_obj = parent_client._upload_file(file_path)
                     except Exception as e:
@@ -1671,7 +1902,7 @@ class ChatManager:
                         file_obj = self.base_client._upload_file(file_path)
                 else:
                     file_obj = self.base_client._upload_file(file_path)
-                
+
                 if file_obj:
                     api_payload.append({"type": "file", "id": file_obj["id"]})
                     storage_payload.append(
@@ -1681,54 +1912,87 @@ class ChatManager:
             logger.info("Processing RAG knowledge base collections...")
             for kb_name in rag_collections:
                 # Use parent client's method if available (for test mocking)
-                parent_client = getattr(self.base_client, '_parent_client', None)
-                if parent_client and hasattr(parent_client, 'get_knowledge_base_by_name'):
+                parent_client = getattr(self.base_client, "_parent_client", None)
+                if parent_client and hasattr(
+                    parent_client, "get_knowledge_base_by_name"
+                ):
                     try:
                         kb_summary = parent_client.get_knowledge_base_by_name(kb_name)
                     except Exception as e:
-                        logger.warning(f"Parent client get_knowledge_base_by_name failed: {e}")
+                        logger.warning(
+                            f"Parent client get_knowledge_base_by_name failed: {e}"
+                        )
                         # Access through base client's parent reference to main client
                         kb_summary = None
-                        if (self.base_client._parent_client and 
-                            hasattr(self.base_client._parent_client, 'get_knowledge_base_by_name')):
+                        if self.base_client._parent_client and hasattr(
+                            self.base_client._parent_client,
+                            "get_knowledge_base_by_name",
+                        ):
                             try:
-                                kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name)
+                                kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(
+                                    kb_name
+                                )
                             except Exception as e2:
-                                logger.warning(f"Base client parent get_knowledge_base_by_name failed: {e2}")
+                                logger.warning(
+                                    f"Base client parent get_knowledge_base_by_name failed: {e2}"
+                                )
                 else:
                     # Access through base client's parent reference to main client
                     kb_summary = None
-                    if (self.base_client._parent_client and 
-                        hasattr(self.base_client._parent_client, 'get_knowledge_base_by_name')):
+                    if self.base_client._parent_client and hasattr(
+                        self.base_client._parent_client, "get_knowledge_base_by_name"
+                    ):
                         try:
-                            kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(kb_name)
+                            kb_summary = self.base_client._parent_client.get_knowledge_base_by_name(
+                                kb_name
+                            )
                         except Exception as e:
-                            logger.warning(f"Base client parent get_knowledge_base_by_name failed: {e}")
-                
+                            logger.warning(
+                                f"Base client parent get_knowledge_base_by_name failed: {e}"
+                            )
+
                 if kb_summary:
-                    if parent_client and hasattr(parent_client, '_get_knowledge_base_details'):
+                    if parent_client and hasattr(
+                        parent_client, "_get_knowledge_base_details"
+                    ):
                         try:
-                            kb_details = parent_client._get_knowledge_base_details(kb_summary["id"])
+                            kb_details = parent_client._get_knowledge_base_details(
+                                kb_summary["id"]
+                            )
                         except Exception as e:
-                            logger.warning(f"Parent client _get_knowledge_base_details failed: {e}")
+                            logger.warning(
+                                f"Parent client _get_knowledge_base_details failed: {e}"
+                            )
                             # Access through base client's parent reference to main client
                             kb_details = None
-                            if (self.base_client._parent_client and 
-                                hasattr(self.base_client._parent_client, '_get_knowledge_base_details')):
+                            if self.base_client._parent_client and hasattr(
+                                self.base_client._parent_client,
+                                "_get_knowledge_base_details",
+                            ):
                                 try:
-                                    kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"])
+                                    kb_details = self.base_client._parent_client._get_knowledge_base_details(
+                                        kb_summary["id"]
+                                    )
                                 except Exception as e2:
-                                    logger.warning(f"Base client parent _get_knowledge_base_details failed: {e2}")
+                                    logger.warning(
+                                        f"Base client parent _get_knowledge_base_details failed: {e2}"
+                                    )
                     else:
                         # Access through base client's parent reference to main client
                         kb_details = None
-                        if (self.base_client._parent_client and 
-                            hasattr(self.base_client._parent_client, '_get_knowledge_base_details')):
+                        if self.base_client._parent_client and hasattr(
+                            self.base_client._parent_client,
+                            "_get_knowledge_base_details",
+                        ):
                             try:
-                                kb_details = self.base_client._parent_client._get_knowledge_base_details(kb_summary["id"])
+                                kb_details = self.base_client._parent_client._get_knowledge_base_details(
+                                    kb_summary["id"]
+                                )
                             except Exception as e:
-                                logger.warning(f"Base client parent _get_knowledge_base_details failed: {e}")
-                    
+                                logger.warning(
+                                    f"Base client parent _get_knowledge_base_details failed: {e}"
+                                )
+
                     if kb_details:
                         file_ids = [f["id"] for f in kb_details.get("files", [])]
                         api_payload.append(
@@ -1754,6 +2018,7 @@ class ChatManager:
         """Encode image to base64 URL."""
         try:
             import base64
+
             with open(image_path, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode()
                 return f"data:image/jpeg;base64,{encoded_string}"
@@ -1761,9 +2026,14 @@ class ChatManager:
             logger.error(f"Failed to encode image {image_path}: {e}")
             return None
 
-    def _get_model_completion(self, chat_id: str, messages: List[Dict[str, Any]], 
-                            rag_payload: Dict[str, Any], model_id: str, 
-                            tool_ids: Optional[List[str]] = None) -> Tuple[Optional[str], List[Dict[str, Any]]]:
+    def _get_model_completion(
+        self,
+        chat_id: str,
+        messages: List[Dict[str, Any]],
+        rag_payload: Dict[str, Any],
+        model_id: str,
+        tool_ids: Optional[List[str]] = None,
+    ) -> Tuple[Optional[str], List[Dict[str, Any]]]:
         """Get model completion from API."""
         logger.info("🔥 _get_model_completion() started")
         logger.info(f"   Chat ID: {chat_id}")
@@ -1771,7 +2041,7 @@ class ChatManager:
         logger.info(f"   Messages: {len(messages)}")
         logger.info(f"   RAG payload: {bool(rag_payload)}")
         logger.info(f"   Tool IDs: {len(tool_ids) if tool_ids else 0}")
-        
+
         try:
             logger.info("📦 Building request payload...")
             payload = {
@@ -1779,45 +2049,47 @@ class ChatManager:
                 "messages": messages,
                 "stream": False,
                 "chat_id": chat_id,
-                "parent_message": {}
+                "parent_message": {},
             }
-            
+
             if rag_payload:
                 logger.info(f"   Adding RAG payload with {len(rag_payload)} keys")
                 payload.update(rag_payload)
-                
+
             if tool_ids:
                 logger.info(f"   Adding {len(tool_ids)} tools")
                 payload["tool_ids"] = tool_ids
-            
+
             logger.info(f"✅ Payload built successfully: {len(str(payload))} chars")
-            logger.info(f"🌐 Making POST request to: {self.base_client.base_url}/api/chat/completions")
-            if 'parent_message' not in payload:
-                payload['parent_message'] = {}  # Ensure parent_message is included
-            
+            logger.info(
+                f"🌐 Making POST request to: {self.base_client.base_url}/api/chat/completions"
+            )
+            if "parent_message" not in payload:
+                payload["parent_message"] = {}  # Ensure parent_message is included
+
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/chat/completions",
                 json=payload,
                 headers=self.base_client.json_headers,
-                timeout=300  # Add explicit timeout
+                timeout=300,  # Add explicit timeout
             )
-            
+
             logger.info(f"📡 Response received: Status {response.status_code}")
             response.raise_for_status()
             logger.info("✅ Response status check passed")
-            
+
             logger.info("📄 Parsing JSON response...")
             data = response.json()
-            
+
             logger.info("🔍 Extracting content from response...")
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             sources = data.get("sources", [])
-            
+
             logger.info(f"✅ Content extracted: {len(content) if content else 0} chars")
             logger.info(f"   Sources: {len(sources)} items")
-            
+
             return content, sources
-            
+
         except requests.exceptions.Timeout as e:
             logger.error(f"❌ Request timeout after 30s: {e}")
             return None, []
@@ -1825,19 +2097,21 @@ class ChatManager:
             logger.error(f"❌ Connection error: {e}")
             return None, []
         except requests.exceptions.HTTPError as e:
-            logger.error(f"❌ HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
+            logger.error(
+                f"❌ HTTP error {e.response.status_code if e.response else 'unknown'}: {e}"
+            )
             if e.response:
                 try:
                     error_data = e.response.json()
                     logger.error(f"   Error details: {error_data}")
-                except:
+                except Exception:
                     logger.error(f"   Raw response: {e.response.text[:500]}")
             return None, []
         except json.JSONDecodeError as e:
             logger.error(f"❌ JSON decode error: {e}")
             try:
                 logger.error(f"   Raw response: {response.text[:500]}")
-            except:
+            except Exception:
                 logger.error("   Could not get raw response")
             return None, []
         except Exception as e:
@@ -1845,63 +2119,73 @@ class ChatManager:
             logger.error(f"   Error type: {type(e)}")
             return None, []
 
-    def _build_linear_history_for_storage(self, chat_core: Dict[str, Any], start_id: str) -> List[Dict[str, Any]]:
+    def _build_linear_history_for_storage(
+        self, chat_core: Dict[str, Any], start_id: str
+    ) -> List[Dict[str, Any]]:
         """Build linear message history for storage."""
         messages = chat_core.get("history", {}).get("messages", {})
         linear_messages = []
-        
+
         # Build the conversation chain by following parentId relationships backwards
         message_chain = []
         msg_id = start_id
         while msg_id and msg_id in messages:
             message_chain.append(messages[msg_id])
             msg_id = messages[msg_id].get("parentId")
-        
+
         # Reverse to get chronological order
         message_chain.reverse()
-        
+
         # Convert to storage format
         for msg in message_chain:
-            linear_messages.append({
-                "id": msg["id"],
-                "role": msg["role"],
-                "content": msg.get("content", ""),
-                "timestamp": msg.get("timestamp", int(time.time()))
-            })
-        
+            linear_messages.append(
+                {
+                    "id": msg["id"],
+                    "role": msg["role"],
+                    "content": msg.get("content", ""),
+                    "timestamp": msg.get("timestamp", int(time.time())),
+                }
+            )
+
         return linear_messages
 
     def _update_remote_chat(self) -> bool:
         """Update remote chat on server."""
         logger.info("💾 _update_remote_chat() started")
-        
+
         if not self.base_client.chat_id or not self.base_client.chat_object_from_server:
             logger.error("❌ Missing chat_id or chat_object_from_server")
             logger.error(f"   Chat ID: {self.base_client.chat_id}")
-            logger.error(f"   Chat object: {bool(self.base_client.chat_object_from_server)}")
+            logger.error(
+                f"   Chat object: {bool(self.base_client.chat_object_from_server)}"
+            )
             return False
-            
+
         try:
             logger.info(f"📡 Updating chat on server: {self.base_client.chat_id}")
-            logger.info(f"   URL: {self.base_client.base_url}/api/v1/chats/{self.base_client.chat_id}")
-            
+            logger.info(
+                f"   URL: {self.base_client.base_url}/api/v1/chats/{self.base_client.chat_id}"
+            )
+
             chat_data = self.base_client.chat_object_from_server["chat"]
             logger.info(f"   Chat data: {len(str(chat_data))} chars")
             logger.info(f"   Messages: {len(chat_data.get('messages', []))}")
-            logger.info(f"   History entries: {len(chat_data.get('history', {}).get('messages', {}))}")
-            
+            logger.info(
+                f"   History entries: {len(chat_data.get('history', {}).get('messages', {}))}"
+            )
+
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/chats/{self.base_client.chat_id}",
                 json={"chat": chat_data},
                 headers=self.base_client.json_headers,
-                timeout=30  # Add explicit timeout
+                timeout=30,  # Add explicit timeout
             )
-            
+
             logger.info(f"📡 Update response: Status {response.status_code}")
             response.raise_for_status()
             logger.info("✅ Chat update successful")
             return True
-            
+
         except requests.exceptions.Timeout as e:
             logger.error(f"❌ Chat update timeout after 30s: {e}")
             return False
@@ -1909,12 +2193,14 @@ class ChatManager:
             logger.error(f"❌ Chat update connection error: {e}")
             return False
         except requests.exceptions.HTTPError as e:
-            logger.error(f"❌ Chat update HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
+            logger.error(
+                f"❌ Chat update HTTP error {e.response.status_code if e.response else 'unknown'}: {e}"
+            )
             if e.response:
                 try:
                     error_data = e.response.json()
                     logger.error(f"   Error details: {error_data}")
-                except:
+                except Exception:
                     logger.error(f"   Raw response: {e.response.text[:500]}")
             return False
         except Exception as e:
@@ -1925,33 +2211,33 @@ class ChatManager:
     def _extract_json_from_content(self, content: str) -> Optional[Dict[str, Any]]:
         """
         Extract JSON from content that may be wrapped in markdown code blocks or have extra formatting.
-        
+
         Args:
             content: The raw content string that may contain JSON
-            
+
         Returns:
             Parsed JSON dictionary or None if parsing fails
         """
         if not content or not content.strip():
             return None
-            
+
         # Try parsing the content as-is first (most common case)
         try:
             return json.loads(content.strip())
         except json.JSONDecodeError:
             pass
-            
+
         # Try to extract JSON from markdown code blocks
         import re
-        
+
         # Look for JSON wrapped in markdown code blocks
         # Patterns: ```json\n{...}\n``` or ```\n{...}\n```
         code_block_patterns = [
-            r'```json\s*\n(.*?)\n\s*```',  # ```json ... ```
-            r'```\s*\n(.*?)\n\s*```',      # ``` ... ```
-            r'`(.*?)`',                     # `...` (single backticks)
+            r"```json\s*\n(.*?)\n\s*```",  # ```json ... ```
+            r"```\s*\n(.*?)\n\s*```",  # ``` ... ```
+            r"`(.*?)`",  # `...` (single backticks)
         ]
-        
+
         for pattern in code_block_patterns:
             matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
             for match in matches:
@@ -1959,12 +2245,12 @@ class ChatManager:
                     return json.loads(match.strip())
                 except json.JSONDecodeError:
                     continue
-                    
+
         # Try to find JSON-like content by looking for { ... } patterns
         json_patterns = [
-            r'\{.*\}',  # Find any {...} block
+            r"\{.*\}",  # Find any {...} block
         ]
-        
+
         for pattern in json_patterns:
             matches = re.findall(pattern, content, re.DOTALL)
             for match in matches:
@@ -1972,62 +2258,70 @@ class ChatManager:
                     return json.loads(match.strip())
                 except json.JSONDecodeError:
                     continue
-                    
+
         # If all parsing attempts fail, log the content for debugging
         logger.debug(f"Failed to extract JSON from content: {content[:200]}...")
         return None
 
-    def _get_follow_up_completions(self, messages: List[Dict[str, Any]]) -> Optional[List[str]]:
+    def _get_follow_up_completions(
+        self, messages: List[Dict[str, Any]]
+    ) -> Optional[List[str]]:
         """Get follow-up suggestions."""
         logger.info("🤔 _get_follow_up_completions() started")
         logger.info(f"   Messages: {len(messages)}")
-        
+
         try:
             logger.info("🔍 Getting task model for follow-up generation...")
             # Get task model for follow-up generation
             task_model = self.base_client._get_task_model()
             if not task_model:
-                logger.error("❌ Could not determine task model for follow-up suggestions")
+                logger.error(
+                    "❌ Could not determine task model for follow-up suggestions"
+                )
                 return None
-            
+
             logger.info(f"✅ Task model: {task_model}")
-            
-            payload = {
-                "model": task_model,
-                "messages": messages,
-                "stream": False
-            }
-            
-            logger.info(f"📡 Making follow-up request to: {self.base_client.base_url}/api/v1/tasks/follow_up/completions")
-            
+
+            payload = {"model": task_model, "messages": messages, "stream": False}
+
+            logger.info(
+                f"📡 Making follow-up request to: {self.base_client.base_url}/api/v1/tasks/follow_up/completions"
+            )
+
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/tasks/follow_up/completions",
                 json=payload,
                 headers=self.base_client.json_headers,
-                timeout=300  # Add explicit timeout
+                timeout=300,  # Add explicit timeout
             )
-            
+
             logger.info(f"📡 Follow-up response: Status {response.status_code}")
             response.raise_for_status()
             logger.info("✅ Follow-up response status check passed")
-            
+
             data = response.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            logger.info(f"📄 Follow-up content length: {len(content) if content else 0} chars")
-            
+            logger.info(
+                f"📄 Follow-up content length: {len(content) if content else 0} chars"
+            )
+
             # Use the robust JSON extraction method
             content_json = self._extract_json_from_content(content)
             if content_json:
-                follow_ups = content_json.get("follow_ups")  # Note: key is 'follow_ups' not 'followUps'
+                follow_ups = content_json.get(
+                    "follow_ups"
+                )  # Note: key is 'follow_ups' not 'followUps'
                 if isinstance(follow_ups, list):
                     logger.info(f"✅ Parsed {len(follow_ups)} follow-up suggestions")
                     return follow_ups
                 else:
-                    logger.warning(f"follow_ups field is not a list: {type(follow_ups)}")
+                    logger.warning(
+                        f"follow_ups field is not a list: {type(follow_ups)}"
+                    )
             else:
                 logger.error(f"Failed to decode JSON from follow-up content: {content}")
                 return None
-                
+
         except requests.exceptions.Timeout as e:
             logger.error(f"❌ Follow-up request timeout after 30s: {e}")
             return None
@@ -2035,110 +2329,106 @@ class ChatManager:
             logger.error(f"❌ Follow-up connection error: {e}")
             return None
         except requests.exceptions.HTTPError as e:
-            logger.error(f"❌ Follow-up HTTP error {e.response.status_code if e.response else 'unknown'}: {e}")
+            logger.error(
+                f"❌ Follow-up HTTP error {e.response.status_code if e.response else 'unknown'}: {e}"
+            )
             if e.response:
                 try:
                     error_data = e.response.json()
                     logger.error(f"   Error details: {error_data}")
-                except:
+                except Exception:
                     logger.error(f"   Raw response: {e.response.text[:500]}")
             return None
         except Exception as e:
             logger.error(f"❌ Unexpected error in _get_follow_up_completions: {e}")
             logger.error(f"   Error type: {type(e)}")
             return None
-    
+
     def _get_tags(self, messages: List[Dict[str, Any]]) -> Optional[List[str]]:
         """Generate tags for the conversation."""
         # Use parent client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_get_tags'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_get_tags"):
             return parent_client._get_tags(messages)
-        
+
         try:
             # Get task model for tag generation
             task_model = self.base_client._get_task_model()
             if not task_model:
                 logger.error("Could not determine task model for tags. Aborting.")
                 return None
-            
-            payload = {
-                "model": task_model,
-                "messages": messages,
-                "stream": False
-            }
-            
+
+            payload = {"model": task_model, "messages": messages, "stream": False}
+
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/tasks/tags/completions",
                 json=payload,
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            
+
             data = response.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            
+
             # Parse the tag content (usually JSON)
             try:
                 import json
+
                 tag_data = json.loads(content)
                 return tag_data.get("tags", [])
             except json.JSONDecodeError:
                 # Try to extract tags from plain text
                 return content.split(",") if content else []
-                
+
         except Exception as e:
             logger.error(f"Failed to generate tags: {e}")
             return None
-    
+
     def _get_title(self, messages: List[Dict[str, Any]]) -> Optional[str]:
         """Generate a title for the conversation."""
         # Use parent client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_get_title'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_get_title"):
             return parent_client._get_title(messages)
-        
+
         try:
             # Get task model for title generation
             task_model = self.base_client._get_task_model()
             if not task_model:
                 logger.error("Could not determine task model for title. Aborting.")
                 return None
-            
-            payload = {
-                "model": task_model,
-                "messages": messages,
-                "stream": False
-            }
-            
+
+            payload = {"model": task_model, "messages": messages, "stream": False}
+
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/tasks/title/completions",
                 json=payload,
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            
+
             data = response.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            
+
             # Parse the title content (usually JSON)
             try:
                 import json
+
                 title_data = json.loads(content)
                 return title_data.get("title", content.strip())
             except json.JSONDecodeError:
                 return content.strip() if content else None
-                
+
         except Exception as e:
             logger.error(f"Failed to generate title: {e}")
             return None
-    
+
     def _get_chat_details(self, chat_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information about a chat."""
         try:
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/v1/chats/{chat_id}",
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             return response.json()
@@ -2152,7 +2442,7 @@ class ChatManager:
         try:
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/v1/folders/",
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             folders = response.json()
@@ -2173,7 +2463,9 @@ class ChatManager:
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            logger.info(f"Successfully moved chat {chat_id[:8]}... to folder {folder_id}")
+            logger.info(
+                f"Successfully moved chat {chat_id[:8]}... to folder {folder_id}"
+            )
             # Update local chat object
             if self.base_client.chat_object_from_server:
                 self.base_client.chat_object_from_server["folder_id"] = folder_id
@@ -2194,7 +2486,9 @@ class ChatManager:
             if self.base_client.chat_object_from_server:
                 self.base_client.chat_object_from_server["title"] = new_title
                 if "chat" in self.base_client.chat_object_from_server:
-                    self.base_client.chat_object_from_server["chat"]["title"] = new_title
+                    self.base_client.chat_object_from_server["chat"][
+                        "title"
+                    ] = new_title
             return True
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to rename chat {chat_id}: {e}")
@@ -2221,10 +2515,10 @@ class ChatManager:
     ) -> Optional[Dict[str, Any]]:
         """
         Perform continuous conversation with automatic follow-up questions.
-        
+
         This method starts with an initial question and uses follow-up suggestions
         to automatically continue the conversation for the specified number of rounds.
-        
+
         Args:
             initial_question: The starting question for the conversation
             num_questions: Total number of questions to ask (including initial)
@@ -2238,27 +2532,31 @@ class ChatManager:
             tool_ids: List of tool IDs to enable for this chat
             enable_auto_tagging: Whether to automatically generate tags
             enable_auto_titling: Whether to automatically generate title
-            
+
         Returns:
             Dictionary containing all conversation rounds, chat_id, and metadata
-        """        
+        """
         if num_questions < 1:
             logger.error("num_questions must be at least 1")
             return None
-            
+
         logger.info("=" * 80)
         logger.info(f"Starting CONTINUOUS CHAT: {num_questions} questions")
-        logger.info(f"Title: '{chat_title}', Model: '{model_id or self.base_client.default_model_id}'")
+        logger.info(
+            f"Title: '{chat_title}', Model: '{model_id or self.base_client.default_model_id}'"
+        )
         logger.info("=" * 80)
-        
+
         conversation_history = []
         current_question = initial_question
         chat_id = None
-        should_track_chat_id = enable_auto_titling  # Only track chat_id when auto-titling is enabled
-        
+        should_track_chat_id = (
+            enable_auto_titling  # Only track chat_id when auto-titling is enabled
+        )
+
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
-            
+
             # For the first round, use all parameters including images and setup
             # For subsequent rounds, continue the existing chat by ID to handle auto-titling
             if round_num == 1:
@@ -2274,36 +2572,40 @@ class ChatManager:
                     rag_files=rag_files,
                     rag_collections=rag_collections,
                     tool_ids=tool_ids,
-                    enable_follow_up=num_questions > 1,  # Enable follow-up only if more rounds
+                    enable_follow_up=num_questions
+                    > 1,  # Enable follow-up only if more rounds
                     enable_auto_tagging=enable_auto_tagging,
                     enable_auto_titling=enable_auto_titling,
                 )
-                
+
                 if result:
                     chat_id = result.get("chat_id")
-                    logger.info(f"🔗 Tracking chat_id for continuous conversation: {chat_id}")
-                    
+                    logger.info(
+                        f"🔗 Tracking chat_id for continuous conversation: {chat_id}"
+                    )
+
             else:
                 # Subsequent rounds: continue existing chat by ID instead of title ONLY if auto-titling is enabled
                 # This handles cases where auto-titling changed the chat title
                 if should_track_chat_id and chat_id:
-                    logger.info(f"🔄 Auto-titling enabled: Continuing existing chat by ID: {chat_id}")
+                    logger.info(
+                        f"🔄 Auto-titling enabled: Continuing existing chat by ID: {chat_id}"
+                    )
                     # Temporarily set chat_id to bypass search in _find_or_create_chat_by_title
-                    original_chat_id = self.base_client.chat_id
                     self.base_client.chat_id = chat_id
                     # Also set a flag to indicate we want to skip title search
                     self.base_client._skip_title_search = True
-                    
+
                     result = self.chat(
                         question=current_question,
                         chat_title=chat_title,
                         model_id=model_id,
                         enable_follow_up=round_num < num_questions,
                     )
-                    
+
                     # Clean up the flag
                     self.base_client._skip_title_search = False
-                    
+
                     # Update chat_id if needed
                     if result and result.get("chat_id"):
                         chat_id = result.get("chat_id")
@@ -2315,11 +2617,13 @@ class ChatManager:
                         model_id=model_id,
                         enable_follow_up=round_num < num_questions,
                     )
-            
+
             if not result:
-                logger.error(f"Failed to get response for round {round_num}, stopping conversation")
+                logger.error(
+                    f"Failed to get response for round {round_num}, stopping conversation"
+                )
                 break
-                
+
             # Store this round's conversation
             round_data = {
                 "round": round_num,
@@ -2328,15 +2632,15 @@ class ChatManager:
                 "message_id": result.get("message_id"),
                 "chat_id": result.get("chat_id", chat_id),
             }
-            
+
             # Add follow-up suggestions if available
             follow_ups = result.get("follow_ups", [])
             if follow_ups:
                 round_data["follow_ups"] = follow_ups
-                
+
             conversation_history.append(round_data)
             logger.info(f"✅ Round {round_num} completed")
-            
+
             # Prepare next question if not the last round
             if round_num < num_questions:
                 if follow_ups:
@@ -2344,18 +2648,20 @@ class ChatManager:
                     current_question = random.choice(follow_ups)
                     logger.info(f"🎲 Selected follow-up: {current_question}")
                 else:
-                    logger.warning(f"No follow-up suggestions available for round {round_num}")
+                    logger.warning(
+                        f"No follow-up suggestions available for round {round_num}"
+                    )
                     # Generate a generic follow-up question
                     generic_follow_ups = [
                         "Can you explain that in more detail?",
                         "What are the implications of this?",
                         "Can you provide an example?",
                         "How does this relate to real-world applications?",
-                        "What are the potential challenges with this approach?"
+                        "What are the potential challenges with this approach?",
                     ]
                     current_question = random.choice(generic_follow_ups)
                     logger.info(f"🔄 Using generic follow-up: {current_question}")
-        
+
         # Create final result
         final_result = {
             "conversation_history": conversation_history,
@@ -2363,8 +2669,10 @@ class ChatManager:
             "chat_id": chat_id,
             "chat_title": chat_title,
         }
-        
-        logger.info(f"\n🎉 Continuous chat completed: {len(conversation_history)} rounds")
+
+        logger.info(
+            f"\n🎉 Continuous chat completed: {len(conversation_history)} rounds"
+        )
         return final_result
 
     def continuous_parallel_chat(
@@ -2384,11 +2692,11 @@ class ChatManager:
     ) -> Optional[Dict[str, Any]]:
         """
         Perform continuous conversation with multiple models in parallel.
-        
+
         This method starts with an initial question and uses follow-up suggestions
-        to automatically continue the conversation across multiple models for the 
+        to automatically continue the conversation across multiple models for the
         specified number of rounds.
-        
+
         Args:
             initial_question: The starting question for the conversation
             num_questions: Total number of questions to ask (including initial)
@@ -2402,32 +2710,34 @@ class ChatManager:
             tool_ids: List of tool IDs to enable for this chat
             enable_auto_tagging: Whether to automatically generate tags
             enable_auto_titling: Whether to automatically generate title
-            
+
         Returns:
             Dictionary containing all conversation rounds, chat_id, and metadata
         """
-        
+
         if num_questions < 1:
             logger.error("num_questions must be at least 1")
             return None
-            
+
         if not model_ids:
             logger.error("model_ids list cannot be empty for continuous parallel chat")
             return None
-            
+
         logger.info("=" * 80)
         logger.info(f"Starting CONTINUOUS PARALLEL CHAT: {num_questions} questions")
         logger.info(f"Title: '{chat_title}', Models: {model_ids}")
         logger.info("=" * 80)
-        
+
         conversation_history = []
         current_question = initial_question
         chat_id = None
-        should_track_chat_id = enable_auto_titling  # Only track chat_id when auto-titling is enabled
-        
+        should_track_chat_id = (
+            enable_auto_titling  # Only track chat_id when auto-titling is enabled
+        )
+
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
-            
+
             # For the first round, use all parameters including images and setup
             # For subsequent rounds, continue the existing chat by ID to handle auto-titling
             if round_num == 1:
@@ -2443,36 +2753,40 @@ class ChatManager:
                     rag_files=rag_files,
                     rag_collections=rag_collections,
                     tool_ids=tool_ids,
-                    enable_follow_up=num_questions > 1,  # Enable follow-up only if more rounds
+                    enable_follow_up=num_questions
+                    > 1,  # Enable follow-up only if more rounds
                     enable_auto_tagging=enable_auto_tagging,
                     enable_auto_titling=enable_auto_titling,
                 )
-                
+
                 if result:
                     chat_id = result.get("chat_id")
-                    logger.info(f"🔗 Tracking chat_id for continuous parallel conversation: {chat_id}")
-                    
+                    logger.info(
+                        f"🔗 Tracking chat_id for continuous parallel conversation: {chat_id}"
+                    )
+
             else:
                 # Subsequent rounds: continue existing chat by ID instead of title ONLY if auto-titling is enabled
                 # This handles cases where auto-titling changed the chat title
                 if should_track_chat_id and chat_id:
-                    logger.info(f"🔄 Auto-titling enabled: Continuing existing parallel chat by ID: {chat_id}")
+                    logger.info(
+                        f"🔄 Auto-titling enabled: Continuing existing parallel chat by ID: {chat_id}"
+                    )
                     # Temporarily set chat_id to bypass search in _find_or_create_chat_by_title
-                    original_chat_id = self.base_client.chat_id
                     self.base_client.chat_id = chat_id
                     # Also set a flag to indicate we want to skip title search
                     self.base_client._skip_title_search = True
-                    
+
                     result = self.parallel_chat(
                         question=current_question,
                         chat_title=chat_title,
                         model_ids=model_ids,
                         enable_follow_up=round_num < num_questions,
                     )
-                    
+
                     # Clean up the flag
                     self.base_client._skip_title_search = False
-                    
+
                     # Update chat_id if needed
                     if result and result.get("chat_id"):
                         chat_id = result.get("chat_id")
@@ -2484,11 +2798,13 @@ class ChatManager:
                         model_ids=model_ids,
                         enable_follow_up=round_num < num_questions,
                     )
-            
+
             if not result:
-                logger.error(f"Failed to get responses for round {round_num}, stopping conversation")
+                logger.error(
+                    f"Failed to get responses for round {round_num}, stopping conversation"
+                )
                 break
-                
+
             # Store this round's conversation
             round_data = {
                 "round": round_num,
@@ -2496,7 +2812,7 @@ class ChatManager:
                 "responses": result.get("responses", {}),  # Multiple model responses
                 "chat_id": result.get("chat_id", chat_id),
             }
-            
+
             # Collect follow-up suggestions from all models
             all_follow_ups = []
             responses = result.get("responses", {})
@@ -2504,19 +2820,25 @@ class ChatManager:
                 for model_id, model_result in responses.items():
                     # Add robust type checking for model_result
                     if not isinstance(model_result, dict):
-                        logger.warning(f"Model {model_id} result is not a dictionary: {type(model_result)}")
+                        logger.warning(
+                            f"Model {model_id} result is not a dictionary: {type(model_result)}"
+                        )
                         continue
-                        
+
                     if "follow_ups" in model_result:
                         follow_ups = model_result["follow_ups"]
                         if isinstance(follow_ups, list):
                             all_follow_ups.extend(follow_ups)
                         elif follow_ups is not None:
                             # Handle case where follow_ups is not a list but not None
-                            logger.warning(f"Unexpected follow_ups type for {model_id}: {type(follow_ups)}")
+                            logger.warning(
+                                f"Unexpected follow_ups type for {model_id}: {type(follow_ups)}"
+                            )
             else:
-                logger.warning(f"Unexpected responses type in round {round_num}: {type(responses)}")
-            
+                logger.warning(
+                    f"Unexpected responses type in round {round_num}: {type(responses)}"
+                )
+
             if all_follow_ups:
                 # Remove duplicates while preserving order
                 seen = set()
@@ -2526,10 +2848,12 @@ class ChatManager:
                         seen.add(follow_up)
                         unique_follow_ups.append(follow_up)
                 round_data["follow_ups"] = unique_follow_ups
-                
+
             conversation_history.append(round_data)
-            logger.info(f"✅ Round {round_num} completed with {len(result.get('responses', {}))} model responses")
-            
+            logger.info(
+                f"✅ Round {round_num} completed with {len(result.get('responses', {}))} model responses"
+            )
+
             # Prepare next question if not the last round
             if round_num < num_questions:
                 follow_ups = round_data.get("follow_ups", [])
@@ -2538,18 +2862,20 @@ class ChatManager:
                     current_question = random.choice(follow_ups)
                     logger.info(f"🎲 Selected follow-up: {current_question}")
                 else:
-                    logger.warning(f"No follow-up suggestions available for round {round_num}")
+                    logger.warning(
+                        f"No follow-up suggestions available for round {round_num}"
+                    )
                     # Generate a generic follow-up question
                     generic_follow_ups = [
                         "Can you explain that in more detail?",
                         "What are the implications of this?",
                         "Can you provide an example?",
                         "How does this relate to real-world applications?",
-                        "What are the potential challenges with this approach?"
+                        "What are the potential challenges with this approach?",
                     ]
                     current_question = random.choice(generic_follow_ups)
                     logger.info(f"🔄 Using generic follow-up: {current_question}")
-        
+
         # Create final result
         final_result = {
             "conversation_history": conversation_history,
@@ -2558,8 +2884,10 @@ class ChatManager:
             "chat_title": chat_title,
             "model_ids": model_ids,
         }
-        
-        logger.info(f"\n🎉 Continuous parallel chat completed: {len(conversation_history)} rounds")
+
+        logger.info(
+            f"\n🎉 Continuous parallel chat completed: {len(conversation_history)} rounds"
+        )
         return final_result
 
     def continuous_stream_chat(
@@ -2579,11 +2907,11 @@ class ChatManager:
     ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
         """
         Perform continuous conversation with streaming responses.
-        
+
         This method starts with an initial question and uses follow-up suggestions
         to automatically continue the conversation for the specified number of rounds.
         Each response is streamed in real-time.
-        
+
         Args:
             initial_question: The starting question for the conversation
             num_questions: Total number of questions to ask (including initial)
@@ -2597,53 +2925,68 @@ class ChatManager:
             tool_ids: List of tool IDs to enable for this chat
             enable_auto_tagging: Whether to automatically generate tags
             enable_auto_titling: Whether to automatically generate title
-            
+
         Yields:
             Dictionaries containing streaming chunks and metadata for each round
-            
+
         Returns:
             Final conversation summary when streaming completes
         """
-        
+
         if num_questions < 1:
             logger.error("num_questions must be at least 1")
             return
-            
+
         logger.info("=" * 80)
         logger.info(f"Starting CONTINUOUS STREAMING CHAT: {num_questions} questions")
-        logger.info(f"Title: '{chat_title}', Model: '{model_id or self.base_client.default_model_id}'")
+        logger.info(
+            f"Title: '{chat_title}', Model: '{model_id or self.base_client.default_model_id}'"
+        )
         logger.info("=" * 80)
-        
+
         conversation_history = []
         current_question = initial_question
-        
+
         # Initialize chat only once at the beginning
         self.base_client.model_id = model_id or self.base_client.default_model_id
-        
+
         # Use the parent client's method for proper test mocking (only if mocked)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_find_or_create_chat_by_title'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_find_or_create_chat_by_title"):
             try:
                 # Check if this is likely a mocked method or real method
-                method = getattr(parent_client, '_find_or_create_chat_by_title')
-                is_mock = hasattr(method, '_mock_name') or hasattr(method, 'return_value') or str(type(method)).find('Mock') != -1
-                
+                method = parent_client._find_or_create_chat_by_title
+                is_mock = (
+                    hasattr(method, "_mock_name")
+                    or hasattr(method, "return_value")
+                    or str(type(method)).find("Mock") != -1
+                )
+
                 if is_mock:
                     # This is a mocked method, safe to call
                     parent_client._find_or_create_chat_by_title(chat_title)
                 else:
                     # This is a real method that might make network calls, use fallback
-                    logger.info(f"Using ChatManager's own _find_or_create_chat_by_title instead of parent client delegation for '{chat_title}'")
+                    logger.info(
+                        f"Using ChatManager's own _find_or_create_chat_by_title instead of parent client delegation for '{chat_title}'"
+                    )
                     self._find_or_create_chat_by_title(chat_title)
-                    
+
             except Exception as e:
-                logger.warning(f"Parent client _find_or_create_chat_by_title failed: {e}")
+                logger.warning(
+                    f"Parent client _find_or_create_chat_by_title failed: {e}"
+                )
                 self._find_or_create_chat_by_title(chat_title)
         else:
             self._find_or_create_chat_by_title(chat_title)
-        
-        if not self.base_client.chat_object_from_server or "chat" not in self.base_client.chat_object_from_server:
-            logger.error("Chat object not loaded or malformed, cannot proceed with continuous streaming chat.")
+
+        if (
+            not self.base_client.chat_object_from_server
+            or "chat" not in self.base_client.chat_object_from_server
+        ):
+            logger.error(
+                "Chat object not loaded or malformed, cannot proceed with continuous streaming chat."
+            )
             return
 
         if not self.base_client.chat_id:
@@ -2652,48 +2995,64 @@ class ChatManager:
 
         # Handle folder organization (only on first round)
         if folder_name:
-            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(folder_name)
-            if folder_id and self.base_client.chat_object_from_server.get("folder_id") != folder_id:
+            folder_id = self.get_folder_id_by_name(folder_name) or self.create_folder(
+                folder_name
+            )
+            if (
+                folder_id
+                and self.base_client.chat_object_from_server.get("folder_id")
+                != folder_id
+            ):
                 self.move_chat_to_folder(self.base_client.chat_id, folder_id)
 
         # Apply tags (only on first round)
         if tags:
             self.set_chat_tags(self.base_client.chat_id, tags)
-        
+
         for round_num in range(1, num_questions + 1):
             logger.info(f"\n📝 Round {round_num}/{num_questions}: {current_question}")
-            
+
             # Yield round start information
             yield {
                 "type": "round_start",
                 "round": round_num,
                 "question": current_question,
-                "total_rounds": num_questions
+                "total_rounds": num_questions,
             }
-            
+
             current_image_paths = image_paths if round_num == 1 else None
             enable_follow_up = round_num < num_questions
-            
+
             # Use the main client's _ask_stream method (for proper test mocking)
             try:
-                parent_client = getattr(self.base_client, '_parent_client', None)
-                if parent_client and hasattr(parent_client, '_ask_stream'):
+                parent_client = getattr(self.base_client, "_parent_client", None)
+                if parent_client and hasattr(parent_client, "_ask_stream"):
                     stream_result = parent_client._ask_stream(
-                        current_question, current_image_paths, rag_files, rag_collections, 
-                        tool_ids, enable_follow_up
+                        current_question,
+                        current_image_paths,
+                        rag_files,
+                        rag_collections,
+                        tool_ids,
+                        enable_follow_up,
                     )
                 else:
                     stream_result = self._ask_stream(
-                        current_question, current_image_paths, rag_files, rag_collections, 
-                        tool_ids, enable_follow_up
+                        current_question,
+                        current_image_paths,
+                        rag_files,
+                        rag_collections,
+                        tool_ids,
+                        enable_follow_up,
                     )
-                
+
                 # Handle both generator (real method) and tuple (mocked method) cases
                 full_content = ""
                 sources = []
                 follow_ups = []
-                
-                if hasattr(stream_result, '__iter__') and not isinstance(stream_result, (str, tuple)):
+
+                if hasattr(stream_result, "__iter__") and not isinstance(
+                    stream_result, (str, tuple)
+                ):
                     # This is a generator - consume it properly
                     try:
                         while True:
@@ -2705,29 +3064,35 @@ class ChatManager:
                                     yield {
                                         "type": "content",
                                         "round": round_num,
-                                        "content": chunk
+                                        "content": chunk,
                                     }
                                 elif isinstance(chunk, dict):
                                     # This might be metadata - yield as is
                                     yield chunk
                             except StopIteration as e:
                                 # Generator finished - get the return value
-                                if hasattr(e, 'value') and e.value:
+                                if hasattr(e, "value") and e.value:
                                     full_content, sources, follow_ups = e.value
                                 break
                     except Exception as stream_err:
                         logger.error(f"Error consuming stream generator: {stream_err}")
                         # If streaming fails, try to get response via non-streaming method
                         if not full_content:
-                            logger.info(f"Falling back to non-streaming for round {round_num}")
+                            logger.info(
+                                f"Falling back to non-streaming for round {round_num}"
+                            )
                             response_data = self._ask(
-                                current_question, current_image_paths, rag_files, rag_collections, 
-                                tool_ids, enable_follow_up
+                                current_question,
+                                current_image_paths,
+                                rag_files,
+                                rag_collections,
+                                tool_ids,
+                                enable_follow_up,
                             )
                             if response_data and isinstance(response_data, dict):
-                                full_content = response_data.get('response', '')
-                                sources = response_data.get('sources', [])
-                                follow_ups = response_data.get('follow_ups', [])
+                                full_content = response_data.get("response", "")
+                                sources = response_data.get("sources", [])
+                                follow_ups = response_data.get("follow_ups", [])
                 elif isinstance(stream_result, tuple) and len(stream_result) == 3:
                     # This is a mocked method returning a tuple directly
                     full_content, sources, follow_ups = stream_result
@@ -2736,27 +3101,27 @@ class ChatManager:
                         yield {
                             "type": "content",
                             "round": round_num,
-                            "content": full_content
+                            "content": full_content,
                         }
                 else:
-                    logger.error(f"Unexpected stream result type: {type(stream_result)}")
-                    full_content, sources, follow_ups = "", [], []
-                
+                    logger.error(
+                        f"Unexpected stream result type: {type(stream_result)}"
+                    )
+                    full_content, follow_ups = "", []
+
             except Exception as e:
                 logger.error(f"Streaming failed for round {round_num}: {e}")
-                yield {
-                    "type": "round_error", 
-                    "round": round_num,
-                    "error": str(e)
-                }
+                yield {"type": "round_error", "round": round_num, "error": str(e)}
                 break
-            
+
             if not full_content:
-                logger.error(f"Failed to get response for round {round_num}, stopping conversation")
+                logger.error(
+                    f"Failed to get response for round {round_num}, stopping conversation"
+                )
                 yield {
-                    "type": "error", 
+                    "type": "error",
                     "round": round_num,
-                    "error": "No response received"
+                    "error": "No response received",
                 }
                 break
             # Store this round's conversation
@@ -2766,22 +3131,22 @@ class ChatManager:
                 "response": full_content,
                 "chat_id": self.base_client.chat_id,
             }
-            
+
             if follow_ups:
                 round_data["follow_ups"] = follow_ups
-                
+
             conversation_history.append(round_data)
-            
+
             # Yield round completion
             yield {
                 "type": "round_complete",
                 "round": round_num,
                 "response": full_content,
-                "follow_ups": follow_ups or []
+                "follow_ups": follow_ups or [],
             }
-            
+
             logger.info(f"✅ Round {round_num} streaming completed")
-                
+
             # Prepare next question if not the last round
             if round_num < num_questions:
                 if follow_ups:
@@ -2789,18 +3154,20 @@ class ChatManager:
                     current_question = random.choice(follow_ups)
                     logger.info(f"🎲 Selected follow-up: {current_question}")
                 else:
-                    logger.warning(f"No follow-up suggestions available for round {round_num}")
+                    logger.warning(
+                        f"No follow-up suggestions available for round {round_num}"
+                    )
                     # Generate a generic follow-up question
                     generic_follow_ups = [
                         "Can you explain that in more detail?",
                         "What are the implications of this?",
                         "Can you provide an example?",
                         "How does this relate to real-world applications?",
-                        "What are the potential challenges with this approach?"
+                        "What are the potential challenges with this approach?",
                     ]
                     current_question = random.choice(generic_follow_ups)
                     logger.info(f"🔄 Using generic follow-up: {current_question}")
-        
+
         # Prepare final result
         final_result = {
             "conversation_history": conversation_history,
@@ -2808,52 +3175,57 @@ class ChatManager:
             "chat_id": self.base_client.chat_id,
             "chat_title": chat_title,
         }
-        
+
         # Yield completion summary
-        yield {
-            "type": "conversation_complete",
-            "summary": final_result
-        }
-        
-        logger.info(f"\n🎉 Continuous streaming chat completed: {len(conversation_history)} rounds")
+        yield {"type": "conversation_complete", "summary": final_result}
+
+        logger.info(
+            f"\n🎉 Continuous streaming chat completed: {len(conversation_history)} rounds"
+        )
         return final_result
 
     # =============================================================================
     # PLACEHOLDER MESSAGE METHODS - Delegate to main client
     # =============================================================================
-    
+
     def _ensure_placeholder_messages(self, pool_size: int, min_available: int) -> bool:
         """Delegate placeholder message management to main client."""
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_ensure_placeholder_messages'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_ensure_placeholder_messages"):
             return parent_client._ensure_placeholder_messages(pool_size, min_available)
         return True  # Simple fallback
 
     def _count_available_placeholder_pairs(self) -> int:
-        """Delegate placeholder counting to main client.""" 
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_count_available_placeholder_pairs'):
+        """Delegate placeholder counting to main client."""
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(
+            parent_client, "_count_available_placeholder_pairs"
+        ):
             return parent_client._count_available_placeholder_pairs()
         return 0  # Simple fallback
 
     def _get_next_available_message_pair(self) -> Optional[Tuple[str, str]]:
         """Delegate placeholder pair getting to main client."""
-        parent_client = getattr(self.base_client, '_parent_client', None) 
-        if parent_client and hasattr(parent_client, '_get_next_available_message_pair'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_get_next_available_message_pair"):
             return parent_client._get_next_available_message_pair()
         return None  # Simple fallback
 
     def _cleanup_unused_placeholder_messages(self) -> int:
         """Delegate placeholder cleanup to main client."""
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_cleanup_unused_placeholder_messages'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(
+            parent_client, "_cleanup_unused_placeholder_messages"
+        ):
             return parent_client._cleanup_unused_placeholder_messages()
         return 0  # Simple fallback
 
-    def _stream_delta_update(self, chat_id: str, message_id: str, delta_content: str) -> None:
+    def _stream_delta_update(
+        self, chat_id: str, message_id: str, delta_content: str
+    ) -> None:
         """Delegate delta updates to main client."""
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_stream_delta_update'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_stream_delta_update"):
             parent_client._stream_delta_update(chat_id, message_id, delta_content)
 
     def _update_chat_with_history(self, api_messages: List[Dict[str, Any]]):
@@ -2871,7 +3243,7 @@ class ChatManager:
         last_message_id = None
 
         # Skip the system message if it exists
-        start_index = 1 if api_messages and api_messages[0]['role'] == 'system' else 0
+        start_index = 1 if api_messages and api_messages[0]["role"] == "system" else 0
 
         for msg in api_messages[start_index:]:
             msg_id = str(uuid.uuid4())
@@ -2894,11 +3266,13 @@ class ChatManager:
 
         history["currentId"] = last_message_id
         chat_core["history"] = history
-        chat_core["messages"] = self._build_linear_history_for_storage(chat_core, last_message_id)
+        chat_core["messages"] = self._build_linear_history_for_storage(
+            chat_core, last_message_id
+        )
 
         # Use parent client's method if available (for test mocking)
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_update_remote_chat'):
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_update_remote_chat"):
             parent_client._update_remote_chat()
         else:
             self._update_remote_chat()
@@ -2916,7 +3290,7 @@ class ChatManager:
         """
         Processes a task using a structured "Thought -> Action -> Observation" loop.
         This enhances task-solving capability and provides better observability.
-        
+
         Args:
             question: The task to process.
             model_id: The ID of the model to use for task execution.
@@ -2924,7 +3298,7 @@ class ChatManager:
             knowledge_base_name: The name of the knowledge base to use.
             max_iterations: The maximum number of iterations to attempt.
             summarize_history: If True, the conversation history will be summarized.
-            decision_model_id: Optional model ID for automatic decision-making when 
+            decision_model_id: Optional model ID for automatic decision-making when
                               the AI presents multiple options. If provided, this model
                               will analyze the options and select the best one automatically.
         """
@@ -2948,9 +3322,13 @@ class ChatManager:
 
         system_prompt = self._get_task_processing_prompt()
         api_messages.append({"role": "system", "content": system_prompt})
-        api_messages.append({"role": "user", "content": f"Here is the task: {question}"})
+        api_messages.append(
+            {"role": "user", "content": f"Here is the task: {question}"}
+        )
 
-        tool_ids = [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+        tool_ids = (
+            [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+        )
         rag_collections = [knowledge_base_name] if knowledge_base_name else []
         api_rag_payload, _ = self._handle_rag_references(None, rag_collections)
 
@@ -2966,8 +3344,14 @@ class ChatManager:
             )
 
             if not model_response_text:
-                logger.error("Task processing step failed: Model returned an empty response.")
-                history = self._summarize_history(api_messages) if summarize_history else api_messages
+                logger.error(
+                    "Task processing step failed: Model returned an empty response."
+                )
+                history = (
+                    self._summarize_history(api_messages)
+                    if summarize_history
+                    else api_messages
+                )
                 return {
                     "solution": "Error: Model returned an empty response.",
                     "conversation_history": history,
@@ -2977,28 +3361,36 @@ class ChatManager:
             api_messages.append({"role": "assistant", "content": model_response_text})
             logger.info(f"🤖 Assistant:\n{model_response_text}")
 
-            thought_match = re.search(r"Thought:(.*?)(?=Action:)", model_response_text, re.DOTALL)
+            thought_match = re.search(
+                r"Thought:(.*?)(?=Action:)", model_response_text, re.DOTALL
+            )
             if thought_match:
                 thought_content = thought_match.group(1).strip()
                 parsed_todo = self._parse_todo_list(thought_content)
                 if parsed_todo:
                     last_todo_list = parsed_todo
-                    
+
                 # Check for multiple options requiring a decision
                 if decision_model_id:
                     options = self._detect_options_in_response(thought_content)
                     if options:
-                        logger.info(f"🔄 Multiple options detected, using decision model to select...")
+                        logger.info(
+                            "🔄 Multiple options detected, using decision model to select..."
+                        )
                         # Build context from recent messages
-                        context = "\n".join([
-                            f"{msg['role']}: {msg['content'][:500]}" 
-                            for msg in api_messages[-6:]  # Last 6 messages for context
-                        ])
+                        context = "\n".join(
+                            [
+                                f"{msg['role']}: {msg['content'][:500]}"
+                                for msg in api_messages[
+                                    -6:
+                                ]  # Last 6 messages for context
+                            ]
+                        )
                         selected_option = self._get_decision_from_model(
                             options=options,
                             context=context,
                             decision_model_id=decision_model_id,
-                            original_question=question
+                            original_question=question,
                         )
                         if selected_option:
                             # Inject decision as user feedback
@@ -3006,7 +3398,9 @@ class ChatManager:
                                 f"Observation: The decision model has analyzed the options and selected "
                                 f"Option {selected_option}. Please proceed with this option."
                             )
-                            api_messages.append({"role": "user", "content": decision_feedback})
+                            api_messages.append(
+                                {"role": "user", "content": decision_feedback}
+                            )
                             continue  # Continue to next iteration with the decision
 
             action_json = self._extract_json_from_content(model_response_text)
@@ -3018,7 +3412,11 @@ class ChatManager:
                 final_answer = action_json["final_answer"]
                 logger.info(f"✅ Task complete! Final Answer: {final_answer}")
                 self._update_chat_with_history(api_messages)
-                history = self._summarize_history(api_messages) if summarize_history else api_messages
+                history = (
+                    self._summarize_history(api_messages)
+                    if summarize_history
+                    else api_messages
+                )
                 return {
                     "solution": final_answer,
                     "conversation_history": history,
@@ -3040,7 +3438,9 @@ class ChatManager:
 
         logger.warning("Reached maximum iterations without a final answer.")
         self._update_chat_with_history(api_messages)
-        history = self._summarize_history(api_messages) if summarize_history else api_messages
+        history = (
+            self._summarize_history(api_messages) if summarize_history else api_messages
+        )
         return {
             "solution": "Max iterations reached.",
             "conversation_history": history,
@@ -3107,7 +3507,7 @@ class ChatManager:
             knowledge_base_name: The name of the knowledge base to use.
             max_iterations: The maximum number of iterations to attempt.
             summarize_history: If True, the conversation history will be summarized.
-            decision_model_id: Optional model ID for automatic decision-making when 
+            decision_model_id: Optional model ID for automatic decision-making when
                               the AI presents multiple options.
 
         Yields:
@@ -3132,9 +3532,13 @@ class ChatManager:
         last_todo_list = []
         system_prompt = self._get_task_processing_prompt()
         api_messages.append({"role": "system", "content": system_prompt})
-        api_messages.append({"role": "user", "content": f"Here is the task: {question}"})
+        api_messages.append(
+            {"role": "user", "content": f"Here is the task: {question}"}
+        )
 
-        tool_ids = [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+        tool_ids = (
+            [tool_server_ids] if isinstance(tool_server_ids, str) else tool_server_ids
+        )
         rag_collections = [knowledge_base_name] if knowledge_base_name else []
         api_rag_payload, _ = self._handle_rag_references(None, rag_collections)
 
@@ -3156,7 +3560,10 @@ class ChatManager:
                         parsed_todo = self._parse_todo_list(thought_content)
                         if parsed_todo:
                             last_todo_list = parsed_todo
-                            yield {"type": "todo_list_update", "content": last_todo_list}
+                            yield {
+                                "type": "todo_list_update",
+                                "content": last_todo_list,
+                            }
                     yield event
                     if event["type"] == "thought":
                         full_model_response += f"Thought:\n{event['content']}\n\n"
@@ -3168,34 +3575,45 @@ class ChatManager:
                 return
 
             api_messages.append({"role": "assistant", "content": full_model_response})
-            
+
             # Check for multiple options requiring a decision
             if decision_model_id and thought_content_for_decision:
                 options = self._detect_options_in_response(thought_content_for_decision)
                 if options:
-                    logger.info(f"🔄 Multiple options detected, using decision model to select...")
+                    logger.info(
+                        "🔄 Multiple options detected, using decision model to select..."
+                    )
                     # Build context from recent messages
-                    context = "\n".join([
-                        f"{msg['role']}: {msg['content'][:500]}" 
-                        for msg in api_messages[-6:]  # Last 6 messages for context
-                    ])
+                    context = "\n".join(
+                        [
+                            f"{msg['role']}: {msg['content'][:500]}"
+                            for msg in api_messages[-6:]  # Last 6 messages for context
+                        ]
+                    )
                     selected_option = self._get_decision_from_model(
                         options=options,
                         context=context,
                         decision_model_id=decision_model_id,
-                        original_question=question
+                        original_question=question,
                     )
                     if selected_option:
-                        yield {"type": "decision", "selected_option": selected_option, "options": options, "iteration": i + 1}
+                        yield {
+                            "type": "decision",
+                            "selected_option": selected_option,
+                            "options": options,
+                            "iteration": i + 1,
+                        }
                         # Inject decision as user feedback
                         decision_feedback = (
                             f"Observation: The decision model has analyzed the options and selected "
                             f"Option {selected_option}. Please proceed with this option."
                         )
-                        api_messages.append({"role": "user", "content": decision_feedback})
+                        api_messages.append(
+                            {"role": "user", "content": decision_feedback}
+                        )
                         yield {"type": "observation", "content": decision_feedback}
                         continue  # Continue to next iteration with the decision
-            
+
             action_json = self._extract_json_from_content(full_model_response)
             observation = ""
 
@@ -3205,7 +3623,11 @@ class ChatManager:
                 final_answer = action_json["final_answer"]
                 yield {"type": "final_answer", "content": final_answer}
                 self._update_chat_with_history(api_messages)
-                history = self._summarize_history(api_messages) if summarize_history else api_messages
+                history = (
+                    self._summarize_history(api_messages)
+                    if summarize_history
+                    else api_messages
+                )
                 return {
                     "solution": final_answer,
                     "conversation_history": history,
@@ -3229,7 +3651,9 @@ class ChatManager:
 
         yield {"type": "error", "content": "Max iterations reached."}
         self._update_chat_with_history(api_messages)
-        history = self._summarize_history(api_messages) if summarize_history else api_messages
+        history = (
+            self._summarize_history(api_messages) if summarize_history else api_messages
+        )
         return {
             "solution": "Max iterations reached.",
             "conversation_history": history,
@@ -3250,16 +3674,19 @@ class ChatManager:
         logger.info("  - 🧠 Streaming assistant's turn...")
 
         # Use parent client's _get_model_completion_stream if available for mocking
-        parent_client = getattr(self.base_client, '_parent_client', None)
+        parent_client = getattr(self.base_client, "_parent_client", None)
         stream_method = None
-        if parent_client and hasattr(parent_client, '_get_model_completion_stream'):
-             stream_method = parent_client._get_model_completion_stream
-        elif hasattr(self.base_client, '_get_model_completion_stream'):
+        if parent_client and hasattr(parent_client, "_get_model_completion_stream"):
+            stream_method = parent_client._get_model_completion_stream
+        elif hasattr(self.base_client, "_get_model_completion_stream"):
             stream_method = self.base_client._get_model_completion_stream
 
         if not stream_method:
             logger.error("Could not find _get_model_completion_stream method.")
-            yield {"type": "error", "content": "Could not find _get_model_completion_stream method."}
+            yield {
+                "type": "error",
+                "content": "Could not find _get_model_completion_stream method.",
+            }
             return
 
         content_stream = stream_method(
@@ -3278,7 +3705,9 @@ class ChatManager:
                 buffer += chunk
 
                 if parsing_state == "thought":
-                    thought_match = re.search(r"Thought:(.*?)(?=Action:)", buffer, re.DOTALL)
+                    thought_match = re.search(
+                        r"Thought:(.*?)(?=Action:)", buffer, re.DOTALL
+                    )
                     if thought_match:
                         thought_content = thought_match.group(1).strip()
                         yield {"type": "thought", "content": thought_content}
@@ -3288,11 +3717,13 @@ class ChatManager:
                         if todo_list:
                             yield {"type": "todo_list_update", "content": todo_list}
 
-                        buffer = buffer[thought_match.end():]
+                        buffer = buffer[thought_match.end() :]
                         parsing_state = "action"
 
                 if parsing_state == "action":
-                    action_match = re.search(r"Action:\s*```json\n(.*?)\n```", buffer, re.DOTALL)
+                    action_match = re.search(
+                        r"Action:\s*```json\n(.*?)\n```", buffer, re.DOTALL
+                    )
                     if action_match:
                         action_str = action_match.group(1).strip()
                         try:
@@ -3321,7 +3752,9 @@ class ChatManager:
         Parses a markdown todo list from the thought content.
         """
         # Improved regex: match all consecutive todo item lines after "Todo List:"
-        todo_match = re.search(r"Todo List:\s*\n((?:-\s*\[.*?\].*(?:\n|$))*)", thought_content)
+        todo_match = re.search(
+            r"Todo List:\s*\n((?:-\s*\[.*?\].*(?:\n|$))*)", thought_content
+        )
         if not todo_match:
             return None
 
@@ -3330,7 +3763,11 @@ class ChatManager:
 
         parsed_list = []
         for status_char, task in items:
-            status = "completed" if status_char == 'x' else "in_progress" if status_char == '@' else "pending"
+            status = (
+                "completed"
+                if status_char == "x"
+                else "in_progress" if status_char == "@" else "pending"
+            )
             parsed_list.append({"task": task.strip(), "status": status})
 
         return parsed_list if parsed_list else None
@@ -3362,12 +3799,16 @@ class ChatManager:
             A tuple containing (question, answer, model_used), or None if it fails.
         """
         logger.info("-" * 80)
-        logger.info(f"🔬 Performing Research Step {step_num}/{total_steps} for topic: '{topic}'")
+        logger.info(
+            f"🔬 Performing Research Step {step_num}/{total_steps} for topic: '{topic}'"
+        )
 
         # 1. --- Planning Step with Model Routing ---
-        history_summary = "\n".join(
-            f"- {item}" for item in research_history
-        ) if research_history else "No information gathered yet."
+        history_summary = (
+            "\n".join(f"- {item}" for item in research_history)
+            if research_history
+            else "No information gathered yet."
+        )
 
         # Dynamically build the model options string for the prompt
         model_options = f"1. General Models (for reasoning, summarizing, and internal knowledge): {general_models}"
@@ -3380,7 +3821,7 @@ class ChatManager:
             f"You have access to the following types of models:\n{model_options}\n\n"
             f"Based on the current summary, what is the next single best question to ask?\n"
             f"And, crucially, which type of model ('General' or 'Search-Capable') is best suited to answer it?\n\n"
-            f"Return your answer ONLY as a valid JSON object with two keys: \"next_question\" and \"chosen_model_type\"."
+            f'Return your answer ONLY as a valid JSON object with two keys: "next_question" and "chosen_model_type".'
         )
 
         logger.info("  - 🧠 Planning: Asking for the next question and model type...")
@@ -3397,13 +3838,17 @@ class ChatManager:
         )
 
         if not planning_result or not planning_result.get("response"):
-            logger.error("  - ❌ Planning step failed: Did not receive a response for planning.")
+            logger.error(
+                "  - ❌ Planning step failed: Did not receive a response for planning."
+            )
             return None
 
         # Use the parent client's method to robustly extract JSON
-        parent_client = getattr(self.base_client, '_parent_client', None)
-        if parent_client and hasattr(parent_client, '_extract_json_from_content'):
-            plan_json = parent_client._extract_json_from_content(planning_result["response"])
+        parent_client = getattr(self.base_client, "_parent_client", None)
+        if parent_client and hasattr(parent_client, "_extract_json_from_content"):
+            plan_json = parent_client._extract_json_from_content(
+                planning_result["response"]
+            )
         else:
             # Fallback to simple json.loads
             try:
@@ -3411,8 +3856,14 @@ class ChatManager:
             except json.JSONDecodeError:
                 plan_json = None
 
-        if not plan_json or "next_question" not in plan_json or "chosen_model_type" not in plan_json:
-            logger.error(f"  - ❌ Planning step failed: Response was not valid JSON with required keys. Response: {planning_result['response']}")
+        if (
+            not plan_json
+            or "next_question" not in plan_json
+            or "chosen_model_type" not in plan_json
+        ):
+            logger.error(
+                f"  - ❌ Planning step failed: Response was not valid JSON with required keys. Response: {planning_result['response']}"
+            )
             return None
 
         next_question = plan_json["next_question"]
@@ -3426,10 +3877,14 @@ class ChatManager:
             execution_model = random.choice(search_models)
         else:
             if chosen_type != "General":
-                logger.warning(f"  - Model type '{chosen_type}' not recognized or available, defaulting to 'General'.")
+                logger.warning(
+                    f"  - Model type '{chosen_type}' not recognized or available, defaulting to 'General'."
+                )
             execution_model = random.choice(general_models)
 
-        logger.info(f"  -  EXECUTION: Asking '{next_question}' using model '{execution_model}'...")
+        logger.info(
+            f"  -  EXECUTION: Asking '{next_question}' using model '{execution_model}'..."
+        )
 
         # Use the same consistent chat_title for the execution step
         answer_result = self.chat(
@@ -3439,7 +3894,9 @@ class ChatManager:
         )
 
         if not answer_result or not answer_result.get("response"):
-            logger.error(f"  - ❌ Execution step failed: Did not receive an answer for '{next_question}'.")
+            logger.error(
+                f"  - ❌ Execution step failed: Did not receive an answer for '{next_question}'."
+            )
             return None
 
         answer = answer_result["response"]
@@ -3447,7 +3904,9 @@ class ChatManager:
 
         return next_question, answer, execution_model
 
-    def _summarize_history(self, api_messages: List[Dict[str, Any]]) -> Union[str, List[Dict[str, Any]]]:
+    def _summarize_history(
+        self, api_messages: List[Dict[str, Any]]
+    ) -> Union[str, List[Dict[str, Any]]]:
         """
         Summarizes the conversation history using a model if it's long,
         otherwise returns the original history.
@@ -3463,13 +3922,17 @@ class ChatManager:
             )
 
             # Create a temporary list of messages for the summarization task
-            summarization_messages = [{"role": "system", "content": summarization_prompt}]
+            summarization_messages = [
+                {"role": "system", "content": summarization_prompt}
+            ]
             summarization_messages.extend(api_messages)
 
             # Use a suitable model for the summarization task
             task_model = self.base_client._get_task_model()
             if not task_model:
-                logger.warning("Could not find a suitable model for summarization. Returning full history.")
+                logger.warning(
+                    "Could not find a suitable model for summarization. Returning full history."
+                )
                 return api_messages
 
             summary, _ = self._get_model_completion(
@@ -3485,29 +3948,37 @@ class ChatManager:
             logger.error(f"Failed to summarize history: {e}")
             return api_messages  # Fallback to returning the full history
 
-    def _detect_options_in_response(self, response_text: str) -> Optional[List[Dict[str, str]]]:
+    def _detect_options_in_response(
+        self, response_text: str
+    ) -> Optional[List[Dict[str, str]]]:
         """
         Detect if the AI response contains multiple options/solutions that need a decision.
-        
+
         Args:
             response_text: The AI's response text to analyze
-            
+
         Returns:
             A list of option dictionaries with 'number' and 'description' keys,
             or None if no options are detected.
         """
         if not response_text:
             return None
-            
+
         # Look for **Options:** section in the response
-        options_match = re.search(r"\*\*Options:\*\*\s*\n((?:\d+\.\s*\[.*?\].*(?:\n|$))*)", response_text, re.DOTALL)
+        options_match = re.search(
+            r"\*\*Options:\*\*\s*\n((?:\d+\.\s*\[.*?\].*(?:\n|$))*)",
+            response_text,
+            re.DOTALL,
+        )
         if not options_match:
             # Also try alternative format without markdown
-            options_match = re.search(r"Options:\s*\n((?:\d+\.\s*.*(?:\n|$))*)", response_text, re.DOTALL)
-            
+            options_match = re.search(
+                r"Options:\s*\n((?:\d+\.\s*.*(?:\n|$))*)", response_text, re.DOTALL
+            )
+
         if not options_match:
             return None
-            
+
         options_text = options_match.group(1)
         # Parse individual options using a regex pattern that matches:
         # - (\d+)\. : A number followed by a period (captures the option number)
@@ -3517,53 +3988,61 @@ class ChatManager:
         # - (?=\n\d+\.|$) : Lookahead to stop at next option or end of string
         option_pattern = r"(\d+)\.\s*(?:\[(.*?)\]:?\s*)?(.*?)(?=\n\d+\.|$)"
         matches = re.findall(option_pattern, options_text, re.DOTALL)
-        
+
         if not matches or len(matches) < 2:  # Need at least 2 options
             return None
-            
+
         options = []
         for match in matches:
             number, label, description = match
             option = {
                 "number": number.strip(),
                 "label": label.strip() if label else f"Option {number}",
-                "description": description.strip()
+                "description": description.strip(),
             }
             options.append(option)
-            
+
         logger.info(f"🔍 Detected {len(options)} options in AI response")
         return options
 
     def _get_decision_from_model(
-        self, 
-        options: List[Dict[str, str]], 
+        self,
+        options: List[Dict[str, str]],
         context: str,
         decision_model_id: str,
-        original_question: str
+        original_question: str,
     ) -> Optional[int]:
         """
         Use a decision model to automatically select the best option.
-        
+
         Args:
             options: List of options detected from the AI response
             context: The current conversation context
             decision_model_id: The model to use for decision-making
             original_question: The original task question for context
-            
+
         Returns:
             The selected option number (1-indexed), or None if decision fails.
         """
-        logger.info(f"🤖 Using decision model '{decision_model_id}' to select best option...")
-        
+        logger.info(
+            f"🤖 Using decision model '{decision_model_id}' to select best option..."
+        )
+
         # Format options for the decision model
-        options_text = "\n".join([
-            f"{opt['number']}. [{opt['label']}]: {opt['description']}" 
-            for opt in options
-        ])
-        
+        options_text = "\n".join(
+            [
+                f"{opt['number']}. [{opt['label']}]: {opt['description']}"
+                for opt in options
+            ]
+        )
+
         # Truncate context if it exceeds the maximum length
-        truncated_context = context[-DECISION_CONTEXT_MAX_LENGTH:] if len(context) > DECISION_CONTEXT_MAX_LENGTH else context
-        
+        truncated_context = (
+            context[-DECISION_CONTEXT_MAX_LENGTH:]
+            if len(context) > DECISION_CONTEXT_MAX_LENGTH
+            else context
+        )
+
         decision_prompt = f"""You are a decision-making assistant. Your task is to analyze the given options and select the best one based on the context.
 
 **Original Task:** {original_question}
@@ -3591,10 +4070,13 @@ class ChatManager:
 Select the best option now:"""
 
         decision_messages = [
-            {"role": "system", "content": "You are a precise decision-making assistant. Always respond with valid JSON."},
-            {"role": "user", "content": decision_prompt}
+            {
+                "role": "system",
+                "content": "You are a precise decision-making assistant. Always respond with valid JSON.",
+            },
+            {"role": "user", "content": decision_prompt},
         ]
-        
+
         try:
             decision_response, _ = self._get_model_completion(
                 chat_id=self.base_client.chat_id,
@@ -3603,23 +4085,27 @@ Select the best option now:"""
                 model_id=decision_model_id,
                 tool_ids=[],
             )
-            
+
             if not decision_response:
                 logger.warning("Decision model returned empty response")
                 return None
-                
+
             # Parse the decision using our own JSON extraction method
             decision_json = self._extract_json_from_content(decision_response)
-                    
+
             if decision_json and "selected_option" in decision_json:
                 selected = int(decision_json["selected_option"])
                 reasoning = decision_json.get("reasoning", "No reasoning provided")
-                logger.info(f"✅ Decision model selected option {selected}: {reasoning}")
+                logger.info(
+                    f"✅ Decision model selected option {selected}: {reasoning}"
+                )
                 return selected
             else:
-                logger.warning(f"Decision model response missing 'selected_option': {decision_response}")
+                logger.warning(
+                    f"Decision model response missing 'selected_option': {decision_response}"
+                )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error getting decision from model: {e}")
             return None

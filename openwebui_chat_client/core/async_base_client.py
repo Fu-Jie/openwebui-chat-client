@@ -3,12 +3,12 @@ Async Base client functionality for OpenWebUI Chat Client.
 Provides core authentication, session management, and common utilities for asynchronous operations.
 """
 
-import httpx
 import json
 import logging
 import os
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Any, Dict, Optional
 
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,14 @@ class AsyncBaseClient:
     - Common utility methods
     """
 
-    def __init__(self, base_url: str, token: str, default_model_id: str, timeout: float = 60.0, **kwargs):
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        default_model_id: str,
+        timeout: float = 60.0,
+        **kwargs,
+    ):
         """
         Initialize the async base client.
 
@@ -42,7 +49,7 @@ class AsyncBaseClient:
 
         # Prepare client kwargs
         client_kwargs = {
-            "base_url": base_url.rstrip('/'),
+            "base_url": base_url.rstrip("/"),
             "headers": {"Authorization": f"Bearer {token}"},
             "timeout": timeout,
             "follow_redirects": True,
@@ -60,7 +67,7 @@ class AsyncBaseClient:
 
         # Ensure Authorization header is present
         if "Authorization" not in client_kwargs["headers"]:
-             client_kwargs["headers"]["Authorization"] = f"Bearer {token}"
+            client_kwargs["headers"]["Authorization"] = f"Bearer {token}"
 
         # Update with any remaining kwargs (overriding defaults if provided)
         client_kwargs.update(kwargs)
@@ -101,7 +108,7 @@ class AsyncBaseClient:
         params: Optional[Dict[str, Any]] = None,
         files: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
+        timeout: Optional[float] = None,
     ) -> Optional[httpx.Response]:
         """
         Make an asynchronous HTTP request with standardized error handling.
@@ -118,23 +125,41 @@ class AsyncBaseClient:
         Returns:
             Response object or None if request failed
         """
-        url = endpoint.lstrip('/')
-        request_headers = self.json_headers.copy() if not files else {"Authorization": f"Bearer {self.token}"}
+        url = endpoint.lstrip("/")
+        request_headers = (
+            self.json_headers.copy()
+            if not files
+            else {"Authorization": f"Bearer {self.token}"}
+        )
         if headers:
             request_headers.update(headers)
 
         try:
             if method.upper() == "GET":
-                response = await self.client.get(url, params=params, headers=request_headers, timeout=timeout)
+                response = await self.client.get(
+                    url, params=params, headers=request_headers, timeout=timeout
+                )
             elif method.upper() == "POST":
                 if files:
-                    response = await self.client.post(url, data=json_data, files=files, headers=request_headers, timeout=timeout)
+                    response = await self.client.post(
+                        url,
+                        data=json_data,
+                        files=files,
+                        headers=request_headers,
+                        timeout=timeout,
+                    )
                 else:
-                    response = await self.client.post(url, json=json_data, headers=request_headers, timeout=timeout)
+                    response = await self.client.post(
+                        url, json=json_data, headers=request_headers, timeout=timeout
+                    )
             elif method.upper() == "PUT":
-                response = await self.client.put(url, json=json_data, headers=request_headers, timeout=timeout)
+                response = await self.client.put(
+                    url, json=json_data, headers=request_headers, timeout=timeout
+                )
             elif method.upper() == "DELETE":
-                response = await self.client.delete(url, headers=request_headers, timeout=timeout)
+                response = await self.client.delete(
+                    url, headers=request_headers, timeout=timeout
+                )
             else:
                 logger.error(f"Unsupported HTTP method: {method}")
                 return None
@@ -143,7 +168,9 @@ class AsyncBaseClient:
             return response
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error for {method} {endpoint}: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                f"HTTP error for {method} {endpoint}: {e.response.status_code} - {e.response.text}"
+            )
             return None
         except httpx.RequestError as e:
             logger.error(f"Request error for {method} {endpoint}: {e}")
@@ -159,12 +186,14 @@ class AsyncBaseClient:
         json_data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         files: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None
+        headers: Optional[Dict[str, str]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Make an async request and return JSON response.
         """
-        response = await self._make_request(method, endpoint, json_data, params, files, headers)
+        response = await self._make_request(
+            method, endpoint, json_data, params, files, headers
+        )
         if response is None:
             return None
 

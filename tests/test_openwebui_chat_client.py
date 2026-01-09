@@ -1,9 +1,6 @@
-import unittest
-from unittest.mock import Mock, patch, MagicMock, call
-import json
 import base64
-import os
-from io import BytesIO
+import unittest
+from unittest.mock import Mock, patch
 
 from openwebui_chat_client.openwebui_chat_client import OpenWebUIClient
 

@@ -1,7 +1,8 @@
-import unittest
-from unittest.mock import Mock, patch, MagicMock
 import json
-from requests.exceptions import RequestException, HTTPError, ConnectionError
+import unittest
+from unittest.mock import Mock, patch
+
+from requests.exceptions import ConnectionError, HTTPError
 
 from openwebui_chat_client.openwebui_chat_client import OpenWebUIClient
 
@@ -14,7 +15,7 @@ class TestOpenWebUIClientErrorHandling(unittest.TestCase):
         self.base_url = "http://localhost:3000"
         self.token = "test-token"
         self.default_model = "test-model:latest"
-        
+
         # Create client with skip_model_refresh to prevent HTTP requests during initialization
         self.client = OpenWebUIClient(
             base_url=self.base_url,
@@ -165,7 +166,7 @@ class TestOpenWebUIClientErrorHandling(unittest.TestCase):
         test_image_path = "/tmp/test_image.png"
 
         with patch("os.path.exists", return_value=True):
-            with patch("builtins.open", side_effect=IOError("Permission denied")):
+            with patch("builtins.open", side_effect=OSError("Permission denied")):
                 result = self.client._encode_image_to_base64(test_image_path)
 
                 self.assertIsNone(result)

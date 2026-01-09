@@ -3,7 +3,7 @@ Async Knowledge Base management module.
 """
 
 import logging
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
@@ -25,4 +25,6 @@ class AsyncKnowledgeBaseManager:
         return None
 
     async def get_knowledge_base_details(self, kb_id: str) -> Optional[Dict[str, Any]]:
-        return await self.base_client._get_json_response("GET", f"/api/v1/knowledge/{kb_id}")
+        return await self.base_client._get_json_response(
+            "GET", f"/api/v1/knowledge/{kb_id}"
+        )

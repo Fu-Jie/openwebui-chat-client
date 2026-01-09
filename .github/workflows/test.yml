@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths-ignore:
       - 'docs/**'
       - '*.md'
@@ -11,7 +11,7 @@ on:
       - 'LICENSE'
       - '.gitignore'
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
     paths-ignore:
       - 'docs/**'
       - '*.md'
@@ -20,6 +20,10 @@ on:
       - 'LICENSE'
       - '.gitignore'
   workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   detect-test-scope:
@@ -34,9 +38,10 @@ jobs:
         fetch-depth: 0
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
 
     - name: Install dependencies for detection
       run: |
@@ -99,9 +104,21 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          .pytest_cache
+        key: ${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-python-${{ matrix.python-version }}-
+          ${{ runner.os }}-python-
 
     - name: Install dependencies
       run: |

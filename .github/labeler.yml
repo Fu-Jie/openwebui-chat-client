@@ -1,0 +1,88 @@
+# Configuration for actions/labeler
+# Labels PRs based on changed files
+
+# Core client changes
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'openwebui_chat_client/openwebui_chat_client.py'
+          - 'openwebui_chat_client/core/**'
+
+# Async client changes
+async:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'openwebui_chat_client/async_*.py'
+          - 'openwebui_chat_client/modules/async_*.py'
+
+# Module changes
+modules:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'openwebui_chat_client/modules/**'
+
+# Documentation changes
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '*.md'
+          - 'mkdocs.yml'
+
+# Test changes
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tests/**'
+          - 'test_*.py'
+
+# CI/CD changes
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+# Examples changes
+examples:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'examples/**'
+
+# Configuration changes
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pyproject.toml'
+          - 'setup.py'
+          - '.env*'
+
+# Chat functionality
+chat:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*chat*.py'
+
+# Model management
+models:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*model*.py'
+
+# Knowledge base / RAG
+rag:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*knowledge*.py'
+          - '**/*rag*.py'
+
+# Notes API
+notes:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*notes*.py'
+
+# Prompts API
+prompts:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*prompts*.py'

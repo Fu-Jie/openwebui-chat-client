@@ -3,19 +3,19 @@ Async OpenWebUI Client - Async version of the client.
 """
 
 import logging
-from typing import Optional, AsyncGenerator, TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncGenerator, Optional
 
 if TYPE_CHECKING:
     pass
 
 from .core.async_base_client import AsyncBaseClient
 from .modules.async_chat_manager import AsyncChatManager
-from .modules.async_model_manager import AsyncModelManager
-from .modules.async_user_manager import AsyncUserManager
 from .modules.async_file_manager import AsyncFileManager
 from .modules.async_knowledge_base_manager import AsyncKnowledgeBaseManager
-from .modules.async_prompts_manager import AsyncPromptsManager
+from .modules.async_model_manager import AsyncModelManager
 from .modules.async_notes_manager import AsyncNotesManager
+from .modules.async_prompts_manager import AsyncPromptsManager
+from .modules.async_user_manager import AsyncUserManager
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,17 @@ class AsyncOpenWebUIClient:
     Asynchronous Python client for the Open WebUI API.
     """
 
-    def __init__(self, base_url: str, token: str, default_model_id: str, timeout: float = 60.0, **kwargs):
-        self._base_client = AsyncBaseClient(base_url, token, default_model_id, timeout, **kwargs)
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        default_model_id: str,
+        timeout: float = 60.0,
+        **kwargs,
+    ):
+        self._base_client = AsyncBaseClient(
+            base_url, token, default_model_id, timeout, **kwargs
+        )
         self._base_client._parent_client = self
 
         self._chat_manager = AsyncChatManager(self._base_client)
@@ -48,11 +57,17 @@ class AsyncOpenWebUIClient:
         await self.close()
 
     # Chat
-    async def chat(self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs):
+    async def chat(
+        self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs
+    ):
         return await self._chat_manager.chat(question, chat_title, model_id, **kwargs)
 
-    async def stream_chat(self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
-        async for item in self._chat_manager.stream_chat(question, chat_title, model_id, **kwargs):
+    async def stream_chat(
+        self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs
+    ) -> AsyncGenerator[str, None]:
+        async for item in self._chat_manager.stream_chat(
+            question, chat_title, model_id, **kwargs
+        ):
             yield item
 
     async def list_chats(self, page: Optional[int] = None):
@@ -61,19 +76,19 @@ class AsyncOpenWebUIClient:
     async def delete_all_chats(self) -> bool:
         """
         Delete ALL chat conversations for the current user.
-        
+
         ⚠️ WARNING: This is a DESTRUCTIVE operation!
         This method will permanently delete ALL chats associated with the current user account.
         This action CANNOT be undone. Use with extreme caution.
-        
+
         This method is useful for:
         - Cleaning up test data after integration tests
         - Resetting an account to a clean state
         - Bulk cleanup operations
-        
+
         Returns:
             True if deletion was successful, False otherwise
-            
+
         Example:
             ```python
             # ⚠️ WARNING: This will delete ALL your chats!
@@ -83,7 +98,6 @@ class AsyncOpenWebUIClient:
             ```
         """
         return await self._chat_manager.delete_all_chats()
-
 
     # Models
     async def list_models(self):

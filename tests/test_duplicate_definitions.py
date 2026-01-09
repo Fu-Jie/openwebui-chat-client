@@ -4,9 +4,8 @@ Regression tests to ensure duplicate method definitions remain consolidated.
 """
 
 import ast
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -32,7 +31,9 @@ class TestDuplicateDefinitions(unittest.TestCase):
 
     def test_chat_manager_methods_are_unique(self):
         """ChatManager should not have duplicate helper definitions."""
-        file_path = PROJECT_ROOT / "openwebui_chat_client" / "modules" / "chat_manager.py"
+        file_path = (
+            PROJECT_ROOT / "openwebui_chat_client" / "modules" / "chat_manager.py"
+        )
         counts = self._get_method_counts(file_path, "ChatManager")
         for method in ("rename_chat", "get_folder_id_by_name", "move_chat_to_folder"):
             self.assertEqual(

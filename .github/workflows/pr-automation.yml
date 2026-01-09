@@ -1,0 +1,95 @@
+name: PR Automation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  auto-label:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Label PR based on changed files
+        uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          configuration-path: .github/labeler.yml
+
+  size-label:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Label PR by size
+        uses: codelytv/pr-size-labeler@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          xs_label: 'size/XS'
+          xs_max_size: 10
+          s_label: 'size/S'
+          s_max_size: 100
+          m_label: 'size/M'
+          m_max_size: 500
+          l_label: 'size/L'
+          l_max_size: 1000
+          xl_label: 'size/XL'
+          fail_if_xl: false
+          message_if_xl: >
+            This PR is quite large. Consider breaking it into smaller PRs for easier review.
+
+  pr-checklist:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PR requirements
+        run: |
+          echo "📋 PR Checklist"
+          echo "==============="
+          
+          # Check if PR has a description
+          if [ -z "${{ github.event.pull_request.body }}" ]; then
+            echo "⚠️  PR description is empty. Please add a description."
+          else
+            echo "✅ PR has a description"
+          fi
+          
+          # Check PR title format
+          TITLE="${{ github.event.pull_request.title }}"
+          if echo "$TITLE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+"; then
+            echo "✅ PR title follows conventional commits format"
+          else
+            echo "💡 Consider using conventional commits format for PR title:"
+            echo "   feat: add new feature"
+            echo "   fix: fix a bug"
+            echo "   docs: documentation changes"
+            echo "   refactor: code refactoring"
+            echo "   test: add or update tests"
+            echo "   ci: CI/CD changes"
+          fi
+
+  welcome-first-time:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target' && github.event.action == 'opened'
+    steps:
+      - name: Welcome first-time contributors
+        uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-message: |
+            👋 Welcome to openwebui-chat-client! Thanks for your first PR!
+            
+            Here are some things to keep in mind:
+            - Make sure all tests pass
+            - Update documentation if needed
+            - Add entries to CHANGELOG.md under `[Unreleased]` section
+            
+            A maintainer will review your PR soon. Thanks for contributing! 🎉

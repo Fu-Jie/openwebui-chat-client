@@ -3,8 +3,10 @@ Unit tests for AsyncOpenWebUIClient and async managers.
 """
 
 import unittest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
+
 import httpx
+
 from openwebui_chat_client import AsyncOpenWebUIClient
 from openwebui_chat_client.modules.async_chat_manager import AsyncChatManager
 
@@ -214,7 +216,7 @@ class TestAsyncClientInitialization(unittest.TestCase):
 
         with patch("httpx.AsyncClient") as mock_client_cls:
             # Test 1: Custom verify parameter
-            client = AsyncOpenWebUIClient(
+            AsyncOpenWebUIClient(
                 base_url, token, default_model, verify=False, custom_param="value"
             )
             call_kwargs = mock_client_cls.call_args[1]
@@ -224,7 +226,7 @@ class TestAsyncClientInitialization(unittest.TestCase):
             self.assertEqual(call_kwargs["custom_param"], "value")
 
             # Test 2: Headers merging
-            client = AsyncOpenWebUIClient(
+            AsyncOpenWebUIClient(
                 base_url, token, default_model, headers={"X-Custom": "TestHeader"}
             )
             call_kwargs = mock_client_cls.call_args[1]
@@ -235,7 +237,7 @@ class TestAsyncClientInitialization(unittest.TestCase):
 
             # Test 3: Transport override
             custom_transport = Mock()
-            client = AsyncOpenWebUIClient(
+            AsyncOpenWebUIClient(
                 base_url, token, default_model, transport=custom_transport
             )
             call_kwargs = mock_client_cls.call_args[1]

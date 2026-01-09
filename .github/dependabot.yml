@@ -1,0 +1,81 @@
+# Dependabot configuration for automated dependency updates
+# See https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Fu-Jie"
+    assignees:
+      - "Fu-Jie"
+    labels:
+      - "dependencies"
+      - "python"
+      - "automated"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Group minor and patch updates together
+    groups:
+      development-dependencies:
+        patterns:
+          - "black"
+          - "isort"
+          - "ruff"
+          - "mypy"
+          - "pytest*"
+          - "coverage"
+          - "bandit"
+        update-types:
+          - "minor"
+          - "patch"
+      production-dependencies:
+        patterns:
+          - "requests"
+          - "python-dotenv"
+          - "httpx"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignore specific versions if needed
+    ignore:
+      # Example: ignore major version updates for stable dependencies
+      # - dependency-name: "requests"
+      #   update-types: ["version-update:semver-major"]
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Fu-Jie"
+    assignees:
+      - "Fu-Jie"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    # Group all GitHub Actions updates together
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

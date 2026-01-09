@@ -1,7 +1,9 @@
 import unittest
+
 import responses
-import requests
+
 from openwebui_chat_client.core.base_client import BaseClient
+
 
 class TestBaseClientRetry(unittest.TestCase):
 
@@ -10,7 +12,7 @@ class TestBaseClientRetry(unittest.TestCase):
         self.base_client = BaseClient(
             base_url="http://test-server.com",
             token="test_token",
-            default_model_id="test-model"
+            default_model_id="test-model",
         )
 
     @responses.activate
@@ -31,9 +33,7 @@ class TestBaseClientRetry(unittest.TestCase):
         # --- Act ---
         # Call a method that uses session.post
         result = self.base_client._get_json_response(
-            method="POST",
-            endpoint="/api/test",
-            json_data={"key": "value"}
+            method="POST", endpoint="/api/test", json_data={"key": "value"}
         )
 
         # --- Assert ---
@@ -58,7 +58,9 @@ class TestBaseClientRetry(unittest.TestCase):
         # --- Act ---
         # Call a method that uses session.get.
         # This will raise an HTTPError which is caught by _make_request, returning None.
-        result = self.base_client._get_json_response(method="GET", endpoint="/api/notfound")
+        result = self.base_client._get_json_response(
+            method="GET", endpoint="/api/notfound"
+        )
 
         # --- Assert ---
         # The request should have been made only once
@@ -81,9 +83,7 @@ class TestBaseClientRetry(unittest.TestCase):
 
         # --- Act ---
         result = self.base_client._get_json_response(
-            method="POST",
-            endpoint="/api/fail",
-            json_data={"key": "value"}
+            method="POST", endpoint="/api/fail", json_data={"key": "value"}
         )
 
         # --- Assert ---
@@ -93,5 +93,6 @@ class TestBaseClientRetry(unittest.TestCase):
         # The final result should be None because all attempts failed
         self.assertIsNone(result)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

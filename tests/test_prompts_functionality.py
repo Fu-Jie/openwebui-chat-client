@@ -4,9 +4,9 @@ Tests the PromptsManager class and related functionality.
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
+
 import requests
-import json
 
 # Import the classes to test
 from openwebui_chat_client import OpenWebUIClient
@@ -23,7 +23,7 @@ class TestPromptsManager(unittest.TestCase):
         self.base_client.session = Mock()
         self.base_client.json_headers = {
             "Authorization": "Bearer test_token",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         self.prompts_manager = PromptsManager(self.base_client)
 
@@ -41,7 +41,7 @@ class TestPromptsManager(unittest.TestCase):
                 "title": "Title Generator",
                 "content": "Generate a title for: {{content}}",
                 "timestamp": 1754809938,
-                "access_control": {}
+                "access_control": {},
             }
         ]
         mock_response.raise_for_status.return_value = None
@@ -54,12 +54,14 @@ class TestPromptsManager(unittest.TestCase):
         self.assertEqual(result[0]["command"], "/title")
         self.base_client.session.get.assert_called_once_with(
             "http://localhost:3000/api/v1/prompts/",
-            headers=self.base_client.json_headers
+            headers=self.base_client.json_headers,
         )
 
     def test_get_prompts_failure(self):
         """Test prompts retrieval failure."""
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("Network error")
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "Network error"
+        )
 
         result = self.prompts_manager.get_prompts()
 
@@ -74,7 +76,7 @@ class TestPromptsManager(unittest.TestCase):
             "title": "Test Prompt",
             "content": "This is a test prompt with {{variable}}",
             "timestamp": 1754809938,
-            "access_control": {}
+            "access_control": {},
         }
         mock_response.raise_for_status.return_value = None
         self.base_client.session.post.return_value = mock_response
@@ -82,13 +84,13 @@ class TestPromptsManager(unittest.TestCase):
         result = self.prompts_manager.create_prompt(
             command="test",
             title="Test Prompt",
-            content="This is a test prompt with {{variable}}"
+            content="This is a test prompt with {{variable}}",
         )
 
         self.assertIsNotNone(result)
         self.assertEqual(result["command"], "/test")
         self.assertEqual(result["title"], "Test Prompt")
-        
+
         # Verify the API call
         self.base_client.session.post.assert_called_once()
         call_args = self.base_client.session.post.call_args
@@ -112,7 +114,7 @@ class TestPromptsManager(unittest.TestCase):
         mock_response.json.return_value = {
             "command": "/summarize",
             "title": "Summarizer",
-            "content": "Summarize: {{text}}"
+            "content": "Summarize: {{text}}",
         }
         mock_response.raise_for_status.return_value = None
         self.base_client.session.get.return_value = mock_response
@@ -141,22 +143,23 @@ class TestPromptsManager(unittest.TestCase):
             "command": "/test",
             "title": "Old Title",
             "content": "Old content",
-            "access_control": {}
+            "access_control": {},
         }
-        
-        with patch.object(self.prompts_manager, 'get_prompt_by_command', return_value=existing_prompt):
+
+        with patch.object(
+            self.prompts_manager, "get_prompt_by_command", return_value=existing_prompt
+        ):
             mock_response = Mock()
             mock_response.json.return_value = {
                 "command": "/test",
                 "title": "New Title",
-                "content": "Old content"
+                "content": "Old content",
             }
             mock_response.raise_for_status.return_value = None
             self.base_client.session.post.return_value = mock_response
 
             result = self.prompts_manager.update_prompt_by_command(
-                "/test", 
-                title="New Title"
+                "/test", title="New Title"
             )
 
             self.assertIsNotNone(result)
@@ -187,10 +190,10 @@ class TestPromptsManager(unittest.TestCase):
 
     def test_extract_variables(self):
         """Test variable extraction from prompt content."""
-        content = "Hello {{name}}, please {{action | select:options=[\"review\", \"approve\"]}} this {{document}}."
-        
+        content = 'Hello {{name}}, please {{action | select:options=["review", "approve"]}} this {{document}}.'
+
         variables = self.prompts_manager.extract_variables(content)
-        
+
         expected_variables = ["name", "action", "document"]
         self.assertEqual(set(variables), set(expected_variables))
 
@@ -198,9 +201,9 @@ class TestPromptsManager(unittest.TestCase):
         """Test variable substitution in prompt content."""
         content = "Hello {{name}}, your score is {{score}}."
         variables = {"name": "John", "score": 95}
-        
+
         result = self.prompts_manager.substitute_variables(content, variables)
-        
+
         self.assertEqual(result, "Hello John, your score is 95.")
 
     def test_substitute_variables_with_system_vars(self):
@@ -208,17 +211,17 @@ class TestPromptsManager(unittest.TestCase):
         content = "Today is {{CURRENT_DATE}} and user {{name}} has {{points}} points."
         variables = {"name": "Alice", "points": 100}
         system_variables = {"CURRENT_DATE": "2024-01-15"}
-        
+
         result = self.prompts_manager.substitute_variables(
             content, variables, system_variables
         )
-        
+
         self.assertEqual(result, "Today is 2024-01-15 and user Alice has 100 points.")
 
     def test_get_system_variables(self):
         """Test system variables generation."""
         variables = self.prompts_manager.get_system_variables()
-        
+
         self.assertIn("CURRENT_DATE", variables)
         self.assertIn("CURRENT_TIME", variables)
         self.assertIn("CURRENT_DATETIME", variables)
@@ -227,17 +230,27 @@ class TestPromptsManager(unittest.TestCase):
     def test_search_prompts(self):
         """Test prompt searching functionality."""
         mock_prompts = [
-            {"command": "/summarize", "title": "Text Summarizer", "content": "Summarize text"},
-            {"command": "/translate", "title": "Language Translator", "content": "Translate content"},
-            {"command": "/review", "title": "Code Reviewer", "content": "Review code"}
+            {
+                "command": "/summarize",
+                "title": "Text Summarizer",
+                "content": "Summarize text",
+            },
+            {
+                "command": "/translate",
+                "title": "Language Translator",
+                "content": "Translate content",
+            },
+            {"command": "/review", "title": "Code Reviewer", "content": "Review code"},
         ]
-        
-        with patch.object(self.prompts_manager, 'get_prompts', return_value=mock_prompts):
+
+        with patch.object(
+            self.prompts_manager, "get_prompts", return_value=mock_prompts
+        ):
             # Search by title
             results = self.prompts_manager.search_prompts("Summarizer", by_title=True)
             self.assertEqual(len(results), 1)
             self.assertEqual(results[0]["command"], "/summarize")
-            
+
             # Search by command
             results = self.prompts_manager.search_prompts("translate", by_command=True)
             self.assertEqual(len(results), 1)
@@ -247,12 +260,14 @@ class TestPromptsManager(unittest.TestCase):
         """Test successful batch prompt creation."""
         prompts_data = [
             {"command": "/test1", "title": "Test 1", "content": "Content 1"},
-            {"command": "/test2", "title": "Test 2", "content": "Content 2"}
+            {"command": "/test2", "title": "Test 2", "content": "Content 2"},
         ]
-        
-        with patch.object(self.prompts_manager, 'create_prompt', return_value={"success": True}) as mock_create:
+
+        with patch.object(
+            self.prompts_manager, "create_prompt", return_value={"success": True}
+        ) as mock_create:
             result = self.prompts_manager.batch_create_prompts(prompts_data)
-            
+
             self.assertEqual(result["total"], 2)
             self.assertEqual(len(result["success"]), 2)
             self.assertEqual(len(result["failed"]), 0)
@@ -261,10 +276,12 @@ class TestPromptsManager(unittest.TestCase):
     def test_batch_delete_prompts_success(self):
         """Test successful batch prompt deletion."""
         commands = ["/test1", "/test2"]
-        
-        with patch.object(self.prompts_manager, 'delete_prompt_by_command', return_value=True) as mock_delete:
+
+        with patch.object(
+            self.prompts_manager, "delete_prompt_by_command", return_value=True
+        ) as mock_delete:
             result = self.prompts_manager.batch_delete_prompts(commands)
-            
+
             self.assertEqual(result["total"], 2)
             self.assertEqual(len(result["success"]), 2)
             self.assertEqual(len(result["failed"]), 0)
@@ -276,97 +293,121 @@ class TestPromptsManager(unittest.TestCase):
             "command": "/old_test",
             "title": "Old Title",
             "content": "Old content",
-            "access_control": {}
+            "access_control": {},
         }
-        
+
         new_prompt = {
             "command": "/new_test",
             "title": "New Title",
-            "content": "New content"
+            "content": "New content",
         }
-        
-        with patch.object(self.prompts_manager, 'get_prompt_by_command') as mock_get:
-            with patch.object(self.prompts_manager, 'delete_prompt_by_command', return_value=True) as mock_delete:
-                with patch.object(self.prompts_manager, 'create_prompt', return_value=new_prompt) as mock_create:
+
+        with patch.object(self.prompts_manager, "get_prompt_by_command") as mock_get:
+            with patch.object(
+                self.prompts_manager, "delete_prompt_by_command", return_value=True
+            ) as mock_delete:
+                with patch.object(
+                    self.prompts_manager, "create_prompt", return_value=new_prompt
+                ) as mock_create:
                     # First call returns old prompt, second call returns None (checking if new command exists)
                     mock_get.side_effect = [old_prompt, None]
-                    
+
                     result = self.prompts_manager.replace_prompt_by_command(
                         "/old_test", "/new_test", "New Title", "New content"
                     )
-                    
+
                     self.assertIsNotNone(result)
                     self.assertEqual(result["command"], "/new_test")
                     self.assertEqual(result["title"], "New Title")
                     mock_delete.assert_called_once_with("/old_test")
-                    mock_create.assert_called_once_with("/new_test", "New Title", "New content", None)
+                    mock_create.assert_called_once_with(
+                        "/new_test", "New Title", "New content", None
+                    )
 
     def test_replace_prompt_by_command_old_not_found(self):
         """Test replacement when old prompt doesn't exist."""
-        with patch.object(self.prompts_manager, 'get_prompt_by_command', return_value=None):
+        with patch.object(
+            self.prompts_manager, "get_prompt_by_command", return_value=None
+        ):
             result = self.prompts_manager.replace_prompt_by_command(
                 "/nonexistent", "/new_test", "New Title", "New content"
             )
-            
+
             self.assertIsNone(result)
 
     def test_replace_prompt_by_command_new_exists(self):
         """Test replacement when new command already exists."""
-        old_prompt = {"command": "/old_test", "title": "Old Title", "content": "Old content"}
-        new_prompt = {"command": "/new_test", "title": "Existing Title", "content": "Existing content"}
-        
-        with patch.object(self.prompts_manager, 'get_prompt_by_command') as mock_get:
+        old_prompt = {
+            "command": "/old_test",
+            "title": "Old Title",
+            "content": "Old content",
+        }
+        new_prompt = {
+            "command": "/new_test",
+            "title": "Existing Title",
+            "content": "Existing content",
+        }
+
+        with patch.object(self.prompts_manager, "get_prompt_by_command") as mock_get:
             # First call returns old prompt, second call returns existing new prompt
             mock_get.side_effect = [old_prompt, new_prompt]
-            
+
             result = self.prompts_manager.replace_prompt_by_command(
                 "/old_test", "/new_test", "New Title", "New content"
             )
-            
+
             self.assertIsNone(result)
 
     def test_replace_prompt_by_command_delete_failed(self):
         """Test replacement when deletion fails."""
-        old_prompt = {"command": "/old_test", "title": "Old Title", "content": "Old content"}
-        
-        with patch.object(self.prompts_manager, 'get_prompt_by_command') as mock_get:
-            with patch.object(self.prompts_manager, 'delete_prompt_by_command', return_value=False):
+        old_prompt = {
+            "command": "/old_test",
+            "title": "Old Title",
+            "content": "Old content",
+        }
+
+        with patch.object(self.prompts_manager, "get_prompt_by_command") as mock_get:
+            with patch.object(
+                self.prompts_manager, "delete_prompt_by_command", return_value=False
+            ):
                 # First call returns old prompt, second call returns None (new command doesn't exist)
                 mock_get.side_effect = [old_prompt, None]
-                
+
                 result = self.prompts_manager.replace_prompt_by_command(
                     "/old_test", "/new_test", "New Title", "New content"
                 )
-                
+
                 self.assertIsNone(result)
 
     def test_replace_prompt_by_command_create_failed_with_restore(self):
         """Test replacement when creation fails and restoration succeeds."""
         old_prompt = {
             "command": "/old_test",
-            "title": "Old Title", 
+            "title": "Old Title",
             "content": "Old content",
-            "access_control": {}
+            "access_control": {},
         }
-        
+
         restored_prompt = {
             "command": "/old_test",
             "title": "Old Title",
-            "content": "Old content"
+            "content": "Old content",
         }
-        
-        with patch.object(self.prompts_manager, 'get_prompt_by_command') as mock_get:
-            with patch.object(self.prompts_manager, 'delete_prompt_by_command', return_value=True):
-                with patch.object(self.prompts_manager, 'create_prompt') as mock_create:
+
+        with patch.object(self.prompts_manager, "get_prompt_by_command") as mock_get:
+            with patch.object(
+                self.prompts_manager, "delete_prompt_by_command", return_value=True
+            ):
+                with patch.object(self.prompts_manager, "create_prompt") as mock_create:
                     # First call returns old prompt, second call returns None (new command doesn't exist)
                     mock_get.side_effect = [old_prompt, None]
                     # First create call fails, second succeeds (restoration)
                     mock_create.side_effect = [None, restored_prompt]
-                    
+
                     result = self.prompts_manager.replace_prompt_by_command(
                         "/old_test", "/new_test", "New Title", "New content"
                     )
-                    
+
                     self.assertIsNone(result)
                     # Should have tried to create new prompt and then restore
                     self.assertEqual(mock_create.call_count, 2)
@@ -377,57 +418,64 @@ class TestOpenWebUIClientPromptsIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up test client."""
-        with patch('openwebui_chat_client.openwebui_chat_client.ModelManager'):
+        with patch("openwebui_chat_client.openwebui_chat_client.ModelManager"):
             self.client = OpenWebUIClient(
                 base_url="http://localhost:3000",
-                token="test_token", 
+                token="test_token",
                 default_model_id="test-model",
-                skip_model_refresh=True
+                skip_model_refresh=True,
             )
 
     def test_prompts_manager_initialized(self):
         """Test that prompts manager is properly initialized."""
         self.assertIsNotNone(self.client._prompts_manager)
         self.assertEqual(
-            self.client._prompts_manager.base_client, 
-            self.client._base_client
+            self.client._prompts_manager.base_client, self.client._base_client
         )
 
     def test_prompts_methods_delegated(self):
         """Test that prompts methods are properly delegated."""
         # Test that methods exist and are callable
-        self.assertTrue(hasattr(self.client, 'get_prompts'))
-        self.assertTrue(hasattr(self.client, 'create_prompt'))
-        self.assertTrue(hasattr(self.client, 'get_prompt_by_command'))
-        self.assertTrue(hasattr(self.client, 'update_prompt_by_command'))
-        self.assertTrue(hasattr(self.client, 'delete_prompt_by_command'))
-        self.assertTrue(hasattr(self.client, 'search_prompts'))
-        self.assertTrue(hasattr(self.client, 'extract_variables'))
-        self.assertTrue(hasattr(self.client, 'substitute_variables'))
+        self.assertTrue(hasattr(self.client, "get_prompts"))
+        self.assertTrue(hasattr(self.client, "create_prompt"))
+        self.assertTrue(hasattr(self.client, "get_prompt_by_command"))
+        self.assertTrue(hasattr(self.client, "update_prompt_by_command"))
+        self.assertTrue(hasattr(self.client, "delete_prompt_by_command"))
+        self.assertTrue(hasattr(self.client, "search_prompts"))
+        self.assertTrue(hasattr(self.client, "extract_variables"))
+        self.assertTrue(hasattr(self.client, "substitute_variables"))
 
     def test_get_prompts_delegation(self):
         """Test get_prompts method delegation."""
-        with patch.object(self.client._prompts_manager, 'get_prompts', return_value=[]) as mock_method:
-            result = self.client.get_prompts()
+        with patch.object(
+            self.client._prompts_manager, "get_prompts", return_value=[]
+        ) as mock_method:
+            self.client.get_prompts()
             mock_method.assert_called_once()
 
     def test_create_prompt_delegation(self):
         """Test create_prompt method delegation."""
-        with patch.object(self.client._prompts_manager, 'create_prompt', return_value={}) as mock_method:
-            result = self.client.create_prompt("/test", "Test", "Content")
+        with patch.object(
+            self.client._prompts_manager, "create_prompt", return_value={}
+        ) as mock_method:
+            self.client.create_prompt("/test", "Test", "Content")
             mock_method.assert_called_once_with("/test", "Test", "Content", None)
 
     def test_replace_prompt_by_command_method_exists(self):
         """Test that replace_prompt_by_command method exists and is callable."""
-        self.assertTrue(hasattr(self.client, 'replace_prompt_by_command'))
-        self.assertTrue(callable(getattr(self.client, 'replace_prompt_by_command')))
+        self.assertTrue(hasattr(self.client, "replace_prompt_by_command"))
+        self.assertTrue(callable(self.client.replace_prompt_by_command))
 
     def test_replace_prompt_by_command_delegation(self):
         """Test replace_prompt_by_command method delegation."""
-        with patch.object(self.client._prompts_manager, 'replace_prompt_by_command', return_value={}) as mock_method:
-            result = self.client.replace_prompt_by_command("/old", "/new", "Title", "Content")
-            mock_method.assert_called_once_with("/old", "/new", "Title", "Content", None)
+        with patch.object(
+            self.client._prompts_manager, "replace_prompt_by_command", return_value={}
+        ) as mock_method:
+            self.client.replace_prompt_by_command("/old", "/new", "Title", "Content")
+            mock_method.assert_called_once_with(
+                "/old", "/new", "Title", "Content", None
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

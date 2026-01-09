@@ -3,9 +3,9 @@ Async Chat management module for OpenWebUI Chat Client.
 """
 
 import asyncio
-import logging
 import json
-from typing import Optional, List, Dict, Any, AsyncGenerator, TYPE_CHECKING
+import logging
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
 
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
@@ -308,41 +308,45 @@ class AsyncChatManager:
                 return await self._load_chat_details(chat_id)
         return (None, None)
 
-    async def _load_chat_details(self, chat_id: str, max_retries: int = 3, retry_delay: float = 1.0) -> tuple:
+    async def _load_chat_details(
+        self, chat_id: str, max_retries: int = 3, retry_delay: float = 1.0
+    ) -> tuple:
         """Load chat details. Returns (chat_id, chat_object) tuple.
-        
+
         Args:
             chat_id: The ID of the chat to load
             max_retries: Maximum number of retries for transient errors (default: 3)
             retry_delay: Delay in seconds between retries (default: 1.0)
         """
         import httpx
-        
+
         last_error = None
         for attempt in range(max_retries):
             try:
                 if attempt > 0:
-                    logger.info(f"🔄 Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay...")
+                    logger.info(
+                        f"🔄 Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay..."
+                    )
                     await asyncio.sleep(retry_delay)
-                
-                url = f"/api/v1/chats/{chat_id}".lstrip('/')
+
+                url = f"/api/v1/chats/{chat_id}".lstrip("/")
                 response = await self.base_client.client.get(
-                    url,
-                    headers=self.base_client.json_headers,
-                    timeout=30
+                    url, headers=self.base_client.json_headers, timeout=30
                 )
-                
+
                 # Handle 401 errors with retry (can be transient after chat creation)
                 if response.status_code == 401:
-                    logger.warning(f"⚠️ Got 401 Unauthorized on attempt {attempt + 1}/{max_retries}")
+                    logger.warning(
+                        f"⚠️ Got 401 Unauthorized on attempt {attempt + 1}/{max_retries}"
+                    )
                     if attempt < max_retries - 1:
                         last_error = "401 Unauthorized"
                         continue  # Retry
                     else:
                         response.raise_for_status()
-                
+
                 response.raise_for_status()
-                
+
                 details = response.json()
                 if details:
                     # Also update shared state for backward compatibility
@@ -350,7 +354,7 @@ class AsyncChatManager:
                     self.base_client.chat_object_from_server = details
                     return (chat_id, details)
                 return (None, None)
-                
+
             except httpx.TimeoutException as e:
                 logger.error(f"❌ Chat details load timeout: {e}")
                 last_error = str(e)
@@ -358,7 +362,9 @@ class AsyncChatManager:
                     continue
                 return (None, None)
             except httpx.HTTPStatusError as e:
-                logger.error(f"❌ Chat details load HTTP error {e.response.status_code}: {e}")
+                logger.error(
+                    f"❌ Chat details load HTTP error {e.response.status_code}: {e}"
+                )
                 return (None, None)
             except httpx.RequestError as e:
                 logger.error(f"❌ Chat details load request error: {e}")
@@ -369,8 +375,10 @@ class AsyncChatManager:
             except Exception as e:
                 logger.error(f"❌ Unexpected error loading chat details: {e}")
                 return (None, None)
-        
-        logger.error(f"❌ Failed to load chat details after {max_retries} attempts. Last error: {last_error}")
+
+        logger.error(
+            f"❌ Failed to load chat details after {max_retries} attempts. Last error: {last_error}"
+        )
         return (None, None)
 
     async def _ask(
@@ -384,8 +392,8 @@ class AsyncChatManager:
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
     ) -> Optional[Dict[str, Any]]:
-        import uuid
         import time
+        import uuid
 
         # Use local copy of chat_core for concurrency safety
         chat_core = chat_object["chat"]
@@ -521,7 +529,6 @@ class AsyncChatManager:
         tool_ids: Optional[List[str]] = None,
         enable_follow_up: bool = False,
     ) -> AsyncGenerator[str, None]:
-        import uuid
         import time
 
         # Use local copy of chat_core for concurrency safety
@@ -830,8 +837,8 @@ class AsyncChatManager:
         Ensures there are enough placeholder message pairs available for streaming.
         Creates placeholder pairs that form a proper multi-turn conversation chain.
         """
-        import uuid
         import time
+        import uuid
 
         chat_core = chat_object["chat"]
         chat_core.setdefault("history", {"messages": {}, "currentId": None})

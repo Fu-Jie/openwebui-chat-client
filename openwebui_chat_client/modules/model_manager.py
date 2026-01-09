@@ -5,10 +5,10 @@ Handles all model-related operations including CRUD operations and permissions.
 
 import json
 import logging
-import requests
-import time
-from typing import Optional, List, Dict, Any, Union, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ModelManager:
     """
     Handles all model-related operations for the OpenWebUI client.
-    
+
     This class manages:
     - Model listing and retrieval
     - Model creation and updates
@@ -24,11 +24,11 @@ class ModelManager:
     - Model permissions and access control
     - Group management for model permissions
     """
-    
+
     def __init__(self, base_client, skip_initial_refresh: bool = False):
         """
         Initialize the model manager.
-        
+
         Args:
             base_client: The base client instance for making API requests
             skip_initial_refresh: If True, skip the initial refresh of available models (useful for testing)
@@ -37,13 +37,15 @@ class ModelManager:
         self.available_model_ids: List[str] = []
         if not skip_initial_refresh:
             self._refresh_available_models()
-    
+
     def _refresh_available_models(self):
         """Refresh the list of available model IDs."""
         models = self.list_models()
         if models:
-            self.available_model_ids = [model.get('id', '') for model in models if model.get('id')]
-    
+            self.available_model_ids = [
+                model.get("id", "") for model in models if model.get("id")
+            ]
+
     def list_models(self) -> Optional[List[Dict[str, Any]]]:
         """
         Lists all available models for the user, including base models and user-created custom models. Excludes disabled base models. This corresponds to the model list shown in the top left of the chat page.
@@ -51,8 +53,8 @@ class ModelManager:
         logger.info("Listing all available models for the user...")
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/models?refresh=true", 
-                headers=self.base_client.json_headers
+                f"{self.base_client.base_url}/api/models?refresh=true",
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             data = response.json()
@@ -75,7 +77,7 @@ class ModelManager:
             return None
         except json.JSONDecodeError:
             logger.error(
-                f"Failed to decode JSON response when listing all models. Invalid JSON received."
+                "Failed to decode JSON response when listing all models. Invalid JSON received."
             )
             return None
 
@@ -87,8 +89,8 @@ class ModelManager:
         logger.info("Listing all  base models...")
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/models/base", 
-                headers=self.base_client.json_headers
+                f"{self.base_client.base_url}/api/models/base",
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             data = response.json()
@@ -111,7 +113,7 @@ class ModelManager:
             return None
         except json.JSONDecodeError:
             logger.error(
-                f"Failed to decode JSON response when listing base models. Invalid JSON received."
+                "Failed to decode JSON response when listing base models. Invalid JSON received."
             )
             return None
 
@@ -123,8 +125,8 @@ class ModelManager:
         logger.info("Listing all custom models...")
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/v1/models", 
-                headers=self.base_client.json_headers
+                f"{self.base_client.base_url}/api/v1/models",
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             data = response.json()
@@ -142,14 +144,14 @@ class ModelManager:
             return None
         except json.JSONDecodeError:
             logger.error(
-                f"Failed to decode JSON response when listing custom models. Invalid JSON received."
+                "Failed to decode JSON response when listing custom models. Invalid JSON received."
             )
             return None
 
     def list_groups(self) -> Optional[List[Dict[str, Any]]]:
         """
         Lists all available groups from the Open WebUI instance.
-        
+
         Returns:
             A list of group dictionaries containing id, name, and other metadata,
             or None if the request fails.
@@ -157,8 +159,8 @@ class ModelManager:
         logger.info("Listing all available groups...")
         try:
             response = self.base_client.session.get(
-                f"{self.base_client.base_url}/api/v1/groups/", 
-                headers=self.base_client.json_headers
+                f"{self.base_client.base_url}/api/v1/groups/",
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             data = response.json()
@@ -176,7 +178,7 @@ class ModelManager:
             return None
         except json.JSONDecodeError:
             logger.error(
-                f"Failed to decode JSON response when listing groups. Invalid JSON received."
+                "Failed to decode JSON response when listing groups. Invalid JSON received."
             )
             return None
 
@@ -212,7 +214,7 @@ class ModelManager:
             response = self.base_client.session.get(
                 f"{self.base_client.base_url}/api/v1/models/model",
                 params={"id": model_id},
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             if response.status_code == 401:
                 # Model exists locally but not initialized in backend, try to create it
@@ -233,7 +235,7 @@ class ModelManager:
                 response = self.base_client.session.get(
                     f"{self.base_client.base_url}/api/v1/models/model",
                     params={"id": model_id},
-                    headers=self.base_client.json_headers
+                    headers=self.base_client.json_headers,
                 )
             response.raise_for_status()
             model_data = response.json()
@@ -324,8 +326,8 @@ class ModelManager:
         try:
             response = self.base_client.session.post(
                 f"{self.base_client.base_url}/api/v1/models/create",
-                json=model_data, 
-                headers=self.base_client.json_headers
+                json=model_data,
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             created_model = response.json()
@@ -385,23 +387,31 @@ class ModelManager:
         update_data = current_model.copy()
 
         # Update top-level fields
-        if name is not None: update_data['name'] = name
-        if base_model_id is not None: update_data['base_model_id'] = base_model_id
-        if is_active is not None: update_data['is_active'] = is_active
-        if params is not None: update_data['params'] = params
+        if name is not None:
+            update_data["name"] = name
+        if base_model_id is not None:
+            update_data["base_model_id"] = base_model_id
+        if is_active is not None:
+            update_data["is_active"] = is_active
+        if params is not None:
+            update_data["params"] = params
 
         # Update meta fields, merging with existing meta
         meta_update = {}
-        if description is not None: meta_update['description'] = description
-        if profile_image_url is not None: meta_update['profile_image_url'] = profile_image_url
-        if suggestion_prompts is not None: meta_update['suggestion_prompts'] = suggestion_prompts
-        if tags is not None: 
+        if description is not None:
+            meta_update["description"] = description
+        if profile_image_url is not None:
+            meta_update["profile_image_url"] = profile_image_url
+        if suggestion_prompts is not None:
+            meta_update["suggestion_prompts"] = suggestion_prompts
+        if tags is not None:
             # [{"name": "tag1"}, {"name": "tag2"}] -> ["tag1", "tag2"]
-            meta_update['tags'] = [{"name": tag} for tag in tags]
-        if capabilities is not None: meta_update['capabilities'] = capabilities
+            meta_update["tags"] = [{"name": tag} for tag in tags]
+        if capabilities is not None:
+            meta_update["capabilities"] = capabilities
 
         if meta_update:
-            update_data['meta'] = {**current_model.get('meta', {}), **meta_update}
+            update_data["meta"] = {**current_model.get("meta", {}), **meta_update}
 
         # Handle permission updates only if permission_type is explicitly provided
         if permission_type is not None:
@@ -419,7 +429,7 @@ class ModelManager:
                 f"{self.base_client.base_url}/api/v1/models/model/update",
                 params={"id": model_id},
                 json=update_data,
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             response.raise_for_status()
             updated_model = response.json()
@@ -456,14 +466,14 @@ class ModelManager:
             response = self.base_client.session.delete(
                 f"{self.base_client.base_url}/api/v1/models/model/delete",
                 params={"id": model_id},
-                headers=self.base_client.json_headers
+                headers=self.base_client.json_headers,
             )
             if response.status_code == 405:
                 logger.warning("DELETE not allowed, retrying with POST fallback.")
                 response = self.base_client.session.post(
                     f"{self.base_client.base_url}/api/v1/models/model/delete",
                     params={"id": model_id},
-                    headers=self.base_client.json_headers
+                    headers=self.base_client.json_headers,
                 )
                 if response.status_code >= 400:
                     logger.error(
@@ -528,14 +538,17 @@ class ModelManager:
                 else:
                     return model_id, False, f"Failed to update model '{model_id}'"
             except Exception as e:
-                return model_id, False, f"Exception updating model '{model_id}': {str(e)}"
+                return (
+                    model_id,
+                    False,
+                    f"Exception updating model '{model_id}': {str(e)}",
+                )
 
         results = {}
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
             future_to_model = {
-                executor.submit(update_single_model, model): model 
-                for model in models
+                executor.submit(update_single_model, model): model for model in models
             }
 
             # Collect results
@@ -570,49 +583,51 @@ class ModelManager:
     ) -> Union[Dict[str, Any], None, bool]:
         """
         Build access control configuration based on permission type.
-        
+
         Args:
             permission_type: "public", "private", or "group"
             group_identifiers: List of group IDs or names
             user_ids: List of user IDs
-            
+
         Returns:
             Access control dict, None for public, or False for error
         """
         if permission_type == "public":
             return None
-        
+
         if permission_type == "private":
             return {
                 "read": {"group_ids": [], "user_ids": user_ids or []},
-                "write": {"group_ids": [], "user_ids": user_ids or []}
+                "write": {"group_ids": [], "user_ids": user_ids or []},
             }
-        
+
         if permission_type == "group":
             if not group_identifiers:
                 logger.error("Group identifiers required for group permission type.")
                 return False
-            
+
             # Resolve group names to IDs if needed
             group_ids = self._resolve_group_ids(group_identifiers)
             if group_ids is False:
                 return False
-            
+
             return {
                 "read": {"group_ids": group_ids, "user_ids": user_ids or []},
-                "write": {"group_ids": group_ids, "user_ids": user_ids or []}
+                "write": {"group_ids": group_ids, "user_ids": user_ids or []},
             }
-        
+
         logger.error(f"Invalid permission type: {permission_type}")
         return False
-    
-    def _resolve_group_ids(self, group_identifiers: List[str]) -> Union[List[str], bool]:
+
+    def _resolve_group_ids(
+        self, group_identifiers: List[str]
+    ) -> Union[List[str], bool]:
         """
         Resolve group names to group IDs.
-        
+
         Args:
             group_identifiers: List of group IDs or group names
-            
+
         Returns:
             List of group IDs, or False if resolution fails
         """
@@ -620,11 +635,11 @@ class ModelManager:
         if not groups:
             logger.error("Failed to fetch groups for ID resolution.")
             return False
-        
+
         # Create mapping of names to IDs
         name_to_id = {group.get("name", ""): group.get("id", "") for group in groups}
         id_to_name = {group.get("id", ""): group.get("name", "") for group in groups}
-        
+
         resolved_ids = []
         for identifier in group_identifiers:
             if identifier in id_to_name:
@@ -636,5 +651,5 @@ class ModelManager:
             else:
                 logger.error(f"Group '{identifier}' not found.")
                 return False
-        
+
         return resolved_ids
