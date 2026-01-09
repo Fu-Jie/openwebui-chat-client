@@ -136,10 +136,11 @@ branch = true
 omit = [
     "*/tests/*",
     "*/__pycache__/*",
+    "*/private_*.py",
 ]
 
 [tool.coverage.report]
-fail_under = 50
+fail_under = 60
 show_missing = true
 skip_covered = false
 exclude_lines = [

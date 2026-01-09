@@ -195,6 +195,7 @@ class BaseClient:
             if param not in params or not params[param]:
                 logger.error(f"Required parameter '{param}' is missing or empty")
                 return False
+        return True
 
     def _upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
         """

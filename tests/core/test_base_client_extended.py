@@ -314,8 +314,8 @@ class TestBaseClientExtended(unittest.TestCase):
         mock_get.assert_not_called()
 
     @patch("requests.Session.get")
-    def test_get_task_model_fallback_to_default(self, mock_get):
-        """Test task model falls back to default model"""
+    def test_get_task_model_missing_in_config(self, mock_get):
+        """Test task model when TASK_MODEL is missing from config"""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {}  # No TASK_MODEL in config
@@ -323,7 +323,7 @@ class TestBaseClientExtended(unittest.TestCase):
 
         result = self.client._get_task_model()
 
-        self.assertEqual(result, self.model)
+        self.assertIsNone(result)
 
     @patch("requests.Session.get")
     def test_get_task_model_request_error(self, mock_get):
@@ -332,7 +332,7 @@ class TestBaseClientExtended(unittest.TestCase):
 
         result = self.client._get_task_model()
 
-        self.assertEqual(result, self.model)
+        self.assertIsNone(result)
 
     def test_url_construction_with_trailing_slash(self):
         """Test URL construction handles trailing slashes correctly"""
