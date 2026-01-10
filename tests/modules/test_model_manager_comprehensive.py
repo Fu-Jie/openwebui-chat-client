@@ -231,9 +231,7 @@ class TestModelManagerComprehensive(unittest.TestCase):
             mock_response_success,
         ]
 
-        with patch.object(
-            self.model_manager, "create_model"
-        ) as mock_create:
+        with patch.object(self.model_manager, "create_model") as mock_create:
             mock_create.return_value = {"id": "test-model"}
             result = self.model_manager.get_model("test-model")
 
@@ -331,8 +329,8 @@ class TestModelManagerComprehensive(unittest.TestCase):
 
         mock_response_fail = Mock()
         mock_response_fail.status_code = 500
-        mock_response_fail.raise_for_status.side_effect = (
-            requests.exceptions.HTTPError("500 Server Error")
+        mock_response_fail.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "500 Server Error"
         )
 
         self.base_client.session.delete.return_value = mock_response_405
