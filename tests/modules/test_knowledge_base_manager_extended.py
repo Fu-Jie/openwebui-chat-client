@@ -60,7 +60,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
         # Mock delete_knowledge_base
         self.manager.delete_knowledge_base = Mock(return_value=True)
 
-        result = self.manager.delete_knowledge_bases_by_keyword("test", case_sensitive=False)
+        result = self.manager.delete_knowledge_bases_by_keyword(
+            "test", case_sensitive=False
+        )
 
         self.assertEqual(result[0], 2)  # successful
         self.assertEqual(result[1], 0)  # failed
@@ -94,7 +96,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
 
         self.manager.delete_knowledge_base = Mock(return_value=True)
 
-        result = self.manager.delete_knowledge_bases_by_keyword("Test", case_sensitive=True)
+        result = self.manager.delete_knowledge_bases_by_keyword(
+            "Test", case_sensitive=True
+        )
 
         self.assertEqual(result[0], 1)  # successful
         self.assertEqual(result[1], 0)  # failed
@@ -119,7 +123,10 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
     def test_delete_by_keyword_list_fails(self):
         """Test deleting knowledge bases when listing fails."""
         import requests
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("Connection error")
+
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "Connection error"
+        )
 
         result = self.manager.delete_knowledge_bases_by_keyword("test")
 
@@ -206,7 +213,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
 
     @patch("openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor")
     @patch("openwebui_chat_client.openwebui_chat_client.as_completed")
-    def test_delete_by_keyword_exception_during_deletion(self, mock_as_completed, mock_executor):
+    def test_delete_by_keyword_exception_during_deletion(
+        self, mock_as_completed, mock_executor
+    ):
         """Test deleting knowledge bases when exception occurs during deletion."""
         mock_kbs = [
             {"id": "kb1", "name": "Test KB 1"},
@@ -244,7 +253,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
             {"name": "KB2", "description": "Second KB", "files": ["file2.txt"]},
         ]
 
-        with patch("openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor") as mock_executor:
+        with patch(
+            "openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor"
+        ) as mock_executor:
             mock_executor_instance = MagicMock()
             mock_executor.return_value.__enter__.return_value = mock_executor_instance
 
@@ -256,7 +267,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
 
             mock_executor_instance.submit.side_effect = [future1, future2]
 
-            with patch("openwebui_chat_client.openwebui_chat_client.as_completed") as mock_as_completed:
+            with patch(
+                "openwebui_chat_client.openwebui_chat_client.as_completed"
+            ) as mock_as_completed:
                 mock_as_completed.return_value = [future1, future2]
 
                 result = self.manager.create_knowledge_bases_with_files(kb_configs)
@@ -273,7 +286,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
             "KB2": ["file3.txt"],
         }
 
-        with patch("openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor") as mock_executor:
+        with patch(
+            "openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor"
+        ) as mock_executor:
             mock_executor_instance = MagicMock()
             mock_executor.return_value.__enter__.return_value = mock_executor_instance
 
@@ -285,7 +300,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
 
             mock_executor_instance.submit.side_effect = [future1, future2]
 
-            with patch("openwebui_chat_client.openwebui_chat_client.as_completed") as mock_as_completed:
+            with patch(
+                "openwebui_chat_client.openwebui_chat_client.as_completed"
+            ) as mock_as_completed:
                 mock_as_completed.return_value = [future1, future2]
 
                 result = self.manager.create_knowledge_bases_with_files(kb_configs)
@@ -306,7 +323,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
             {"name": "KB2", "description": "Second KB", "files": ["file2.txt"]},
         ]
 
-        with patch("openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor") as mock_executor:
+        with patch(
+            "openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor"
+        ) as mock_executor:
             mock_executor_instance = MagicMock()
             mock_executor.return_value.__enter__.return_value = mock_executor_instance
 
@@ -318,7 +337,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
 
             mock_executor_instance.submit.side_effect = [future1, future2]
 
-            with patch("openwebui_chat_client.openwebui_chat_client.as_completed") as mock_as_completed:
+            with patch(
+                "openwebui_chat_client.openwebui_chat_client.as_completed"
+            ) as mock_as_completed:
                 mock_as_completed.return_value = [future1, future2]
 
                 result = self.manager.create_knowledge_bases_with_files(kb_configs)
@@ -334,7 +355,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
             {"name": "KB1", "description": "First KB", "files": ["file1.txt"]},
         ]
 
-        with patch("openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor") as mock_executor:
+        with patch(
+            "openwebui_chat_client.openwebui_chat_client.ThreadPoolExecutor"
+        ) as mock_executor:
             mock_executor_instance = MagicMock()
             mock_executor.return_value.__enter__.return_value = mock_executor_instance
 
@@ -344,7 +367,9 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
 
             mock_executor_instance.submit.return_value = future1
 
-            with patch("openwebui_chat_client.openwebui_chat_client.as_completed") as mock_as_completed:
+            with patch(
+                "openwebui_chat_client.openwebui_chat_client.as_completed"
+            ) as mock_as_completed:
                 mock_as_completed.return_value = [future1]
 
                 result = self.manager.create_knowledge_bases_with_files(kb_configs)
@@ -379,7 +404,10 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
     def test_get_kb_details_http_error(self):
         """Test getting knowledge base details with HTTP error."""
         import requests
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("HTTP 404")
+
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "HTTP 404"
+        )
 
         result = self.manager.get_knowledge_base_details("kb123")
 
@@ -418,7 +446,10 @@ class TestKnowledgeBaseManagerExtended(unittest.TestCase):
     def test_list_knowledge_bases_error(self):
         """Test listing knowledge bases with error."""
         import requests
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("Connection error")
+
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "Connection error"
+        )
 
         result = self.manager.list_knowledge_bases()
 

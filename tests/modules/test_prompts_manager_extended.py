@@ -28,8 +28,16 @@ class TestPromptsManagerExtended(unittest.TestCase):
     def test_search_prompts_by_title(self):
         """Test searching prompts by title."""
         mock_prompts = [
-            {"command": "/sum", "title": "Summarize Text", "content": "Summarize {{text}}"},
-            {"command": "/trans", "title": "Translate", "content": "Translate {{text}}"},
+            {
+                "command": "/sum",
+                "title": "Summarize Text",
+                "content": "Summarize {{text}}",
+            },
+            {
+                "command": "/trans",
+                "title": "Translate",
+                "content": "Translate {{text}}",
+            },
             {"command": "/code", "title": "Code Review", "content": "Review {{code}}"},
         ]
         self.manager.get_prompts = Mock(return_value=mock_prompts)
@@ -47,7 +55,9 @@ class TestPromptsManagerExtended(unittest.TestCase):
         ]
         self.manager.get_prompts = Mock(return_value=mock_prompts)
 
-        results = self.manager.search_prompts(query="sum", by_command=True, by_title=False)
+        results = self.manager.search_prompts(
+            query="sum", by_command=True, by_title=False
+        )
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["command"], "/summarize")
@@ -55,7 +65,11 @@ class TestPromptsManagerExtended(unittest.TestCase):
     def test_search_prompts_by_content(self):
         """Test searching prompts by content."""
         mock_prompts = [
-            {"command": "/test1", "title": "Test 1", "content": "This is a test prompt"},
+            {
+                "command": "/test1",
+                "title": "Test 1",
+                "content": "This is a test prompt",
+            },
             {"command": "/test2", "title": "Test 2", "content": "Another prompt"},
         ]
         self.manager.get_prompts = Mock(return_value=mock_prompts)
@@ -203,7 +217,15 @@ class TestPromptsManagerExtended(unittest.TestCase):
         self.assertRegex(system_vars["CURRENT_TIME"], r"\d{2}:\d{2}:\d{2}")
 
         # Check weekday is a valid day name
-        valid_weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        valid_weekdays = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
         self.assertIn(system_vars["CURRENT_WEEKDAY"], valid_weekdays)
 
     # =============================================================================
@@ -217,10 +239,12 @@ class TestPromptsManagerExtended(unittest.TestCase):
             {"command": "/test2", "title": "Test 2", "content": "Content 2"},
         ]
 
-        self.manager.create_prompt = Mock(side_effect=[
-            {"command": "/test1", "title": "Test 1"},
-            {"command": "/test2", "title": "Test 2"},
-        ])
+        self.manager.create_prompt = Mock(
+            side_effect=[
+                {"command": "/test1", "title": "Test 1"},
+                {"command": "/test2", "title": "Test 2"},
+            ]
+        )
 
         results = self.manager.batch_create_prompts(prompts_data)
 
@@ -236,11 +260,13 @@ class TestPromptsManagerExtended(unittest.TestCase):
             {"command": "/test3", "title": "Test 3", "content": "Content 3"},
         ]
 
-        self.manager.create_prompt = Mock(side_effect=[
-            {"command": "/test1", "title": "Test 1"},
-            None,  # Second one fails
-            {"command": "/test3", "title": "Test 3"},
-        ])
+        self.manager.create_prompt = Mock(
+            side_effect=[
+                {"command": "/test1", "title": "Test 1"},
+                None,  # Second one fails
+                {"command": "/test3", "title": "Test 3"},
+            ]
+        )
 
         results = self.manager.batch_create_prompts(prompts_data)
 
@@ -272,12 +298,16 @@ class TestPromptsManagerExtended(unittest.TestCase):
             {"command": "/test3", "title": "Test 3", "content": "Content 3"},
         ]
 
-        self.manager.create_prompt = Mock(side_effect=[
-            {"command": "/test1"},
-            Exception("Creation failed"),
-        ])
+        self.manager.create_prompt = Mock(
+            side_effect=[
+                {"command": "/test1"},
+                Exception("Creation failed"),
+            ]
+        )
 
-        results = self.manager.batch_create_prompts(prompts_data, continue_on_error=False)
+        results = self.manager.batch_create_prompts(
+            prompts_data, continue_on_error=False
+        )
 
         self.assertEqual(len(results["success"]), 1)
         self.assertEqual(len(results["failed"]), 1)
@@ -336,10 +366,12 @@ class TestPromptsManagerExtended(unittest.TestCase):
         """Test batch deleting prompts stops on first error when continue_on_error=False."""
         commands = ["/test1", "/test2", "/test3"]
 
-        self.manager.delete_prompt_by_command = Mock(side_effect=[
-            True,
-            Exception("Deletion failed"),
-        ])
+        self.manager.delete_prompt_by_command = Mock(
+            side_effect=[
+                True,
+                Exception("Deletion failed"),
+            ]
+        )
 
         results = self.manager.batch_delete_prompts(commands, continue_on_error=False)
 
@@ -376,10 +408,12 @@ class TestPromptsManagerExtended(unittest.TestCase):
 
     def test_replace_prompt_new_already_exists(self):
         """Test replacing prompt when new command already exists."""
-        self.manager.get_prompt_by_command = Mock(side_effect=[
-            {"command": "/old", "title": "Old", "content": "Old content"},
-            {"command": "/new", "title": "Existing", "content": "Existing content"},
-        ])
+        self.manager.get_prompt_by_command = Mock(
+            side_effect=[
+                {"command": "/old", "title": "Old", "content": "Old content"},
+                {"command": "/new", "title": "Existing", "content": "Existing content"},
+            ]
+        )
 
         result = self.manager.replace_prompt_by_command(
             "/old", "/new", "New Title", "New Content"
@@ -389,9 +423,9 @@ class TestPromptsManagerExtended(unittest.TestCase):
 
     def test_replace_prompt_delete_fails(self):
         """Test replacing prompt when deletion fails."""
-        self.manager.get_prompt_by_command = Mock(return_value={
-            "command": "/old", "title": "Old", "content": "Old content"
-        })
+        self.manager.get_prompt_by_command = Mock(
+            return_value={"command": "/old", "title": "Old", "content": "Old content"}
+        )
         self.manager.delete_prompt_by_command = Mock(return_value=False)
 
         result = self.manager.replace_prompt_by_command(
@@ -412,10 +446,12 @@ class TestPromptsManagerExtended(unittest.TestCase):
         # First call returns old prompt, second call returns None (new doesn't exist)
         self.manager.get_prompt_by_command = Mock(side_effect=[old_prompt, None])
         self.manager.delete_prompt_by_command = Mock(return_value=True)
-        self.manager.create_prompt = Mock(side_effect=[
-            None,  # New prompt creation fails
-            {"command": "/old", "title": "Old Title"},  # Restoration succeeds
-        ])
+        self.manager.create_prompt = Mock(
+            side_effect=[
+                None,  # New prompt creation fails
+                {"command": "/old", "title": "Old Title"},  # Restoration succeeds
+            ]
+        )
 
         result = self.manager.replace_prompt_by_command(
             "/old", "/new", "New Title", "New Content"

@@ -46,9 +46,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         }
         self.client._base_client.chat_id = "chat_123"
 
-        result = self.client.deep_research(
-            topic="AI Safety", num_steps=3
-        )
+        result = self.client.deep_research(topic="AI Safety", num_steps=3)
 
         self.assertIsNotNone(result)
         self.assertEqual(result["topic"], "AI Safety")
@@ -61,7 +59,9 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
     def test_deep_research_with_custom_title(self):
         """Test deep research with custom chat title."""
         self.client._chat_manager._perform_research_step.return_value = (
-            "Question", "Answer", "gpt-4"
+            "Question",
+            "Answer",
+            "gpt-4",
         )
         self.client._chat_manager.chat.return_value = {
             "response": "Report",
@@ -70,9 +70,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         self.client._base_client.chat_id = "chat_123"
 
         result = self.client.deep_research(
-            topic="Quantum Computing",
-            chat_title="Custom Research Title",
-            num_steps=1
+            topic="Quantum Computing", chat_title="Custom Research Title", num_steps=1
         )
 
         self.assertIsNotNone(result)
@@ -81,7 +79,9 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
     def test_deep_research_with_general_models(self):
         """Test deep research with custom general models."""
         self.client._chat_manager._perform_research_step.return_value = (
-            "Question", "Answer", "claude-3"
+            "Question",
+            "Answer",
+            "claude-3",
         )
         self.client._chat_manager.chat.return_value = {
             "response": "Report",
@@ -90,9 +90,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         self.client._base_client.chat_id = "chat_123"
 
         result = self.client.deep_research(
-            topic="Machine Learning",
-            num_steps=1,
-            general_models=["claude-3", "gpt-4"]
+            topic="Machine Learning", num_steps=1, general_models=["claude-3", "gpt-4"]
         )
 
         self.assertIsNotNone(result)
@@ -103,7 +101,9 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
     def test_deep_research_with_search_models(self):
         """Test deep research with search-capable models."""
         self.client._chat_manager._perform_research_step.return_value = (
-            "Question", "Answer", "perplexity"
+            "Question",
+            "Answer",
+            "perplexity",
         )
         self.client._chat_manager.chat.return_value = {
             "response": "Report",
@@ -112,9 +112,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         self.client._base_client.chat_id = "chat_123"
 
         result = self.client.deep_research(
-            topic="Current Events",
-            num_steps=1,
-            search_models=["perplexity", "you.com"]
+            topic="Current Events", num_steps=1, search_models=["perplexity", "you.com"]
         )
 
         self.assertIsNotNone(result)
@@ -129,50 +127,51 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             None,  # Step 2 fails
         ]
 
-        result = self.client.deep_research(
-            topic="Failed Research",
-            num_steps=3
-        )
+        result = self.client.deep_research(topic="Failed Research", num_steps=3)
 
         self.assertIsNone(result)
 
     def test_deep_research_final_report_failure(self):
         """Test deep research when final report generation fails."""
         self.client._chat_manager._perform_research_step.return_value = (
-            "Question", "Answer", "gpt-4"
+            "Question",
+            "Answer",
+            "gpt-4",
         )
         # Final report generation fails
         self.client._chat_manager.chat.return_value = None
         self.client._base_client.chat_id = "chat_123"
 
-        result = self.client.deep_research(
-            topic="Report Failure",
-            num_steps=1
-        )
+        result = self.client.deep_research(topic="Report Failure", num_steps=1)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result["final_report"], "Error: Could not generate the final report.")
+        self.assertEqual(
+            result["final_report"], "Error: Could not generate the final report."
+        )
 
     def test_deep_research_empty_response(self):
         """Test deep research when final report has empty response."""
         self.client._chat_manager._perform_research_step.return_value = (
-            "Question", "Answer", "gpt-4"
+            "Question",
+            "Answer",
+            "gpt-4",
         )
         self.client._chat_manager.chat.return_value = {"response": ""}
         self.client._base_client.chat_id = "chat_123"
 
-        result = self.client.deep_research(
-            topic="Empty Response",
-            num_steps=1
-        )
+        result = self.client.deep_research(topic="Empty Response", num_steps=1)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result["final_report"], "Error: Could not generate the final report.")
+        self.assertEqual(
+            result["final_report"], "Error: Could not generate the final report."
+        )
 
     def test_deep_research_no_general_models_fallback(self):
         """Test deep research falls back to default model when no general models provided."""
         self.client._chat_manager._perform_research_step.return_value = (
-            "Question", "Answer", "gpt-4"
+            "Question",
+            "Answer",
+            "gpt-4",
         )
         self.client._chat_manager.chat.return_value = {
             "response": "Report",
@@ -181,9 +180,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         self.client._base_client.chat_id = "chat_123"
 
         result = self.client.deep_research(
-            topic="Default Model Test",
-            num_steps=1,
-            general_models=None
+            topic="Default Model Test", num_steps=1, general_models=None
         )
 
         self.assertIsNotNone(result)
@@ -194,7 +191,9 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
     def test_deep_research_no_search_models(self):
         """Test deep research with no search models provided."""
         self.client._chat_manager._perform_research_step.return_value = (
-            "Question", "Answer", "gpt-4"
+            "Question",
+            "Answer",
+            "gpt-4",
         )
         self.client._chat_manager.chat.return_value = {
             "response": "Report",
@@ -203,9 +202,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         self.client._base_client.chat_id = "chat_123"
 
         result = self.client.deep_research(
-            topic="No Search Models",
-            num_steps=1,
-            search_models=None
+            topic="No Search Models", num_steps=1, search_models=None
         )
 
         self.assertIsNotNone(result)
@@ -221,14 +218,14 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         expected_result = {
             "solution": "Task completed",
             "conversation_history": ["msg1", "msg2"],
-            "todo_list": ["item1", "item2"]
+            "todo_list": ["item1", "item2"],
         }
         self.client._chat_manager.process_task.return_value = expected_result
 
         result = self.client.process_task(
             question="Solve this problem",
             model_id="gpt-4",
-            tool_server_ids="tool_server_1"
+            tool_server_ids="tool_server_1",
         )
 
         self.assertEqual(result, expected_result)
@@ -239,7 +236,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             knowledge_base_name=None,
             max_iterations=25,
             summarize_history=False,
-            decision_model_id=None
+            decision_model_id=None,
         )
 
     def test_process_task_with_knowledge_base(self):
@@ -250,7 +247,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             question="Research question",
             model_id="gpt-4",
             tool_server_ids="tool_server_1",
-            knowledge_base_name="research_kb"
+            knowledge_base_name="research_kb",
         )
 
         self.assertIsNotNone(result)
@@ -265,7 +262,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             question="Complex task",
             model_id="gpt-4",
             tool_server_ids="tool_server_1",
-            max_iterations=50
+            max_iterations=50,
         )
 
         self.assertIsNotNone(result)
@@ -276,14 +273,14 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         """Test task processing with history summarization."""
         self.client._chat_manager.process_task.return_value = {
             "solution": "Done",
-            "conversation_history": "Summarized history"
+            "conversation_history": "Summarized history",
         }
 
         result = self.client.process_task(
             question="Task with summary",
             model_id="gpt-4",
             tool_server_ids="tool_server_1",
-            summarize_history=True
+            summarize_history=True,
         )
 
         self.assertIsNotNone(result)
@@ -298,7 +295,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             question="Task with decisions",
             model_id="gpt-4",
             tool_server_ids="tool_server_1",
-            decision_model_id="claude-3"
+            decision_model_id="claude-3",
         )
 
         self.assertIsNotNone(result)
@@ -312,7 +309,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         result = self.client.process_task(
             question="Multi-tool task",
             model_id="gpt-4",
-            tool_server_ids=["tool1", "tool2", "tool3"]
+            tool_server_ids=["tool1", "tool2", "tool3"],
         )
 
         self.assertIsNotNone(result)
@@ -324,9 +321,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         self.client._chat_manager.process_task.return_value = None
 
         result = self.client.process_task(
-            question="Failed task",
-            model_id="gpt-4",
-            tool_server_ids="tool_server_1"
+            question="Failed task", model_id="gpt-4", tool_server_ids="tool_server_1"
         )
 
         self.assertIsNone(result)
@@ -336,7 +331,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
         expected_result = {
             "solution": "Complete solution",
             "conversation_history": "Full history",
-            "todo_list": ["task1", "task2"]
+            "todo_list": ["task1", "task2"],
         }
         self.client._chat_manager.process_task.return_value = expected_result
 
@@ -347,7 +342,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             knowledge_base_name="comprehensive_kb",
             max_iterations=100,
             summarize_history=True,
-            decision_model_id="claude-3"
+            decision_model_id="claude-3",
         )
 
         self.assertEqual(result, expected_result)
@@ -358,7 +353,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             knowledge_base_name="comprehensive_kb",
             max_iterations=100,
             summarize_history=True,
-            decision_model_id="claude-3"
+            decision_model_id="claude-3",
         )
 
     # =============================================================================
@@ -367,17 +362,17 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
 
     def test_stream_process_task_basic(self):
         """Test streaming task processing."""
-        mock_generator = iter([
-            {"step": 1, "content": "Step 1"},
-            {"step": 2, "content": "Step 2"},
-            {"solution": "Final result"}
-        ])
+        mock_generator = iter(
+            [
+                {"step": 1, "content": "Step 1"},
+                {"step": 2, "content": "Step 2"},
+                {"solution": "Final result"},
+            ]
+        )
         self.client._chat_manager.stream_process_task.return_value = mock_generator
 
         result = self.client.stream_process_task(
-            question="Stream task",
-            model_id="gpt-4",
-            tool_server_ids="tool_server_1"
+            question="Stream task", model_id="gpt-4", tool_server_ids="tool_server_1"
         )
 
         # Consume the generator
@@ -398,7 +393,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             knowledge_base_name="stream_kb",
             max_iterations=75,
             summarize_history=True,
-            decision_model_id="claude-3"
+            decision_model_id="claude-3",
         )
 
         # Verify the generator is returned
@@ -412,7 +407,7 @@ class TestOpenWebUIClientResearch(unittest.TestCase):
             knowledge_base_name="stream_kb",
             max_iterations=75,
             summarize_history=True,
-            decision_model_id="claude-3"
+            decision_model_id="claude-3",
         )
 
 
