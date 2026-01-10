@@ -6,6 +6,8 @@
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-34D058?style=flat-square)](https://www.python.org/downloads/)
 [![PyPI Downloads](https://static.pepy.tech/badge/openwebui-chat-client)](https://pepy.tech/projects/openwebui-chat-client)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0.html)
+[![Tests](https://github.com/Fu-Jie/openwebui-chat-client/actions/workflows/test.yml/badge.svg)](https://github.com/Fu-Jie/openwebui-chat-client/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/coverage-69%25-yellow?style=flat-square)](https://github.com/Fu-Jie/openwebui-chat-client/actions/workflows/coverage.yml)
 
 **openwebui-chat-client** is a comprehensive, stateful Python client library for the [Open WebUI](https://github.com/open-webui/open-webui) API. It enables intelligent interaction with Open WebUI, supporting single/multi-model chats, tool usage, file uploads, Retrieval-Augmented Generation (RAG), knowledge base management, and advanced chat organization features.
 
