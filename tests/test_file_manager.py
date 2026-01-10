@@ -3,9 +3,8 @@ Tests for FileManager module.
 """
 
 import base64
-import os
 import unittest
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 from openwebui_chat_client.modules.file_manager import FileManager
 
@@ -86,7 +85,7 @@ class TestFileManager(unittest.TestCase):
         self.assertIsNone(result)
 
     @patch("os.path.exists")
-    @patch("builtins.open", side_effect=IOError("Cannot read file"))
+    @patch("builtins.open", side_effect=OSError("Cannot read file"))
     def test_upload_file_read_error(self, mock_file, mock_exists):
         """Test upload_file when file cannot be read"""
         mock_exists.return_value = True
@@ -176,7 +175,7 @@ class TestFileManager(unittest.TestCase):
         self.assertTrue(result.startswith("data:application/octet-stream;base64,"))
 
     @patch("os.path.exists")
-    @patch("builtins.open", side_effect=IOError("Cannot read file"))
+    @patch("builtins.open", side_effect=OSError("Cannot read file"))
     def test_encode_image_to_base64_read_error(self, mock_file, mock_exists):
         """Test encode_image_to_base64 when file cannot be read"""
         mock_exists.return_value = True

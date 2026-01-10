@@ -2,9 +2,7 @@
 Tests for AsyncChatManager module.
 """
 
-import json
-from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 

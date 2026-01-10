@@ -3,7 +3,6 @@ Tests for AsyncFileManager module.
 """
 
 import base64
-import os
 import unittest
 from unittest.mock import AsyncMock, Mock, mock_open, patch
 
@@ -110,7 +109,7 @@ class TestAsyncFileManager(unittest.TestCase):
         self.assertTrue(result.startswith("data:image/webp;base64,"))
 
     @patch("os.path.exists")
-    @patch("builtins.open", side_effect=IOError("Cannot read file"))
+    @patch("builtins.open", side_effect=OSError("Cannot read file"))
     def test_encode_image_to_base64_read_error(self, mock_file, mock_exists):
         """Test encode_image_to_base64 when file cannot be read"""
         mock_exists.return_value = True

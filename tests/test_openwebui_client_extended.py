@@ -5,10 +5,8 @@ This test file focuses on testing methods in the main OpenWebUIClient class
 that delegate to managers and handle complex operations.
 """
 
-import json
 import unittest
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import patch
 
 from openwebui_chat_client import OpenWebUIClient
 

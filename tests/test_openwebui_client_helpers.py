@@ -5,10 +5,8 @@ This test file focuses on testing internal helper methods in the main
 OpenWebUIClient class that handle chat operations, history building, and API interactions.
 """
 
-import json
 import unittest
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import Mock, patch
 
 import requests
 

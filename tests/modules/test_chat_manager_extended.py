@@ -11,9 +11,8 @@ This test file covers:
 - Helper methods for chat operations
 """
 
-import json
 import unittest
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import MagicMock
 
 from openwebui_chat_client.modules.chat_manager import ChatManager
 

@@ -7,8 +7,7 @@ and error handling.
 
 import json
 import unittest
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock
 
 import requests
 

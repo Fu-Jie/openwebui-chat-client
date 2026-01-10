@@ -5,11 +5,8 @@ This test file focuses on testing advanced methods in the main OpenWebUIClient c
 including update_chat_metadata, archive operations, and find/create chat operations.
 """
 
-import json
-import time
 import unittest
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import Mock, patch
 
 import requests
 

@@ -5,11 +5,8 @@ This test file focuses on testing FileManager methods including
 file upload operations and error handling.
 """
 
-import base64
-import os
 import unittest
-from typing import Any, Dict
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 import requests
 
@@ -69,7 +66,7 @@ class TestFileManagerExtended(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    @patch("builtins.open", side_effect=IOError("Cannot read file"))
+    @patch("builtins.open", side_effect=OSError("Cannot read file"))
     @patch("os.path.exists")
     def test_upload_file_io_error(self, mock_exists, mock_file):
         """Test upload_file handles IO error."""
@@ -132,7 +129,7 @@ class TestFileManagerExtended(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(result.startswith("data:image/webp;base64,"))
 
-    @patch("builtins.open", side_effect=IOError("Cannot read file"))
+    @patch("builtins.open", side_effect=OSError("Cannot read file"))
     @patch("os.path.exists")
     def test_encode_image_to_base64_io_error(self, mock_exists, mock_file):
         """Test encode_image_to_base64 handles IO error."""

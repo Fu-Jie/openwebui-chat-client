@@ -2,11 +2,7 @@
 Tests for ChatManager module (sync version).
 """
 
-import json
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, call, mock_open, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from openwebui_chat_client.modules.chat_manager import ChatManager
 

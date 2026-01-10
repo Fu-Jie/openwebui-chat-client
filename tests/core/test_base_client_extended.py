@@ -281,7 +281,7 @@ class TestBaseClientExtended(unittest.TestCase):
         self.assertIsNone(result)
 
     @patch("os.path.exists")
-    @patch("builtins.open", side_effect=IOError("Cannot read file"))
+    @patch("builtins.open", side_effect=OSError("Cannot read file"))
     def test_upload_file_read_error(self, mock_file, mock_exists):
         """Test file upload when file cannot be read"""
         mock_exists.return_value = True

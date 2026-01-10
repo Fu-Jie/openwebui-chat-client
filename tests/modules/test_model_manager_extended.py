@@ -7,8 +7,7 @@ CRUD operations, error handling, and edge cases.
 
 import json
 import unittest
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import requests
 
@@ -32,7 +31,7 @@ class TestModelManagerExtended(unittest.TestCase):
     def test_initialization_with_refresh(self):
         """Test ModelManager initialization with model refresh."""
         with patch.object(ModelManager, "_refresh_available_models") as mock_refresh:
-            manager = ModelManager(self.base_client, skip_initial_refresh=False)
+            ModelManager(self.base_client, skip_initial_refresh=False)
             mock_refresh.assert_called_once()
 
     def test_refresh_available_models_success(self):
