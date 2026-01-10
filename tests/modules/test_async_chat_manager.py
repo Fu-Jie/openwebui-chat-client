@@ -23,17 +23,17 @@ class TestAsyncChatManager:
         self.mock_base_client.chat_id = None
         self.mock_base_client.chat_object_from_server = None
         self.mock_base_client._first_stream_request = True
-        
+
         # Mock async methods
         self.mock_base_client._get_json_response = AsyncMock()
         self.mock_base_client._make_request = AsyncMock()
         self.mock_base_client._upload_file = AsyncMock()
         self.mock_base_client._get_task_model = AsyncMock()
-        
+
         # Mock httpx client
         self.mock_base_client.client = MagicMock()
         self.mock_base_client.json_headers = {"Content-Type": "application/json"}
-        
+
         self.manager = AsyncChatManager(self.mock_base_client)
 
     def test_initialization(self):
@@ -46,7 +46,7 @@ class TestAsyncChatManager:
         self.mock_base_client._get_json_response.return_value = expected_chats
 
         result = await self.manager.list_chats()
-        
+
         assert result == expected_chats
         self.mock_base_client._get_json_response.assert_called_once_with(
             "GET", "/api/v1/chats/list", params={}
@@ -56,9 +56,9 @@ class TestAsyncChatManager:
         """Test listing chats with page parameter."""
         expected_chats = [{"id": "chat2", "title": "Test Chat 2"}]
         self.mock_base_client._get_json_response.return_value = expected_chats
-        
+
         result = await self.manager.list_chats(page=2)
-        
+
         assert result == expected_chats
         self.mock_base_client._get_json_response.assert_called_once_with(
             "GET", "/api/v1/chats/list", params={"page": 2}
@@ -69,9 +69,9 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.status_code = 200
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager.delete_all_chats()
-        
+
         assert result is True
         self.mock_base_client._make_request.assert_called_once_with(
             "DELETE", "/api/v1/chats/", timeout=30
@@ -82,17 +82,17 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.status_code = 500
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager.delete_all_chats()
-        
+
         assert result is False
 
     async def test_delete_all_chats_exception(self):
         """Test deletion with exception."""
         self.mock_base_client._make_request.side_effect = Exception("Network error")
-        
+
         result = await self.manager.delete_all_chats()
-        
+
         assert result is False
 
     async def test_find_or_create_chat_by_title_existing(self):
@@ -103,17 +103,17 @@ class TestAsyncChatManager:
             {"id": "chat2", "title": "Test Chat", "updated_at": 2000},
         ]
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         # Mock load_chat_details
         with patch.object(
             self.manager, "_load_chat_details", new_callable=AsyncMock
         ) as mock_load:
             mock_load.return_value = ("chat2", {"chat": {"title": "Test Chat"}})
-            
+
             chat_id, chat_object = await self.manager._find_or_create_chat_by_title(
                 "Test Chat"
             )
-            
+
             assert chat_id == "chat2"
             assert chat_object == {"chat": {"title": "Test Chat"}}
             mock_load.assert_called_once_with("chat2")
@@ -123,16 +123,16 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = []
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         with patch.object(
             self.manager, "_create_new_chat", new_callable=AsyncMock
         ) as mock_create:
             mock_create.return_value = ("new_chat", {"chat": {"title": "New Chat"}})
-            
+
             chat_id, chat_object = await self.manager._find_or_create_chat_by_title(
                 "New Chat"
             )
-            
+
             assert chat_id == "new_chat"
             mock_create.assert_called_once_with("New Chat")
 
@@ -141,14 +141,14 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = {"id": "new_chat_id"}
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         with patch.object(
             self.manager, "_load_chat_details", new_callable=AsyncMock
         ) as mock_load:
             mock_load.return_value = ("new_chat_id", {"chat": {"title": "New"}})
-            
+
             chat_id, chat_object = await self.manager._create_new_chat("New")
-            
+
             assert chat_id == "new_chat_id"
             self.mock_base_client._make_request.assert_called_once_with(
                 "POST", "/api/v1/chats/new", json_data={"chat": {"title": "New"}}
@@ -157,9 +157,9 @@ class TestAsyncChatManager:
     async def test_create_new_chat_failure(self):
         """Test failed creation of a new chat."""
         self.mock_base_client._make_request.return_value = None
-        
+
         chat_id, chat_object = await self.manager._create_new_chat("New")
-        
+
         assert chat_id is None
         assert chat_object is None
 
@@ -168,13 +168,13 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"id": "chat1", "chat": {"title": "Test"}}
-        
+
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(return_value=mock_response)
         self.mock_base_client.client = mock_client
-        
+
         chat_id, chat_object = await self.manager._load_chat_details("chat1")
-        
+
         assert chat_id == "chat1"
         assert chat_object == {"id": "chat1", "chat": {"title": "Test"}}
         assert self.mock_base_client.chat_id == "chat1"
@@ -182,46 +182,46 @@ class TestAsyncChatManager:
     async def test_load_chat_details_with_retry(self):
         """Test loading chat details with retry on 401."""
         import httpx
-        
+
         mock_response_401 = MagicMock()
         mock_response_401.status_code = 401
         mock_response_401.raise_for_status.side_effect = httpx.HTTPStatusError(
             "401", request=MagicMock(), response=mock_response_401
         )
-        
+
         mock_response_200 = MagicMock()
         mock_response_200.status_code = 200
         mock_response_200.json.return_value = {"id": "chat1", "chat": {"title": "Test"}}
-        
+
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(side_effect=[mock_response_401, mock_response_200])
         self.mock_base_client.client = mock_client
-        
+
         chat_id, chat_object = await self.manager._load_chat_details("chat1")
-        
+
         assert chat_id == "chat1"
         assert mock_client.get.call_count == 2
 
     async def test_load_chat_details_timeout(self):
         """Test loading chat details with timeout."""
         import httpx
-        
+
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
         self.mock_base_client.client = mock_client
-        
+
         chat_id, chat_object = await self.manager._load_chat_details("chat1")
-        
+
         assert chat_id is None
         assert chat_object is None
 
     async def test_load_chat_details_http_error(self):
         """Test loading chat details with HTTP error."""
         import httpx
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 500
-        
+
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(
             side_effect=httpx.HTTPStatusError(
@@ -229,9 +229,9 @@ class TestAsyncChatManager:
             )
         )
         self.mock_base_client.client = mock_client
-        
+
         chat_id, chat_object = await self.manager._load_chat_details("chat1")
-        
+
         assert chat_id is None
         assert chat_object is None
 
@@ -240,10 +240,10 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.status_code = 200
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         chat_data = {"title": "Updated", "messages": []}
         result = await self.manager._update_remote_chat("chat1", chat_data)
-        
+
         assert result is True
         self.mock_base_client._make_request.assert_called_once_with(
             "POST",
@@ -257,16 +257,16 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.status_code = 500
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._update_remote_chat("chat1", {"title": "Test"})
-        
+
         assert result is False
 
     async def test_update_remote_chat_missing_params(self):
         """Test remote chat update with missing parameters."""
         result = await self.manager._update_remote_chat(None, {"title": "Test"})
         assert result is False
-        
+
         result = await self.manager._update_remote_chat("chat1", None)
         assert result is False
 
@@ -275,16 +275,31 @@ class TestAsyncChatManager:
         chat_data = {
             "history": {
                 "messages": {
-                    "msg1": {"id": "msg1", "role": "user", "content": "Hello", "parentId": None},
-                    "msg2": {"id": "msg2", "role": "assistant", "content": "Hi", "parentId": "msg1"},
-                    "msg3": {"id": "msg3", "role": "user", "content": "How are you?", "parentId": "msg2"},
+                    "msg1": {
+                        "id": "msg1",
+                        "role": "user",
+                        "content": "Hello",
+                        "parentId": None,
+                    },
+                    "msg2": {
+                        "id": "msg2",
+                        "role": "assistant",
+                        "content": "Hi",
+                        "parentId": "msg1",
+                    },
+                    "msg3": {
+                        "id": "msg3",
+                        "role": "user",
+                        "content": "How are you?",
+                        "parentId": "msg2",
+                    },
                 },
                 "currentId": "msg3",
             }
         }
-        
+
         result = self.manager._build_linear_history_for_api(chat_data)
-        
+
         assert len(result) == 3
         assert result[0] == {"role": "user", "content": "Hello"}
         assert result[1] == {"role": "assistant", "content": "Hi"}
@@ -293,9 +308,9 @@ class TestAsyncChatManager:
     def test_build_linear_history_for_api_empty(self):
         """Test building linear history with no current ID."""
         chat_data = {"history": {"messages": {}, "currentId": None}}
-        
+
         result = self.manager._build_linear_history_for_api(chat_data)
-        
+
         assert result == []
 
     def test_build_linear_history_for_storage(self):
@@ -323,9 +338,9 @@ class TestAsyncChatManager:
                 }
             }
         }
-        
+
         result = self.manager._build_linear_history_for_storage(chat_data, "msg2")
-        
+
         assert len(result) == 2
         assert result[0]["role"] == "user"
         assert result[0]["content"] == "Hello"
@@ -336,10 +351,10 @@ class TestAsyncChatManager:
         """Test placeholder message detection."""
         placeholder = {"content": "", "done": False}
         assert self.manager._is_placeholder_message(placeholder) is True
-        
+
         not_placeholder = {"content": "Hello", "done": False}
         assert self.manager._is_placeholder_message(not_placeholder) is False
-        
+
         done_message = {"content": "", "done": True}
         assert self.manager._is_placeholder_message(done_message) is False
 
@@ -375,7 +390,7 @@ class TestAsyncChatManager:
                 }
             }
         }
-        
+
         count = self.manager._count_available_placeholder_pairs(chat_object)
         assert count == 1
 
@@ -405,11 +420,11 @@ class TestAsyncChatManager:
                 }
             }
         }
-        
+
         result = await self.manager._ensure_placeholder_messages(
             "chat1", chat_object, pool_size=30, min_available=10
         )
-        
+
         assert result is True
         # Should not create new messages since we have 15 available (>= 10)
 
@@ -423,16 +438,16 @@ class TestAsyncChatManager:
                 }
             }
         }
-        
+
         with patch.object(
             self.manager, "_update_remote_chat", new_callable=AsyncMock
         ) as mock_update:
             mock_update.return_value = True
-            
+
             result = await self.manager._ensure_placeholder_messages(
                 "chat1", chat_object, pool_size=5, min_available=5
             )
-            
+
             assert result is True
             # Should create 5 pairs (10 messages total)
             assert len(chat_object["chat"]["history"]["messages"]) == 10
@@ -474,9 +489,9 @@ class TestAsyncChatManager:
                 }
             }
         }
-        
+
         count = self.manager._cleanup_unused_placeholder_messages(chat_object)
-        
+
         assert count == 1
         assert "user1" not in chat_object["chat"]["history"]["messages"]
         assert "asst1" not in chat_object["chat"]["history"]["messages"]
@@ -505,28 +520,34 @@ class TestAsyncChatManager:
                 }
             }
         }
-        
+
         result = self.manager._get_next_available_message_pair(chat_object)
-        
+
         assert result == ("user1", "asst1")
         # Should mark as unavailable
-        assert chat_object["chat"]["history"]["messages"]["user1"]["_is_available"] is False
-        assert chat_object["chat"]["history"]["messages"]["asst1"]["_is_available"] is False
+        assert (
+            chat_object["chat"]["history"]["messages"]["user1"]["_is_available"]
+            is False
+        )
+        assert (
+            chat_object["chat"]["history"]["messages"]["asst1"]["_is_available"]
+            is False
+        )
 
     def test_get_next_available_message_pair_none_available(self):
         """Test getting message pair when none available."""
         chat_object = {"chat": {"history": {"messages": {}}}}
-        
+
         result = self.manager._get_next_available_message_pair(chat_object)
-        
+
         assert result is None
 
     async def test_stream_delta_update(self):
         """Test streaming delta update."""
         self.mock_base_client._make_request.return_value = MagicMock()
-        
+
         await self.manager._stream_delta_update("chat1", "msg1", "Hello")
-        
+
         self.mock_base_client._make_request.assert_called_once_with(
             "POST",
             "/api/v1/chats/chat1/messages/msg1/event",
@@ -537,14 +558,14 @@ class TestAsyncChatManager:
     async def test_stream_delta_update_empty_content(self):
         """Test streaming delta update with empty content."""
         await self.manager._stream_delta_update("chat1", "msg1", "  ")
-        
+
         # Should not make request for empty content
         self.mock_base_client._make_request.assert_not_called()
 
     async def test_stream_delta_update_exception(self):
         """Test streaming delta update with exception."""
         self.mock_base_client._make_request.side_effect = Exception("Network error")
-        
+
         # Should not raise exception
         await self.manager._stream_delta_update("chat1", "msg1", "Hello")
 
@@ -552,15 +573,15 @@ class TestAsyncChatManager:
         """Test encoding image to base64."""
         import tempfile
         import os
-        
+
         # Create a temporary image file
-        with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as f:
-            f.write(b'\x89PNG\r\n\x1a\n')  # PNG header
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".png", delete=False) as f:
+            f.write(b"\x89PNG\r\n\x1a\n")  # PNG header
             temp_path = f.name
-        
+
         try:
             result = self.manager._encode_image_to_base64(temp_path)
-            
+
             assert result is not None
             assert result.startswith("data:image/png;base64,")
         finally:
@@ -569,26 +590,26 @@ class TestAsyncChatManager:
     def test_encode_image_to_base64_file_not_found(self):
         """Test encoding non-existent image."""
         result = self.manager._encode_image_to_base64("/nonexistent/image.png")
-        
+
         assert result is None
 
     def test_encode_image_to_base64_different_formats(self):
         """Test encoding different image formats."""
         import tempfile
         import os
-        
+
         formats = [
-            ('.jpg', 'image/jpeg'),
-            ('.jpeg', 'image/jpeg'),
-            ('.gif', 'image/gif'),
-            ('.webp', 'image/webp'),
+            (".jpg", "image/jpeg"),
+            (".jpeg", "image/jpeg"),
+            (".gif", "image/gif"),
+            (".webp", "image/webp"),
         ]
-        
+
         for ext, media_type in formats:
-            with tempfile.NamedTemporaryFile(mode='wb', suffix=ext, delete=False) as f:
-                f.write(b'fake image data')
+            with tempfile.NamedTemporaryFile(mode="wb", suffix=ext, delete=False) as f:
+                f.write(b"fake image data")
                 temp_path = f.name
-            
+
             try:
                 result = self.manager._encode_image_to_base64(temp_path)
                 assert result is not None
@@ -600,11 +621,11 @@ class TestAsyncChatManager:
         """Test handling RAG file references."""
         file_obj = {"id": "file1", "name": "test.pdf"}
         self.mock_base_client._upload_file.return_value = file_obj
-        
+
         api_payload, storage_payload = await self.manager._handle_rag_references(
             rag_files=["test.pdf"]
         )
-        
+
         assert len(api_payload) == 1
         assert api_payload[0] == {"type": "file", "id": "file1"}
         assert len(storage_payload) == 1
@@ -618,13 +639,13 @@ class TestAsyncChatManager:
             "name": "Test KB",
             "files": [{"id": "f1"}, {"id": "f2"}],
         }
-        
+
         self.mock_base_client._get_json_response.side_effect = [kb_list, kb_details]
-        
+
         api_payload, storage_payload = await self.manager._handle_rag_references(
             rag_collections=["Test KB"]
         )
-        
+
         assert len(api_payload) == 1
         assert api_payload[0]["type"] == "collection"
         assert api_payload[0]["id"] == "kb1"
@@ -634,22 +655,22 @@ class TestAsyncChatManager:
         """Test handling both files and collections."""
         file_obj = {"id": "file1", "name": "test.pdf"}
         self.mock_base_client._upload_file.return_value = file_obj
-        
+
         kb_list = [{"id": "kb1", "name": "Test KB"}]
         kb_details = {"id": "kb1", "name": "Test KB", "files": [{"id": "f1"}]}
         self.mock_base_client._get_json_response.side_effect = [kb_list, kb_details]
-        
+
         api_payload, storage_payload = await self.manager._handle_rag_references(
             rag_files=["test.pdf"], rag_collections=["Test KB"]
         )
-        
+
         assert len(api_payload) == 2
         assert len(storage_payload) == 2
 
     async def test_get_follow_up_completions_success(self):
         """Test generating follow-up suggestions."""
         self.mock_base_client._get_task_model.return_value = "task-model"
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "choices": [
@@ -661,88 +682,88 @@ class TestAsyncChatManager:
             ]
         }
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         messages = [{"role": "user", "content": "Hello"}]
         result = await self.manager._get_follow_up_completions(messages)
-        
+
         assert result == ["Question 1?", "Question 2?"]
 
     async def test_get_follow_up_completions_no_task_model(self):
         """Test follow-up generation without task model."""
         self.mock_base_client._get_task_model.return_value = None
-        
+
         result = await self.manager._get_follow_up_completions([])
-        
+
         assert result is None
 
     async def test_get_follow_up_completions_plain_text(self):
         """Test follow-up generation with plain text response."""
         self.mock_base_client._get_task_model.return_value = "task-model"
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "choices": [{"message": {"content": "Question 1?\nQuestion 2?"}}]
         }
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._get_follow_up_completions([])
-        
+
         assert result == ["Question 1?", "Question 2?"]
 
     async def test_get_tags_success(self):
         """Test generating tags."""
         self.mock_base_client._get_task_model.return_value = "task-model"
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "choices": [{"message": {"content": '{"tags": ["python", "async"]}'}}]
         }
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._get_tags([])
-        
+
         assert result == ["python", "async"]
 
     async def test_get_tags_plain_text(self):
         """Test generating tags with plain text response."""
         self.mock_base_client._get_task_model.return_value = "task-model"
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "choices": [{"message": {"content": "python, async, testing"}}]
         }
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._get_tags([])
-        
+
         assert result == ["python", "async", "testing"]
 
     async def test_get_title_success(self):
         """Test generating title."""
         self.mock_base_client._get_task_model.return_value = "task-model"
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "choices": [{"message": {"content": '{"title": "Test Chat Title"}'}}]
         }
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._get_title([])
-        
+
         assert result == "Test Chat Title"
 
     async def test_get_title_plain_text(self):
         """Test generating title with plain text response."""
         self.mock_base_client._get_task_model.return_value = "task-model"
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "choices": [{"message": {"content": "My Chat Title"}}]
         }
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._get_title([])
-        
+
         assert result == "My Chat Title"
 
     async def test_set_chat_tags(self):
@@ -750,29 +771,29 @@ class TestAsyncChatManager:
         # Mock existing tags
         existing_response = MagicMock()
         existing_response.json.return_value = [{"name": "existing"}]
-        
+
         self.mock_base_client._make_request.side_effect = [
             existing_response,
             MagicMock(),  # For new tag
         ]
-        
+
         await self.manager._set_chat_tags("chat1", ["existing", "new"])
-        
+
         # Should only create the new tag
         assert self.mock_base_client._make_request.call_count == 2
 
     async def test_set_chat_tags_empty(self):
         """Test setting empty tags."""
         await self.manager._set_chat_tags("chat1", [])
-        
+
         self.mock_base_client._make_request.assert_not_called()
 
     async def test_rename_chat_success(self):
         """Test renaming chat."""
         self.mock_base_client._make_request.return_value = MagicMock()
-        
+
         result = await self.manager._rename_chat("chat1", "New Title")
-        
+
         assert result is True
         self.mock_base_client._make_request.assert_called_once_with(
             "POST",
@@ -783,9 +804,9 @@ class TestAsyncChatManager:
     async def test_rename_chat_failure(self):
         """Test failed chat rename."""
         self.mock_base_client._make_request.return_value = None
-        
+
         result = await self.manager._rename_chat("chat1", "New Title")
-        
+
         assert result is False
 
     async def test_get_folder_id_by_name_found(self):
@@ -796,9 +817,9 @@ class TestAsyncChatManager:
             {"id": "folder2", "name": "Other Folder"},
         ]
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._get_folder_id_by_name("Test Folder")
-        
+
         assert result == "folder1"
 
     async def test_get_folder_id_by_name_not_found(self):
@@ -806,9 +827,9 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = []
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._get_folder_id_by_name("Nonexistent")
-        
+
         assert result is None
 
     async def test_create_folder_success(self):
@@ -816,9 +837,9 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = {"id": "new_folder"}
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         result = await self.manager._create_folder("New Folder")
-        
+
         assert result == "new_folder"
 
     async def test_create_folder_fallback(self):
@@ -826,22 +847,22 @@ class TestAsyncChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = {}
         self.mock_base_client._make_request.return_value = mock_response
-        
+
         with patch.object(
             self.manager, "_get_folder_id_by_name", new_callable=AsyncMock
         ) as mock_get:
             mock_get.return_value = "folder_id"
-            
+
             result = await self.manager._create_folder("New Folder")
-            
+
             assert result == "folder_id"
 
     async def test_move_chat_to_folder(self):
         """Test moving chat to folder."""
         self.mock_base_client._make_request.return_value = MagicMock()
-        
+
         await self.manager._move_chat_to_folder("chat1", "folder1")
-        
+
         self.mock_base_client._make_request.assert_called_once_with(
             "POST",
             "/api/v1/chats/chat1/folder",
@@ -854,12 +875,12 @@ class TestAsyncChatManager:
             self.manager, "_get_folder_id_by_name", new_callable=AsyncMock
         ) as mock_get:
             mock_get.return_value = "folder1"
-            
+
             with patch.object(
                 self.manager, "_move_chat_to_folder", new_callable=AsyncMock
             ) as mock_move:
                 await self.manager._ensure_folder("chat1", "Test Folder")
-                
+
                 mock_move.assert_called_once_with("chat1", "folder1")
 
     async def test_ensure_folder_create_new(self):
@@ -868,17 +889,17 @@ class TestAsyncChatManager:
             self.manager, "_get_folder_id_by_name", new_callable=AsyncMock
         ) as mock_get:
             mock_get.return_value = None
-            
+
             with patch.object(
                 self.manager, "_create_folder", new_callable=AsyncMock
             ) as mock_create:
                 mock_create.return_value = "new_folder"
-                
+
                 with patch.object(
                     self.manager, "_move_chat_to_folder", new_callable=AsyncMock
                 ) as mock_move:
                     await self.manager._ensure_folder("chat1", "New Folder")
-                    
+
                     mock_create.assert_called_once_with("New Folder")
                     mock_move.assert_called_once_with("chat1", "new_folder")
 
@@ -888,14 +909,12 @@ class TestAsyncChatManager:
             self.manager, "_find_or_create_chat_by_title", new_callable=AsyncMock
         ) as mock_find:
             mock_find.return_value = ("chat1", {"chat": {"history": {"messages": {}}}})
-            
-            with patch.object(
-                self.manager, "_ask", new_callable=AsyncMock
-            ) as mock_ask:
+
+            with patch.object(self.manager, "_ask", new_callable=AsyncMock) as mock_ask:
                 mock_ask.return_value = {"response": "Hello!", "chat_id": "chat1"}
-                
+
                 result = await self.manager.chat("Hi", "Test Chat")
-                
+
                 assert result == {"response": "Hello!", "chat_id": "chat1"}
                 mock_find.assert_called_once_with("Test Chat")
                 mock_ask.assert_called_once()
@@ -906,12 +925,10 @@ class TestAsyncChatManager:
             self.manager, "_find_or_create_chat_by_title", new_callable=AsyncMock
         ) as mock_find:
             mock_find.return_value = ("chat1", {"chat": {"history": {"messages": {}}}})
-            
-            with patch.object(
-                self.manager, "_ask", new_callable=AsyncMock
-            ) as mock_ask:
+
+            with patch.object(self.manager, "_ask", new_callable=AsyncMock) as mock_ask:
                 await self.manager.chat("Hi", "Test", model_id="custom-model")
-                
+
                 # Check that custom model was passed
                 call_args = mock_ask.call_args
                 assert call_args[0][3] == "custom-model"
@@ -922,7 +939,7 @@ class TestAsyncChatManager:
             self.manager, "_find_or_create_chat_by_title", new_callable=AsyncMock
         ) as mock_find:
             mock_find.return_value = (None, None)
-            
+
             result = await self.manager.chat("Hi", "Test")
-            
+
             assert result is None

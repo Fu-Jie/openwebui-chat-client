@@ -32,10 +32,12 @@ class TestNotesManagerExtended(unittest.TestCase):
 
     def test_get_notes_request_exception(self):
         """Test get_notes handles request exception."""
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "Error"
+        )
+
         result = self.manager.get_notes()
-        
+
         self.assertIsNone(result)
 
     def test_get_notes_json_decode_error(self):
@@ -44,9 +46,9 @@ class TestNotesManagerExtended(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.get_notes()
-        
+
         self.assertIsNone(result)
 
     def test_get_notes_list_success(self):
@@ -58,26 +60,30 @@ class TestNotesManagerExtended(unittest.TestCase):
         ]
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.get_notes_list()
-        
+
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 2)
 
     def test_get_notes_list_request_exception(self):
         """Test get_notes_list handles request exception."""
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "Error"
+        )
+
         result = self.manager.get_notes_list()
-        
+
         self.assertIsNone(result)
 
     def test_create_note_request_exception(self):
         """Test create_note handles request exception."""
-        self.base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.create_note("Test Note")
-        
+
         self.assertIsNone(result)
 
     def test_create_note_json_decode_error(self):
@@ -86,9 +92,9 @@ class TestNotesManagerExtended(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.post.return_value = mock_response
-        
+
         result = self.manager.create_note("Test Note")
-        
+
         self.assertIsNone(result)
 
     def test_create_note_with_all_params(self):
@@ -99,27 +105,29 @@ class TestNotesManagerExtended(unittest.TestCase):
             "title": "Test Note",
             "data": {"content": "test"},
             "meta": {"tags": ["test"]},
-            "access_control": {"read": {"user_ids": ["user1"]}}
+            "access_control": {"read": {"user_ids": ["user1"]}},
         }
         mock_response.raise_for_status = Mock()
         self.base_client.session.post.return_value = mock_response
-        
+
         result = self.manager.create_note(
             title="Test Note",
             data={"content": "test"},
             meta={"tags": ["test"]},
-            access_control={"read": {"user_ids": ["user1"]}}
+            access_control={"read": {"user_ids": ["user1"]}},
         )
-        
+
         self.assertIsNotNone(result)
         self.assertEqual(result["id"], "note1")
 
     def test_get_note_by_id_request_exception(self):
         """Test get_note_by_id handles request exception."""
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "Error"
+        )
+
         result = self.manager.get_note_by_id("note1")
-        
+
         self.assertIsNone(result)
 
     def test_get_note_by_id_json_decode_error(self):
@@ -128,17 +136,19 @@ class TestNotesManagerExtended(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.get_note_by_id("note1")
-        
+
         self.assertIsNone(result)
 
     def test_update_note_by_id_request_exception(self):
         """Test update_note_by_id handles request exception."""
-        self.base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.update_note_by_id("note1", title="Updated")
-        
+
         self.assertIsNone(result)
 
     def test_update_note_by_id_json_decode_error(self):
@@ -147,9 +157,9 @@ class TestNotesManagerExtended(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.post.return_value = mock_response
-        
+
         result = self.manager.update_note_by_id("note1", title="Updated")
-        
+
         self.assertIsNone(result)
 
     def test_update_note_by_id_with_all_params(self):
@@ -160,19 +170,19 @@ class TestNotesManagerExtended(unittest.TestCase):
             "title": "Updated Note",
             "data": {"content": "updated"},
             "meta": {"tags": ["updated"]},
-            "access_control": {"read": {"user_ids": ["user2"]}}
+            "access_control": {"read": {"user_ids": ["user2"]}},
         }
         mock_response.raise_for_status = Mock()
         self.base_client.session.post.return_value = mock_response
-        
+
         result = self.manager.update_note_by_id(
             note_id="note1",
             title="Updated Note",
             data={"content": "updated"},
             meta={"tags": ["updated"]},
-            access_control={"read": {"user_ids": ["user2"]}}
+            access_control={"read": {"user_ids": ["user2"]}},
         )
-        
+
         self.assertIsNotNone(result)
         self.assertEqual(result["title"], "Updated Note")
 
@@ -181,17 +191,19 @@ class TestNotesManagerExtended(unittest.TestCase):
         mock_response = Mock()
         mock_response.raise_for_status = Mock()
         self.base_client.session.delete.return_value = mock_response
-        
+
         result = self.manager.delete_note_by_id("note1")
-        
+
         self.assertTrue(result)
 
     def test_delete_note_by_id_request_exception(self):
         """Test delete_note_by_id handles request exception."""
-        self.base_client.session.delete.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.delete.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.delete_note_by_id("note1")
-        
+
         self.assertFalse(result)
 
 

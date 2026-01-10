@@ -251,7 +251,9 @@ class TestChatManagerSwitchModel(unittest.TestCase):
         result = self.manager.switch_chat_model("test-chat-id", "new-model")
 
         self.assertTrue(result)
-        self.assertEqual(self.base_client.chat_object_from_server["chat"]["models"], ["new-model"])
+        self.assertEqual(
+            self.base_client.chat_object_from_server["chat"]["models"], ["new-model"]
+        )
 
     def test_switch_chat_model_same_model(self):
         """Test switch_chat_model when switching to same model."""

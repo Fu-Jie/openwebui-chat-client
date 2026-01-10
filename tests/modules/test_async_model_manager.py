@@ -32,9 +32,7 @@ class TestAsyncModelManager:
     async def test_initialize(self):
         """Test async initialization"""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "data": [{"id": "model1"}, {"id": "model2"}]
-        }
+        mock_response.json.return_value = {"data": [{"id": "model1"}, {"id": "model2"}]}
         self.base_client._make_request.return_value = mock_response
 
         await self.manager.initialize()
@@ -95,16 +93,16 @@ class TestAsyncModelManager:
     async def test_list_base_models_success(self):
         """Test listing base models"""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "data": [{"id": "base1"}, {"id": "base2"}]
-        }
+        mock_response.json.return_value = {"data": [{"id": "base1"}, {"id": "base2"}]}
         self.base_client._make_request.return_value = mock_response
 
         result = await self.manager.list_base_models()
 
         assert result is not None
         assert len(result) == 2
-        self.base_client._make_request.assert_called_once_with("GET", "/api/models/base")
+        self.base_client._make_request.assert_called_once_with(
+            "GET", "/api/models/base"
+        )
 
     async def test_list_base_models_json_error(self):
         """Test list base models with JSON error"""
@@ -203,19 +201,17 @@ class TestAsyncModelManager:
         """Test creating model with minimal parameters"""
         mock_response = Mock()
         mock_response.json.return_value = {"id": "new-model", "name": "New Model"}
-        
+
         # Mock for create and refresh
         mock_list_response = Mock()
         mock_list_response.json.return_value = {"data": [{"id": "new-model"}]}
-        
+
         self.base_client._make_request.side_effect = [
             mock_response,  # create
             mock_list_response,  # refresh
         ]
 
-        result = await self.manager.create_model(
-            model_id="new-model", name="New Model"
-        )
+        result = await self.manager.create_model(model_id="new-model", name="New Model")
 
         assert result is not None
         assert result["id"] == "new-model"
@@ -224,10 +220,10 @@ class TestAsyncModelManager:
         """Test creating model with all parameters"""
         mock_response = Mock()
         mock_response.json.return_value = {"id": "full-model"}
-        
+
         mock_list_response = Mock()
         mock_list_response.json.return_value = {"data": []}
-        
+
         self.base_client._make_request.side_effect = [
             mock_response,
             mock_list_response,
@@ -253,10 +249,10 @@ class TestAsyncModelManager:
         """Test creating model with private permission"""
         mock_response = Mock()
         mock_response.json.return_value = {"id": "private-model"}
-        
+
         mock_list_response = Mock()
         mock_list_response.json.return_value = {"data": []}
-        
+
         self.base_client._make_request.side_effect = [
             mock_response,
             mock_list_response,
@@ -280,10 +276,10 @@ class TestAsyncModelManager:
 
         mock_response = Mock()
         mock_response.json.return_value = {"id": "group-model"}
-        
+
         mock_list_response = Mock()
         mock_list_response.json.return_value = {"data": []}
-        
+
         self.base_client._make_request.side_effect = [
             mock_response,
             mock_list_response,
@@ -427,10 +423,10 @@ class TestAsyncModelManager:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.raise_for_status = Mock()
-        
+
         mock_list_response = Mock()
         mock_list_response.json.return_value = {"data": []}
-        
+
         self.base_client._make_request.side_effect = [
             mock_response,
             mock_list_response,
@@ -448,7 +444,7 @@ class TestAsyncModelManager:
         mock_response_200 = Mock()
         mock_response_200.status_code = 200
         mock_response_200.raise_for_status = Mock()
-        
+
         mock_list_response = Mock()
         mock_list_response.json.return_value = {"data": []}
 

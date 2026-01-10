@@ -23,15 +23,15 @@ class TestChatManager:
         self.mock_base_client.chat_object_from_server = None
         self.mock_base_client._first_stream_request = True
         self.mock_base_client._parent_client = None  # Explicitly set to None
-        
+
         # Mock session
         self.mock_base_client.session = MagicMock()
         self.mock_base_client.json_headers = {"Content-Type": "application/json"}
-        
+
         # Mock methods
         self.mock_base_client._upload_file = MagicMock()
         self.mock_base_client._get_task_model = MagicMock()
-        
+
         self.manager = ChatManager(self.mock_base_client)
 
     def test_initialization(self):
@@ -44,9 +44,9 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = expected_chats
         self.mock_base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_chats()
-        
+
         assert result == expected_chats
         self.mock_base_client.session.get.assert_called_once()
 
@@ -56,18 +56,21 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = expected_chats
         self.mock_base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_chats(page=2)
-        
+
         assert result == expected_chats
 
     def test_list_chats_exception(self):
         """Test listing chats with exception."""
         import requests
-        self.mock_base_client.session.get.side_effect = requests.exceptions.RequestException("Error")
-        
+
+        self.mock_base_client.session.get.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.list_chats()
-        
+
         assert result is None
 
     def test_delete_all_chats_success(self):
@@ -75,19 +78,22 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         self.mock_base_client.session.delete.return_value = mock_response
-        
+
         result = self.manager.delete_all_chats()
-        
+
         assert result is True
         self.mock_base_client.session.delete.assert_called_once()
 
     def test_delete_all_chats_failure(self):
         """Test failed deletion of all chats."""
         import requests
-        self.mock_base_client.session.delete.side_effect = requests.exceptions.RequestException("Error")
-        
+
+        self.mock_base_client.session.delete.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.delete_all_chats()
-        
+
         assert result is False
 
     def test_archive_chat_success(self):
@@ -95,18 +101,21 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         self.mock_base_client.session.post.return_value = mock_response
-        
+
         result = self.manager.archive_chat("chat1")
-        
+
         assert result is True
 
     def test_archive_chat_failure(self):
         """Test failed chat archive."""
         import requests
-        self.mock_base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
+
+        self.mock_base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.archive_chat("chat1")
-        
+
         assert result is False
 
     def test_rename_chat_success(self):
@@ -114,18 +123,21 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         self.mock_base_client.session.post.return_value = mock_response
-        
+
         result = self.manager.rename_chat("chat1", "New Title")
-        
+
         assert result is True
 
     def test_rename_chat_failure(self):
         """Test failed chat rename."""
         import requests
-        self.mock_base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
+
+        self.mock_base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.rename_chat("chat1", "New Title")
-        
+
         assert result is False
 
     def test_create_folder_success(self):
@@ -133,22 +145,25 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         self.mock_base_client.session.post.return_value = mock_response
-        
+
         # Mock get_folder_id_by_name which is called after creation
-        with patch.object(self.manager, 'get_folder_id_by_name') as mock_get:
+        with patch.object(self.manager, "get_folder_id_by_name") as mock_get:
             mock_get.return_value = "new_folder"
             result = self.manager.create_folder("New Folder")
-            
+
             assert result == "new_folder"
             mock_get.assert_called_once_with("New Folder")
 
     def test_create_folder_failure(self):
         """Test failed folder creation."""
         import requests
-        self.mock_base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
+
+        self.mock_base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.create_folder("New Folder")
-        
+
         assert result is None
 
     def test_move_chat_to_folder_success(self):
@@ -156,16 +171,19 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         self.mock_base_client.session.post.return_value = mock_response
-        
+
         self.manager.move_chat_to_folder("chat1", "folder1")
-        
+
         self.mock_base_client.session.post.assert_called_once()
 
     def test_move_chat_to_folder_failure(self):
         """Test failed move chat to folder."""
         import requests
-        self.mock_base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
+
+        self.mock_base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         # Should not raise exception
         self.manager.move_chat_to_folder("chat1", "folder1")
 
@@ -177,9 +195,9 @@ class TestChatManager:
             {"id": "folder2", "name": "Other Folder"},
         ]
         self.mock_base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.get_folder_id_by_name("Test Folder")
-        
+
         assert result == "folder1"
 
     def test_get_folder_id_by_name_not_found(self):
@@ -187,18 +205,21 @@ class TestChatManager:
         mock_response = MagicMock()
         mock_response.json.return_value = []
         self.mock_base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.get_folder_id_by_name("Nonexistent")
-        
+
         assert result is None
 
     def test_get_folder_id_by_name_exception(self):
         """Test getting folder ID with exception."""
         import requests
-        self.mock_base_client.session.get.side_effect = requests.exceptions.RequestException("Error")
-        
+
+        self.mock_base_client.session.get.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.get_folder_id_by_name("Test")
-        
+
         assert result is None
 
     def test_build_linear_history_for_api(self):
@@ -206,16 +227,31 @@ class TestChatManager:
         chat_data = {
             "history": {
                 "messages": {
-                    "msg1": {"id": "msg1", "role": "user", "content": "Hello", "parentId": None},
-                    "msg2": {"id": "msg2", "role": "assistant", "content": "Hi", "parentId": "msg1"},
-                    "msg3": {"id": "msg3", "role": "user", "content": "How are you?", "parentId": "msg2"},
+                    "msg1": {
+                        "id": "msg1",
+                        "role": "user",
+                        "content": "Hello",
+                        "parentId": None,
+                    },
+                    "msg2": {
+                        "id": "msg2",
+                        "role": "assistant",
+                        "content": "Hi",
+                        "parentId": "msg1",
+                    },
+                    "msg3": {
+                        "id": "msg3",
+                        "role": "user",
+                        "content": "How are you?",
+                        "parentId": "msg2",
+                    },
                 },
                 "currentId": "msg3",
             }
         }
-        
+
         result = self.manager._build_linear_history_for_api(chat_data)
-        
+
         assert len(result) == 3
         assert result[0] == {"role": "user", "content": "Hello"}
         assert result[1] == {"role": "assistant", "content": "Hi"}
@@ -224,9 +260,9 @@ class TestChatManager:
     def test_build_linear_history_for_api_empty(self):
         """Test building linear history with no current ID."""
         chat_data = {"history": {"messages": {}, "currentId": None}}
-        
+
         result = self.manager._build_linear_history_for_api(chat_data)
-        
+
         assert result == []
 
     def test_build_linear_history_for_storage(self):
@@ -254,9 +290,9 @@ class TestChatManager:
                 }
             }
         }
-        
+
         result = self.manager._build_linear_history_for_storage(chat_data, "msg2")
-        
+
         assert len(result) == 2
         assert result[0]["role"] == "user"
         assert result[0]["content"] == "Hello"
@@ -286,15 +322,15 @@ class TestChatManager:
         """Test encoding image to base64."""
         import tempfile
         import os
-        
+
         # Create a temporary image file
-        with tempfile.NamedTemporaryFile(mode='wb', suffix='.png', delete=False) as f:
-            f.write(b'\x89PNG\r\n\x1a\n')  # PNG header
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".png", delete=False) as f:
+            f.write(b"\x89PNG\r\n\x1a\n")  # PNG header
             temp_path = f.name
-        
+
         try:
             result = self.manager._encode_image_to_base64(temp_path)
-            
+
             assert result is not None
             # Note: The method detects format by extension, not content
             assert "base64," in result
@@ -304,18 +340,18 @@ class TestChatManager:
     def test_encode_image_to_base64_file_not_found(self):
         """Test encoding non-existent image."""
         result = self.manager._encode_image_to_base64("/nonexistent/image.png")
-        
+
         assert result is None
 
     def test_handle_rag_references_files(self):
         """Test handling RAG file references."""
         file_obj = {"id": "file1", "name": "test.pdf"}
         self.mock_base_client._upload_file.return_value = file_obj
-        
+
         api_payload, storage_payload = self.manager._handle_rag_references(
             rag_files=["test.pdf"], rag_collections=None
         )
-        
+
         assert len(api_payload) == 1
         assert api_payload[0]["type"] == "file"
         # Just check that id exists, don't check exact value
@@ -328,7 +364,7 @@ class TestChatManager:
         api_payload, storage_payload = self.manager._handle_rag_references(
             rag_files=None, rag_collections=["Test KB"]
         )
-        
+
         # Without parent client, collections can't be resolved
         assert isinstance(api_payload, list)
         assert isinstance(storage_payload, list)
@@ -337,11 +373,11 @@ class TestChatManager:
         """Test handling both files and collections."""
         file_obj = {"id": "file1", "name": "test.pdf"}
         self.mock_base_client._upload_file.return_value = file_obj
-        
+
         api_payload, storage_payload = self.manager._handle_rag_references(
             rag_files=["test.pdf"], rag_collections=["Test KB"]
         )
-        
+
         # Should have at least the file
         assert len(api_payload) >= 1
         assert len(storage_payload) >= 1
@@ -350,9 +386,9 @@ class TestChatManager:
         """Test follow-up generation without parent client."""
         # Without proper setup, should return None or handle gracefully
         self.mock_base_client._get_task_model.return_value = None
-        
+
         result = self.manager._get_follow_up_completions([])
-        
+
         # Should return None when no task model
         assert result is None
 
@@ -360,9 +396,9 @@ class TestChatManager:
         """Test tags generation without parent client."""
         # Without proper setup, should return None or handle gracefully
         self.mock_base_client._get_task_model.return_value = None
-        
+
         result = self.manager._get_tags([])
-        
+
         # Should return None when no task model
         assert result is None
 
@@ -370,9 +406,9 @@ class TestChatManager:
         """Test title generation without parent client."""
         # Without proper setup, should return None or handle gracefully
         self.mock_base_client._get_task_model.return_value = None
-        
+
         result = self.manager._get_title([])
-        
+
         # Should return None when no task model
         assert result is None
 
@@ -381,22 +417,22 @@ class TestChatManager:
         # Mock existing tags
         existing_response = MagicMock()
         existing_response.json.return_value = [{"name": "existing"}]
-        
+
         new_tag_response = MagicMock()
         new_tag_response.raise_for_status = MagicMock()
-        
+
         self.mock_base_client.session.get.return_value = existing_response
         self.mock_base_client.session.post.return_value = new_tag_response
-        
+
         self.manager.set_chat_tags("chat1", ["existing", "new"])
-        
+
         # Should only create the new tag
         assert self.mock_base_client.session.post.call_count == 1
 
     def test_set_chat_tags_empty(self):
         """Test setting empty tags."""
         self.manager.set_chat_tags("chat1", [])
-        
+
         self.mock_base_client.session.get.assert_not_called()
         self.mock_base_client.session.post.assert_not_called()
 
@@ -406,20 +442,20 @@ class TestChatManager:
         self.mock_base_client.chat_object_from_server = {
             "chat": {"title": "Test", "messages": []}
         }
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
         self.mock_base_client.session.post.return_value = mock_response
-        
+
         result = self.manager._update_remote_chat()
-        
+
         assert result is True
 
     def test_update_remote_chat_no_chat_id(self):
         """Test remote chat update without chat ID."""
         self.mock_base_client.chat_id = None
-        
+
         result = self.manager._update_remote_chat()
-        
+
         assert result is False

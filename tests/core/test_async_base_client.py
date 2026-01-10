@@ -144,9 +144,7 @@ class TestAsyncBaseClient:
     async def test_make_request_network_error(self):
         """Test network error handling"""
         client = AsyncBaseClient(self.base_url, self.token, self.model)
-        client.client.get = AsyncMock(
-            side_effect=httpx.ConnectError("Network error")
-        )
+        client.client.get = AsyncMock(side_effect=httpx.ConnectError("Network error"))
 
         response = await client._make_request("GET", "/api/test")
 

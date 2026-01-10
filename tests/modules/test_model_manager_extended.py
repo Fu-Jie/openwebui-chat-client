@@ -24,13 +24,13 @@ class TestModelManagerExtended(unittest.TestCase):
         self.base_client.base_url = "http://localhost:3000"
         self.base_client.session = Mock()
         self.base_client.json_headers = {"Authorization": "Bearer test_token"}
-        
+
         # Create manager with skip_initial_refresh=True to avoid API calls
         self.manager = ModelManager(self.base_client, skip_initial_refresh=True)
 
     def test_initialization_with_refresh(self):
         """Test ModelManager initialization with model refresh."""
-        with patch.object(ModelManager, '_refresh_available_models') as mock_refresh:
+        with patch.object(ModelManager, "_refresh_available_models") as mock_refresh:
             manager = ModelManager(self.base_client, skip_initial_refresh=False)
             mock_refresh.assert_called_once()
 
@@ -40,24 +40,24 @@ class TestModelManagerExtended(unittest.TestCase):
             {"id": "model1", "name": "Model 1"},
             {"id": "model2", "name": "Model 2"},
         ]
-        
-        with patch.object(self.manager, 'list_models', return_value=mock_models):
+
+        with patch.object(self.manager, "list_models", return_value=mock_models):
             self.manager._refresh_available_models()
-            
+
             self.assertEqual(self.manager.available_model_ids, ["model1", "model2"])
 
     def test_refresh_available_models_no_models(self):
         """Test _refresh_available_models when no models returned."""
-        with patch.object(self.manager, 'list_models', return_value=None):
+        with patch.object(self.manager, "list_models", return_value=None):
             self.manager._refresh_available_models()
-            
+
             self.assertEqual(self.manager.available_model_ids, [])
 
     def test_refresh_available_models_empty_list(self):
         """Test _refresh_available_models with empty model list."""
-        with patch.object(self.manager, 'list_models', return_value=[]):
+        with patch.object(self.manager, "list_models", return_value=[]):
             self.manager._refresh_available_models()
-            
+
             self.assertEqual(self.manager.available_model_ids, [])
 
     def test_list_models_invalid_response_format(self):
@@ -66,9 +66,9 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response.json.return_value = {"invalid": "format"}
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_models()
-        
+
         self.assertIsNone(result)
 
     def test_list_models_data_not_list(self):
@@ -77,9 +77,9 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response.json.return_value = {"data": "not a list"}
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_models()
-        
+
         self.assertIsNone(result)
 
     def test_list_models_json_decode_error(self):
@@ -88,9 +88,9 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_models()
-        
+
         self.assertIsNone(result)
 
     def test_list_models_request_exception_with_response(self):
@@ -100,9 +100,9 @@ class TestModelManagerExtended(unittest.TestCase):
         error = requests.exceptions.RequestException("API Error")
         error.response = mock_response
         self.base_client.session.get.side_effect = error
-        
+
         result = self.manager.list_models()
-        
+
         self.assertIsNone(result)
 
     def test_list_base_models_invalid_format(self):
@@ -111,9 +111,9 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response.json.return_value = {"invalid": "format"}
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_base_models()
-        
+
         self.assertIsNone(result)
 
     def test_list_base_models_json_decode_error(self):
@@ -122,9 +122,9 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_base_models()
-        
+
         self.assertIsNone(result)
 
     def test_list_custom_models_success(self):
@@ -136,9 +136,9 @@ class TestModelManagerExtended(unittest.TestCase):
         ]
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_custom_models()
-        
+
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 2)
 
@@ -148,17 +148,19 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response.json.return_value = {"invalid": "format"}
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.list_custom_models()
-        
+
         self.assertIsNone(result)
 
     def test_get_model_request_exception(self):
         """Test get_model handles request exception."""
-        self.base_client.session.get.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.get.side_effect = requests.exceptions.RequestException(
+            "Error"
+        )
+
         result = self.manager.get_model("model1")
-        
+
         self.assertIsNone(result)
 
     def test_get_model_json_decode_error(self):
@@ -167,9 +169,9 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.get.return_value = mock_response
-        
+
         result = self.manager.get_model("model1")
-        
+
         self.assertIsNone(result)
 
 
@@ -186,13 +188,12 @@ class TestModelManagerCRUD(unittest.TestCase):
 
     def test_create_model_request_exception(self):
         """Test create_model handles request exception."""
-        self.base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
-        result = self.manager.create_model(
-            model_id="new_model",
-            name="New Model"
+        self.base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
         )
-        
+
+        result = self.manager.create_model(model_id="new_model", name="New Model")
+
         self.assertIsNone(result)
 
     def test_create_model_json_decode_error(self):
@@ -201,23 +202,19 @@ class TestModelManagerCRUD(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.post.return_value = mock_response
-        
-        result = self.manager.create_model(
-            model_id="new_model",
-            name="New Model"
-        )
-        
+
+        result = self.manager.create_model(model_id="new_model", name="New Model")
+
         self.assertIsNone(result)
 
     def test_update_model_request_exception(self):
         """Test update_model handles request exception."""
-        self.base_client.session.post.side_effect = requests.exceptions.RequestException("Error")
-        
-        result = self.manager.update_model(
-            model_id="model1",
-            name="Updated Name"
+        self.base_client.session.post.side_effect = (
+            requests.exceptions.RequestException("Error")
         )
-        
+
+        result = self.manager.update_model(model_id="model1", name="Updated Name")
+
         self.assertIsNone(result)
 
     def test_update_model_json_decode_error(self):
@@ -226,12 +223,9 @@ class TestModelManagerCRUD(unittest.TestCase):
         mock_response.json.side_effect = json.JSONDecodeError("error", "doc", 0)
         mock_response.raise_for_status = Mock()
         self.base_client.session.post.return_value = mock_response
-        
-        result = self.manager.update_model(
-            model_id="model1",
-            name="Updated Name"
-        )
-        
+
+        result = self.manager.update_model(model_id="model1", name="Updated Name")
+
         self.assertIsNone(result)
 
     def test_delete_model_success(self):
@@ -239,17 +233,19 @@ class TestModelManagerCRUD(unittest.TestCase):
         mock_response = Mock()
         mock_response.raise_for_status = Mock()
         self.base_client.session.delete.return_value = mock_response
-        
+
         result = self.manager.delete_model("model1")
-        
+
         self.assertTrue(result)
 
     def test_delete_model_request_exception(self):
         """Test delete_model handles request exception."""
-        self.base_client.session.delete.side_effect = requests.exceptions.RequestException("Error")
-        
+        self.base_client.session.delete.side_effect = (
+            requests.exceptions.RequestException("Error")
+        )
+
         result = self.manager.delete_model("model1")
-        
+
         self.assertFalse(result)
 
 
