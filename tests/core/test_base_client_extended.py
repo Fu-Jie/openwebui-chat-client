@@ -4,7 +4,7 @@ Extended tests for BaseClient core functionality.
 
 import json
 import unittest
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, mock_open, patch
 
 import requests
 

@@ -10,7 +10,6 @@ import pytest
 
 from openwebui_chat_client.modules.async_model_manager import AsyncModelManager
 
-
 pytestmark = pytest.mark.asyncio
 
 

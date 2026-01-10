@@ -11,7 +11,6 @@ import pytest
 
 from openwebui_chat_client.core.async_base_client import AsyncBaseClient
 
-
 # Configure pytest to recognize asyncio tests
 pytestmark = pytest.mark.asyncio
 

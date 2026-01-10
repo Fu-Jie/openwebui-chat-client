@@ -8,12 +8,13 @@ file upload operations and error handling.
 import base64
 import os
 import unittest
-from unittest.mock import MagicMock, Mock, patch, mock_open
-from typing import Dict, Any
+from typing import Any, Dict
+from unittest.mock import MagicMock, Mock, mock_open, patch
+
 import requests
 
-from openwebui_chat_client.modules.file_manager import FileManager
 from openwebui_chat_client.core.base_client import BaseClient
+from openwebui_chat_client.modules.file_manager import FileManager
 
 
 class TestFileManagerExtended(unittest.TestCase):

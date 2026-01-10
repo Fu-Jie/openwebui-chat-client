@@ -5,8 +5,9 @@ This module tests batch operations, search functionality, and variable handling.
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
+from unittest.mock import MagicMock, Mock, patch
+
 from openwebui_chat_client.modules.prompts_manager import PromptsManager
 
 

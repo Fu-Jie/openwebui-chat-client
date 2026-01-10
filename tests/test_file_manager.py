@@ -5,7 +5,7 @@ Tests for FileManager module.
 import base64
 import os
 import unittest
-from unittest.mock import Mock, MagicMock, patch, mock_open
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 from openwebui_chat_client.modules.file_manager import FileManager
 

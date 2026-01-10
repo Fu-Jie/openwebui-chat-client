@@ -8,7 +8,6 @@ import pytest
 
 from openwebui_chat_client.modules.async_user_manager import AsyncUserManager
 
-
 pytestmark = pytest.mark.asyncio
 
 

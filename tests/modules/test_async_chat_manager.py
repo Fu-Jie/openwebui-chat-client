@@ -3,12 +3,12 @@ Tests for AsyncChatManager module.
 """
 
 import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from typing import Any, Dict, List
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
 
 from openwebui_chat_client.modules.async_chat_manager import AsyncChatManager
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -571,8 +571,8 @@ class TestAsyncChatManager:
 
     def test_encode_image_to_base64_success(self):
         """Test encoding image to base64."""
-        import tempfile
         import os
+        import tempfile
 
         # Create a temporary image file
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".png", delete=False) as f:
@@ -595,8 +595,8 @@ class TestAsyncChatManager:
 
     def test_encode_image_to_base64_different_formats(self):
         """Test encoding different image formats."""
-        import tempfile
         import os
+        import tempfile
 
         formats = [
             (".jpg", "image/jpeg"),

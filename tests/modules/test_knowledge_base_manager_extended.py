@@ -5,7 +5,8 @@ This module tests batch operations and keyword-based deletion functionality.
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
 from openwebui_chat_client.modules.knowledge_base_manager import KnowledgeBaseManager
 
 

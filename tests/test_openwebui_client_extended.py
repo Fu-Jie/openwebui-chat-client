@@ -7,8 +7,8 @@ that delegate to managers and handle complex operations.
 
 import json
 import unittest
-from unittest.mock import MagicMock, Mock, patch, call
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+from unittest.mock import MagicMock, Mock, call, patch
 
 from openwebui_chat_client import OpenWebUIClient
 

@@ -13,7 +13,7 @@ This test file covers:
 
 import json
 import unittest
-from unittest.mock import MagicMock, Mock, patch, mock_open
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 from openwebui_chat_client.modules.chat_manager import ChatManager
 

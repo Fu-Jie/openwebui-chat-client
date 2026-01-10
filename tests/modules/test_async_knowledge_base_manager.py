@@ -10,7 +10,6 @@ from openwebui_chat_client.modules.async_knowledge_base_manager import (
     AsyncKnowledgeBaseManager,
 )
 
-
 pytestmark = pytest.mark.asyncio
 
 

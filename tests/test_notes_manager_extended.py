@@ -7,12 +7,13 @@ and error handling.
 
 import json
 import unittest
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, Mock, patch
-from typing import Dict, Any, List
+
 import requests
 
-from openwebui_chat_client.modules.notes_manager import NotesManager
 from openwebui_chat_client.core.base_client import BaseClient
+from openwebui_chat_client.modules.notes_manager import NotesManager
 
 
 class TestNotesManagerExtended(unittest.TestCase):

@@ -5,7 +5,8 @@ This module tests the advanced research and task processing methods of the OpenW
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
 from openwebui_chat_client import OpenWebUIClient
 
 

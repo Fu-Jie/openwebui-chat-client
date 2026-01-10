@@ -3,9 +3,10 @@ Tests for ChatManager module (sync version).
 """
 
 import json
-import pytest
-from unittest.mock import MagicMock, Mock, patch, mock_open, call
 from typing import Any, Dict, List
+from unittest.mock import MagicMock, Mock, call, mock_open, patch
+
+import pytest
 
 from openwebui_chat_client.modules.chat_manager import ChatManager
 
@@ -320,8 +321,8 @@ class TestChatManager:
 
     def test_encode_image_to_base64_success(self):
         """Test encoding image to base64."""
-        import tempfile
         import os
+        import tempfile
 
         # Create a temporary image file
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".png", delete=False) as f:
