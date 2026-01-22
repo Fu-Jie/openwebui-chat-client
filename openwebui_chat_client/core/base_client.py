@@ -24,6 +24,9 @@ class BaseClient:
     - Common utility methods
     """
 
+    # Default timeout: (connect timeout, read timeout)
+    DEFAULT_TIMEOUT = (10, 300)
+
     def __init__(self, base_url: str, token: str, default_model_id: str):
         """
         Initialize the base client.
@@ -45,7 +48,7 @@ class BaseClient:
         retry_strategy = Retry(
             total=3,  # Total number of retries
             backoff_factor=1,  # Wait 1s, 2s, 4s between retries
-            status_forcelist=[500, 502, 503, 504],  # Retry on these server error codes
+            status_forcelist=[408, 429, 500, 502, 503, 504],  # Retry on timeout, rate limit, and server errors
             allowed_methods=[
                 "HEAD",
                 "GET",
@@ -56,7 +59,11 @@ class BaseClient:
                 "TRACE",
             ],
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=20,  # Connection pool size
+            pool_maxsize=20,      # Maximum connections
+        )
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
@@ -81,6 +88,7 @@ class BaseClient:
         params: Optional[Dict[str, Any]] = None,
         files: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        timeout: Optional[tuple] = None,
     ) -> Optional[requests.Response]:
         """
         Make an HTTP request with standardized error handling.
@@ -92,20 +100,22 @@ class BaseClient:
             params: URL parameters
             files: Files for multipart upload
             headers: Additional headers
+            timeout: Request timeout tuple (connect, read). Uses DEFAULT_TIMEOUT if not specified.
 
         Returns:
             Response object or None if request failed
         """
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        timeout = timeout or self.DEFAULT_TIMEOUT
 
         try:
             if method.upper() == "GET":
-                response = self.session.get(url, params=params, headers=headers)
+                response = self.session.get(url, params=params, headers=headers, timeout=timeout)
             elif method.upper() == "POST":
                 if files:
                     # For file uploads, don't use json_headers (multipart/form-data)
                     response = self.session.post(
-                        url, data=json_data, files=files, headers=headers
+                        url, data=json_data, files=files, headers=headers, timeout=timeout
                     )
                 else:
                     # For JSON data
@@ -113,18 +123,18 @@ class BaseClient:
                     if headers:
                         request_headers.update(headers)
                     response = self.session.post(
-                        url, json=json_data, headers=request_headers
+                        url, json=json_data, headers=request_headers, timeout=timeout
                     )
             elif method.upper() == "PUT":
                 request_headers = self.json_headers.copy()
                 if headers:
                     request_headers.update(headers)
                 response = self.session.put(
-                    url, json=json_data, headers=request_headers
+                    url, json=json_data, headers=request_headers, timeout=timeout
                 )
             elif method.upper() == "DELETE":
                 response = self.session.delete(
-                    url, headers=headers or self.json_headers
+                    url, headers=headers or self.json_headers, timeout=timeout
                 )
             else:
                 logger.error(f"Unsupported HTTP method: {method}")
@@ -136,6 +146,10 @@ class BaseClient:
             response.raise_for_status()
             return response
 
+        except requests.exceptions.HTTPError as e:
+            error_detail = self._extract_error_detail(e)
+            logger.error(f"HTTP error for {method} {endpoint}: {error_detail}")
+            return None
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error for {method} {endpoint}: {e}")
             return None
@@ -178,6 +192,25 @@ class BaseClient:
             logger.error(f"Failed to parse JSON response: {e}")
             return None
 
+    def _extract_error_detail(self, error: requests.exceptions.HTTPError) -> str:
+        """
+        Extract error detail from HTTP error response.
+
+        Args:
+            error: HTTPError exception
+
+        Returns:
+            Error detail string from response or exception message
+        """
+        if error.response is None:
+            return str(error)
+
+        try:
+            error_json = error.response.json()
+            return error_json.get("detail", error.response.text or str(error))
+        except (ValueError, json.JSONDecodeError):
+            return error.response.text or str(error)
+
     def _validate_required_params(
         self, params: Dict[str, Any], required: List[str]
     ) -> bool:
@@ -219,7 +252,7 @@ class BaseClient:
         try:
             with open(file_path, "rb") as f:
                 files = {"file": (file_name, f, "application/octet-stream")}
-                response = self.session.post(url, files=files)
+                response = self.session.post(url, files=files, timeout=self.DEFAULT_TIMEOUT)
                 response.raise_for_status()
                 file_metadata = response.json()
                 logger.info(f"Successfully uploaded file: {file_name}")
@@ -246,7 +279,7 @@ class BaseClient:
         logger.info("Fetching task model configuration...")
         url = f"{self.base_url}/api/v1/tasks/config"
         try:
-            response = self.session.get(url, headers=self.json_headers)
+            response = self.session.get(url, headers=self.json_headers, timeout=self.DEFAULT_TIMEOUT)
             response.raise_for_status()
             config = response.json()
             task_model = config.get("TASK_MODEL")
