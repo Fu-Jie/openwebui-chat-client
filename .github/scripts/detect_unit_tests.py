@@ -16,12 +16,12 @@ Output:
     }
 """
 
-import os
-import sys
 import json
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
-from typing import List, Set, Dict, Any
+from typing import Any, Dict, List, Set
 
 # Mapping of source files to their test files
 # Format: source_pattern -> test_file_name (without test_ prefix and .py suffix)
@@ -35,7 +35,6 @@ SOURCE_TO_TEST_MAPPING = {
     # Module-specific mappings
     "openwebui_chat_client/modules/chat_manager.py": [
         "chat_functionality",
-        "continuous_conversation",
         "task_processing",
     ],
     "openwebui_chat_client/modules/model_manager.py": [
@@ -48,7 +47,6 @@ SOURCE_TO_TEST_MAPPING = {
     "openwebui_chat_client/modules/file_manager.py": ["openwebui_chat_client"],
     # Feature-specific test mappings
     "**/archive*.py": ["archive_functionality"],
-    "**/continuous*.py": ["continuous_conversation"],
     "**/deep_research*.py": ["deep_research"],
     "**/follow_up*.py": ["follow_up_feature"],
     "**/metadata*.py": ["metadata_features"],
@@ -65,6 +63,11 @@ TRIGGER_ALL_TESTS = [
 # Tests to exclude from the "run all" scope in CI
 EXCLUDE_FROM_ALL_TESTS = [
     "integration_openwebui_chat_client",
+    "integration_async_client_live",
+    "integration_async_model_ops",
+    "integration_async_stream_chat",
+    "integration_decision_model",
+    "integration_sync_stream_chat",
 ]
 
 # Files that don't require any tests
@@ -74,6 +77,7 @@ SKIP_TEST_PATTERNS = [
     "*.rst",
     "docs/**",
     "examples/**",
+    "tests/integration/**",
     ".github/**/*.md",
     "CHANGELOG*",
     "LICENSE",
@@ -234,11 +238,11 @@ def main():
     result = determine_test_scope(changed_files)
 
     # Write output to file for GitHub Actions to consume
-    output_file = "/tmp/test-detection.json"
+    output_file = Path(tempfile.gettempdir()) / "test-detection.json"
     with open(output_file, "w") as f:
         json.dump(result, f, indent=2)
 
-    print(f"\nTest detection result:", file=sys.stderr)
+    print("\nTest detection result:", file=sys.stderr)
     print(f"  Should run: {result['should_run']}", file=sys.stderr)
     print(f"  Patterns: {result['patterns']}", file=sys.stderr)
 

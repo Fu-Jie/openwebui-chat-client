@@ -35,7 +35,8 @@ class TestArchiveFunctionality(unittest.TestCase):
         # Assert
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 2)
-        self.assertEqual(result[0]["id"], "chat1")
+        # result[0] is now a ChatDetails object
+        self.assertEqual(result[0].id, "chat1")
         mock_get.assert_called_once_with(
             "http://localhost:3000/api/v1/chats/list",
             params={},

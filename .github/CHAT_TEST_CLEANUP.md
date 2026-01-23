@@ -18,6 +18,7 @@
 ### 解决方案
 
 在每次运行chat相关测试前，自动清理所有聊天会话，确保：
+
 - ✅ 干净的测试环境
 - ✅ 可预测的测试结果
 - ✅ 避免测试间的相互影响
@@ -45,10 +46,10 @@
 #### 触发条件
 
 清理会在以下测试类别运行前自动执行：
+
 - `basic_chat`
 - `async_basic_chat`
 - `model_switching`
-- `continuous_conversation`
 - `sync_live_stream`
 - `async_streaming_chat`
 - 任何包含 "chat" 或 "conversation" 的测试类别
@@ -194,12 +195,13 @@ OUI_CLEANUP_BEFORE_TEST=true python examples/getting_started/basic_chat.py
 所有以下示例都支持 `OUI_CLEANUP_BEFORE_TEST` 环境变量：
 
 #### 同步示例
+
 - ✅ `examples/getting_started/basic_chat.py`
 - ✅ `examples/chat_features/model_switching.py`
 - ✅ `examples/chat_features/streaming_chat.py`
-- ✅ `examples/advanced_features/continuous_conversation.py`
 
 #### 异步示例
+
 - ✅ `examples/getting_started/async_basic_chat.py`
 - ✅ `examples/chat_features/async_streaming_chat.py`
 
@@ -210,7 +212,6 @@ OUI_CLEANUP_BEFORE_TEST=true python examples/getting_started/basic_chat.py
 | `basic_chat` | ✅ 是 | 聊天功能测试 |
 | `async_basic_chat` | ✅ 是 | 异步聊天测试 |
 | `model_switching` | ✅ 是 | 模型切换测试 |
-| `continuous_conversation` | ✅ 是 | 连续对话测试 |
 | `sync_live_stream` | ✅ 是 | 流式聊天测试 |
 | `async_streaming_chat` | ✅ 是 | 异步流式测试 |
 | `connectivity` | ❌ 否 | 只测试连接 |
@@ -279,6 +280,7 @@ env:
 **影响**: 测试可能受到旧数据影响
 
 **解决方案**:
+
 ```bash
 # 手动清理
 python .github/scripts/cleanup_test_chats.py
@@ -291,6 +293,7 @@ python .github/scripts/cleanup_test_chats.py
 **现象**: `❌ OUI_AUTH_TOKEN environment variable not set`
 
 **解决方案**:
+
 ```bash
 # 设置认证令牌
 export OUI_AUTH_TOKEN='your_token_here'
@@ -304,6 +307,7 @@ echo $OUI_AUTH_TOKEN
 **现象**: 清理脚本连接OpenWebUI超时
 
 **解决方案**:
+
 ```bash
 # 检查URL是否正确
 echo $OUI_BASE_URL
@@ -322,6 +326,7 @@ export OUI_BASE_URL='http://your-openwebui-instance:3000'
 **原因**: 可能是权限问题或API限制
 
 **解决方案**:
+
 ```bash
 # 多次运行清理脚本
 python .github/scripts/cleanup_test_chats.py

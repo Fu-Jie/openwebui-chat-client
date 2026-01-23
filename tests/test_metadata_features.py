@@ -6,7 +6,6 @@ from openwebui_chat_client import OpenWebUIClient
 
 
 class TestMetadataFeatures(unittest.TestCase):
-
     def setUp(self):
         # Mock HTTP requests during client initialization
         self.client = OpenWebUIClient(
@@ -78,8 +77,8 @@ class TestMetadataFeatures(unittest.TestCase):
         mock_rename_chat.assert_called_with(self.mock_chat_id, "AI Test Conversation")
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.get("suggested_tags"), ["test", "ai"])
-        self.assertEqual(result.get("suggested_title"), "AI Test Conversation")
+        self.assertEqual(result.suggested_tags, ["test", "ai"])
+        self.assertEqual(result.suggested_title, "AI Test Conversation")
 
     @patch(
         "openwebui_chat_client.openwebui_chat_client.OpenWebUIClient._get_task_model"
@@ -122,8 +121,8 @@ class TestMetadataFeatures(unittest.TestCase):
         mock_rename_chat.assert_called_with(self.mock_chat_id, "Updated Title")
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.get("suggested_tags"), ["updated", "metadata"])
-        self.assertEqual(result.get("suggested_title"), "Updated Title")
+        self.assertEqual(result["suggested_tags"], ["updated", "metadata"])
+        self.assertEqual(result["suggested_title"], "Updated Title")
 
 
 if __name__ == "__main__":

@@ -309,7 +309,7 @@ detect-changes:
   run: |
     if [ "${{ github.event.inputs.run_all_tests }}" = "true" ]; then
       # ⚠️  当添加新测试类别时，同时更新这里和 test-mapping.yml
-      ALL_CATEGORIES='["notes_api","prompts_api","basic_chat","rag_integration","model_management","model_switching","comprehensive_demos","connectivity","continuous_conversation","deep_research","process_task","stream_process_task"]'
+      ALL_CATEGORIES='["notes_api","prompts_api","basic_chat","rag_integration","model_management","model_switching","comprehensive_demos","connectivity","deep_research","process_task","stream_process_task"]'
       echo "tests=$ALL_CATEGORIES" >> $GITHUB_OUTPUT
       echo "🔔 Manual override: Running all integration tests - $ALL_CATEGORIES"
     else

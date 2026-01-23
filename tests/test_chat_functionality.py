@@ -37,9 +37,9 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         result = self.client.chat(question="Hello, world!", chat_title="Test Chat")
 
         self.assertIsNotNone(result)
-        self.assertEqual(result["response"], "Test response")
-        self.assertEqual(result["chat_id"], "test-chat-id")
-        self.assertEqual(result["message_id"], "msg-id-123")
+        self.assertEqual(result.response, "Test response")
+        self.assertEqual(result.chat_id, "test-chat-id")
+        self.assertEqual(result.message_id, "msg-id-123")
         mock_find_create.assert_called_once_with("Test Chat")
         mock_ask.assert_called_once()
 
@@ -155,10 +155,10 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
         )
 
         self.assertIsNotNone(result)
-        self.assertIn("responses", result)
-        self.assertEqual(len(result["responses"]), 2)
-        self.assertIn("model1", result["responses"])
-        self.assertIn("model2", result["responses"])
+        self.assertIsNotNone(result.responses)
+        self.assertEqual(len(result.responses), 2)
+        self.assertIn("model1", result.responses)
+        self.assertIn("model2", result.responses)
 
     def test_parallel_chat_empty_model_ids(self):
         """Test parallel chat with empty model IDs."""
@@ -209,10 +209,12 @@ class TestOpenWebUIClientChatFunctionality(unittest.TestCase):
             final_result = e.value
 
         self.assertEqual(chunks, ["chunk1", "chunk2", "chunk3"])
-        self.assertIsInstance(final_result, dict)
-        self.assertEqual(final_result.get("response"), "Full response")
-        self.assertEqual(final_result.get("sources"), [])
-        self.assertIsNone(final_result.get("follow_ups"))
+        from openwebui_chat_client.models import ChatResponse
+
+        self.assertIsInstance(final_result, ChatResponse)
+        self.assertEqual(final_result.response, "Full response")
+        self.assertEqual(final_result.sources, [])
+        self.assertIsNone(final_result.follow_ups)
         mock_set_tags.assert_called_once_with("test-chat-id", ["stream", "test"])
 
     @patch.object(OpenWebUIClient, "_find_or_create_chat_by_title")

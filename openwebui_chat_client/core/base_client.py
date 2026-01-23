@@ -48,7 +48,14 @@ class BaseClient:
         retry_strategy = Retry(
             total=3,  # Total number of retries
             backoff_factor=1,  # Wait 1s, 2s, 4s between retries
-            status_forcelist=[408, 429, 500, 502, 503, 504],  # Retry on timeout, rate limit, and server errors
+            status_forcelist=[
+                408,
+                429,
+                500,
+                502,
+                503,
+                504,
+            ],  # Retry on timeout, rate limit, and server errors
             allowed_methods=[
                 "HEAD",
                 "GET",
@@ -62,7 +69,7 @@ class BaseClient:
         adapter = HTTPAdapter(
             max_retries=retry_strategy,
             pool_connections=20,  # Connection pool size
-            pool_maxsize=20,      # Maximum connections
+            pool_maxsize=20,  # Maximum connections
         )
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
@@ -110,12 +117,18 @@ class BaseClient:
 
         try:
             if method.upper() == "GET":
-                response = self.session.get(url, params=params, headers=headers, timeout=timeout)
+                response = self.session.get(
+                    url, params=params, headers=headers, timeout=timeout
+                )
             elif method.upper() == "POST":
                 if files:
                     # For file uploads, don't use json_headers (multipart/form-data)
                     response = self.session.post(
-                        url, data=json_data, files=files, headers=headers, timeout=timeout
+                        url,
+                        data=json_data,
+                        files=files,
+                        headers=headers,
+                        timeout=timeout,
                     )
                 else:
                     # For JSON data
@@ -252,7 +265,9 @@ class BaseClient:
         try:
             with open(file_path, "rb") as f:
                 files = {"file": (file_name, f, "application/octet-stream")}
-                response = self.session.post(url, files=files, timeout=self.DEFAULT_TIMEOUT)
+                response = self.session.post(
+                    url, files=files, timeout=self.DEFAULT_TIMEOUT
+                )
                 response.raise_for_status()
                 file_metadata = response.json()
                 logger.info(f"Successfully uploaded file: {file_name}")
@@ -279,7 +294,9 @@ class BaseClient:
         logger.info("Fetching task model configuration...")
         url = f"{self.base_url}/api/v1/tasks/config"
         try:
-            response = self.session.get(url, headers=self.json_headers, timeout=self.DEFAULT_TIMEOUT)
+            response = self.session.get(
+                url, headers=self.json_headers, timeout=self.DEFAULT_TIMEOUT
+            )
             response.raise_for_status()
             config = response.json()
             task_model = config.get("TASK_MODEL")

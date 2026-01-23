@@ -142,25 +142,25 @@ jobs:
           echo "📊 Code Quality Summary"
           echo "======================="
           echo ""
-          
+
           if [ "${{ needs.lint-and-format.result }}" = "success" ]; then
             echo "✅ Linting & Formatting: Passed"
           else
             echo "❌ Linting & Formatting: Failed"
           fi
-          
+
           if [ "${{ needs.type-check.result }}" = "success" ]; then
             echo "✅ Type Checking: Passed"
           else
             echo "⚠️  Type Checking: Issues found (non-blocking)"
           fi
-          
+
           if [ "${{ needs.security-scan.result }}" = "success" ]; then
             echo "✅ Security Scan: Passed"
           else
             echo "⚠️  Security Scan: Issues found (review recommended)"
           fi
-          
+
           # Fail if linting failed
           if [ "${{ needs.lint-and-format.result }}" != "success" ]; then
             exit 1

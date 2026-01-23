@@ -338,7 +338,7 @@ openwebui-chat-client项目采用**智能选择性集成测试系统**，根据�
 - **事件类型适配**: 正确处理`workflow_run`、`push`、`pull_request`等不同事件类型
 
 #### 测试效率提升
-- **优化前**: 每次变更运行全部8个集成测试类别（包括连续对话测试）
+- **优化前**: 每次变更运行全部8个集成测试类别
 - **优化后**: 仅运行相关测试类别（通常1-3个）
 - **时间节省**: CI运行时间减少60-80%
 - **资源节约**: 显著降低GitHub Actions使用量
@@ -395,7 +395,6 @@ file_mappings:
 | `model_management` | 模型管理 | `examples/model_management/model_operations.py` | 模型相关功能变更 |
 | `model_switching` | 模型切换 | `examples/chat_features/model_switching.py` | 模型切换功能变更 |
 | `comprehensive_demos` | 综合演示 | `examples/getting_started/quick_start.py` | 复杂功能、示例变更 |
-| `continuous_conversation` | 连续对话功能 | `examples/advanced_features/continuous_conversation.py` | 连续对话相关变更 |
 
 #### 新测试类别添加流程
 1. **定义测试目标**: 明确测试类别要验证的功能
@@ -677,9 +676,7 @@ test_categories:
 - pattern: "examples/new_feature/**"
   categories: ["new_feature_test", "comprehensive_demos"]
 
-# 示例：添加连续对话相关映射
-- pattern: "**/*continuous*"
-  categories: ["continuous_conversation", "comprehensive_demos"]
+
 ```
 
 #### 测试类别配置更新

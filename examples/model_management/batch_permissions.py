@@ -23,10 +23,11 @@ Usage:
 
 import logging
 import os
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+from dotenv import load_dotenv
 
 from openwebui_chat_client import OpenWebUIClient
-from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
@@ -38,8 +39,7 @@ DEFAULT_MODEL = os.getenv("OUI_DEFAULT_MODEL", "gpt-4.1")
 
 # Log setup
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -49,13 +49,15 @@ def demo_list_groups(client: OpenWebUIClient) -> List[Dict[str, Any]]:
     logger.info("=" * 60)
     logger.info("🔍 Listing Available Groups")
     logger.info("=" * 60)
-    
+
     groups = client.list_groups()
     if groups:
         logger.info(f"Found {len(groups)} groups:")
         for group in groups:
             logger.info(f"  - {group['name']} (ID: {group['id']})")
-            logger.info(f"    Description: {group.get('description', 'No description')}")
+            logger.info(
+                f"    Description: {group.get('description', 'No description')}"
+            )
             logger.info(f"    Users: {len(group.get('user_ids', []))}")
         return groups
     else:
@@ -68,64 +70,67 @@ def demo_set_models_public(client: OpenWebUIClient, model_ids: List[str]) -> Non
     logger.info("=" * 60)
     logger.info("🌐 Setting Models to Public Permissions")
     logger.info("=" * 60)
-    
+
     result = client.batch_update_model_permissions(
-        model_identifiers=model_ids,
-        permission_type="public"
+        model_identifiers=model_ids, permission_type="public"
     )
-    
+
     logger.info(f"✅ Successfully updated: {len(result['success'])} models")
-    for model_id in result['success']:
+    for model_id in result["success"]:
         logger.info(f"  - {model_id}")
-    
-    if result['failed']:
+
+    if result["failed"]:
         logger.warning(f"❌ Failed to update: {len(result['failed'])} models")
-        for failure in result['failed']:
+        for failure in result["failed"]:
             logger.warning(f"  - {failure['model_id']}: {failure['error']}")
 
 
-def demo_set_models_private(client: OpenWebUIClient, model_keyword: str, user_ids: List[str]) -> None:
+def demo_set_models_private(
+    client: OpenWebUIClient, model_keyword: str, user_ids: List[str]
+) -> None:
     """Demonstrate setting models to private permissions with specific users."""
     logger.info("=" * 60)
-    logger.info(f"🔒 Setting Models with keyword '{model_keyword}' to Private Permissions")
-    logger.info("=" * 60)
-    
-    result = client.batch_update_model_permissions(
-        model_keyword=model_keyword,
-        permission_type="private",
-        user_ids=user_ids
+    logger.info(
+        f"🔒 Setting Models with keyword '{model_keyword}' to Private Permissions"
     )
-    
+    logger.info("=" * 60)
+
+    result = client.batch_update_model_permissions(
+        model_keyword=model_keyword, permission_type="private", user_ids=user_ids
+    )
+
     logger.info(f"✅ Successfully updated: {len(result['success'])} models")
-    for model_id in result['success']:
+    for model_id in result["success"]:
         logger.info(f"  - {model_id}")
-    
-    if result['failed']:
+
+    if result["failed"]:
         logger.warning(f"❌ Failed to update: {len(result['failed'])} models")
-        for failure in result['failed']:
+        for failure in result["failed"]:
             logger.warning(f"  - {failure['model_id']}: {failure['error']}")
 
 
-def demo_set_models_group_permissions(client: OpenWebUIClient, model_keyword: str, group_names: List[str]) -> None:
+def demo_set_models_group_permissions(
+    client: OpenWebUIClient, model_keyword: str, group_names: List[str]
+) -> None:
     """Demonstrate setting models to group-based permissions."""
     logger.info("=" * 60)
     logger.info(f"👥 Setting Models with keyword '{model_keyword}' to Group Permissions")
     logger.info(f"Groups: {', '.join(group_names)}")
     logger.info("=" * 60)
-    
+
     result = client.batch_update_model_permissions(
         model_keyword=model_keyword,
         permission_type="group",
-        group_identifiers=group_names  # Using group names (will be resolved to IDs)
+        group_identifiers=group_names,  # Using group names (will be resolved to IDs)
     )
-    
+
     logger.info(f"✅ Successfully updated: {len(result['success'])} models")
-    for model_id in result['success']:
+    for model_id in result["success"]:
         logger.info(f"  - {model_id}")
-    
-    if result['failed']:
+
+    if result["failed"]:
         logger.warning(f"❌ Failed to update: {len(result['failed'])} models")
-        for failure in result['failed']:
+        for failure in result["failed"]:
             logger.warning(f"  - {failure['model_id']}: {failure['error']}")
 
 
@@ -134,19 +139,16 @@ def demo_single_model_permission_update(client: OpenWebUIClient, model_id: str) 
     logger.info("=" * 60)
     logger.info(f"🔧 Updating Single Model '{model_id}' with Custom Access Control")
     logger.info("=" * 60)
-    
+
     # Custom access control with mixed user and group permissions
     custom_access_control = {
         "read": {
             "group_ids": [],  # Will be filled with actual group IDs if available
-            "user_ids": []
+            "user_ids": [],
         },
-        "write": {
-            "group_ids": [],
-            "user_ids": []
-        }
+        "write": {"group_ids": [], "user_ids": []},
     }
-    
+
     # Get groups to populate the access control
     groups = client.list_groups()
     if groups and len(groups) > 0:
@@ -154,12 +156,20 @@ def demo_single_model_permission_update(client: OpenWebUIClient, model_id: str) 
         first_group_id = groups[0]["id"]
         custom_access_control["read"]["group_ids"] = [first_group_id]
         custom_access_control["write"]["group_ids"] = [first_group_id]
-        
-        updated_model = client.update_model(model_id, access_control=custom_access_control)
+
+        updated_model = client.update_model(
+            model_id, access_control=custom_access_control
+        )
         if updated_model:
-            logger.info(f"✅ Successfully updated model '{model_id}' with custom permissions")
-            logger.info(f"   Read access: groups {custom_access_control['read']['group_ids']}")
-            logger.info(f"   Write access: groups {custom_access_control['write']['group_ids']}")
+            logger.info(
+                f"✅ Successfully updated model '{model_id}' with custom permissions"
+            )
+            logger.info(
+                f"   Read access: groups {custom_access_control['read']['group_ids']}"
+            )
+            logger.info(
+                f"   Write access: groups {custom_access_control['write']['group_ids']}"
+            )
         else:
             logger.error(f"❌ Failed to update model '{model_id}'")
     else:
@@ -172,7 +182,7 @@ def main() -> None:
     if not AUTH_TOKEN:
         logger.error("❌ OUI_AUTH_TOKEN environment variable not set")
         return
-    
+
     # Initialize client
     try:
         client = OpenWebUIClient(BASE_URL, AUTH_TOKEN, DEFAULT_MODEL)
@@ -180,16 +190,16 @@ def main() -> None:
     except Exception as e:
         logger.error(f"❌ Client initialization failed: {e}")
         return
-    
+
     try:
         # Demo 1: List available groups
         groups = demo_list_groups(client)
-        
+
         # Demo 2: List available models to work with
         logger.info("=" * 60)
         logger.info("📋 Listing Available Models")
         logger.info("=" * 60)
-        
+
         models = client.list_models()
         if models and len(models) > 0:
             logger.info(f"Found {len(models)} models:")
@@ -197,31 +207,33 @@ def main() -> None:
                 logger.info(f"  - {model['id']}")
             if len(models) > 5:
                 logger.info(f"  ... and {len(models) - 5} more models")
-            
+
             # Get some model IDs for demonstration
-            model_ids_sample = [model['id'] for model in models[:2]]  # First 2 models
-            
+            model_ids_sample = [model["id"] for model in models[:2]]  # First 2 models
+
             # Demo 3: Set specific models to public
             if model_ids_sample:
                 demo_set_models_public(client, model_ids_sample)
-            
+
             # Demo 4: Set models with keyword to private (for demonstration, using a common keyword)
-            demo_set_models_private(client, "gpt", user_ids=[])  # Empty user_ids for demo
-            
+            demo_set_models_private(
+                client, "gpt", user_ids=[]
+            )  # Empty user_ids for demo
+
             # Demo 5: Set models to group permissions (if groups available)
             if groups and len(groups) > 0:
                 group_names = [groups[0]["name"]]  # Use first group
                 demo_set_models_group_permissions(client, "claude", group_names)
-            
+
             # Demo 6: Single model update with custom access control
             if model_ids_sample:
                 demo_single_model_permission_update(client, model_ids_sample[0])
-                
+
         else:
             logger.warning("No models found or failed to retrieve models")
-        
+
         logger.info("🎉 Batch permissions demo completed successfully")
-        
+
     except Exception as e:
         logger.error(f"❌ Demo execution failed: {e}")
 

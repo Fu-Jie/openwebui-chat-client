@@ -17,19 +17,29 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 # Import required modules for backward compatibility with tests
 import requests
 
+from openwebui_chat_client.models import (
+    ActionResult,
+    ChatDetails,
+    ChatResponse,
+    Function,
+    ParallelChatResponse,
+    ModelAccessMixin,
+)
 from .core.base_client import BaseClient
-from .modules.chat_manager import ChatManager
-from .modules.file_manager import FileManager
-from .modules.knowledge_base_manager import KnowledgeBaseManager
-from .modules.model_manager import ModelManager
-from .modules.notes_manager import NotesManager
-from .modules.prompts_manager import PromptsManager
-from .modules.user_manager import UserManager
+from .modules.chat import ChatManager
+from .modules.sync import (
+    FileManager,
+    KnowledgeBaseManager,
+    ModelManager,
+    NotesManager,
+    PromptsManager,
+    UserManager,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class OpenWebUIClient:
+class OpenWebUIClient(ModelAccessMixin):
     """
     An intelligent, stateful Python client for the Open WebUI API.
     Supports single/multi-model chats, tagging, and RAG with both
@@ -190,32 +200,24 @@ class OpenWebUIClient:
     def chat(
         self,
         question: str,
-        chat_title: str,
-        model_id: Optional[str] = None,
-        folder_name: Optional[str] = None,
-        image_paths: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
-        tool_ids: Optional[List[str]] = None,
-        enable_follow_up: bool = False,
-        enable_auto_tagging: bool = False,
-        enable_auto_titling: bool = False,
+        chat_id: Optional[str] = None,
+        model: Optional[str] = None,
+        chat_title: Optional[str] = None,
+        auto_title: bool = True,
+        auto_followup: bool = True,
+        auto_tags: bool = False,
+        **kwargs,
     ) -> Optional[Dict[str, Any]]:
         """Send a chat message with a single model."""
         return self._chat_manager.chat(
-            question,
-            chat_title,
-            model_id,
-            folder_name,
-            image_paths,
-            tags,
-            rag_files,
-            rag_collections,
-            tool_ids,
-            enable_follow_up,
-            enable_auto_tagging,
-            enable_auto_titling,
+            question=question,
+            chat_id=chat_id,
+            model=model,
+            chat_title=chat_title,
+            auto_title=auto_title,
+            auto_followup=auto_followup,
+            auto_tags=auto_tags,
+            **kwargs,
         )
 
     def parallel_chat(
@@ -223,6 +225,7 @@ class OpenWebUIClient:
         question: str,
         chat_title: str,
         model_ids: List[str],
+        chat_id: Optional[str] = None,
         folder_name: Optional[str] = None,
         image_paths: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
@@ -232,12 +235,32 @@ class OpenWebUIClient:
         enable_follow_up: bool = False,
         enable_auto_tagging: bool = False,
         enable_auto_titling: bool = False,
-    ) -> Optional[Dict[str, Any]]:
-        """Send a chat message to multiple models in parallel."""
+    ) -> Optional[ParallelChatResponse]:
+        """Send a chat message to multiple models in parallel.
+
+        Args:
+            question: User's question/message
+            chat_title: Chat title (for finding or creating chat)
+            model_ids: List of model IDs to query in parallel
+            chat_id: Specific chat ID to use (optional, overrides chat_title lookup)
+            folder_name: Folder to organize the chat
+            image_paths: Paths to images for multimodal input
+            tags: Tags for the chat
+            rag_files: Files for RAG context
+            rag_collections: Knowledge base collections for RAG
+            tool_ids: Tools to enable for the chat
+            enable_follow_up: Generate follow-up suggestions
+            enable_auto_tagging: Auto-generate tags
+            enable_auto_titling: Auto-generate title
+
+        Returns:
+            ParallelChatResponse with responses from all models
+        """
         return self._chat_manager.parallel_chat(
             question,
             chat_title,
             model_ids,
+            chat_id,
             folder_name,
             image_paths,
             tags,
@@ -252,137 +275,42 @@ class OpenWebUIClient:
     def stream_chat(
         self,
         question: str,
-        chat_title: str,
-        model_id: Optional[str] = None,
-        folder_name: Optional[str] = None,
-        image_paths: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
-        tool_ids: Optional[List[str]] = None,
-        enable_follow_up: bool = False,
-        cleanup_placeholder_messages: bool = False,  # New: Clean up placeholder messages
-        placeholder_pool_size: int = 30,  # New: Size of placeholder message pool (configurable)
-        min_available_messages: int = 10,  # New: Minimum available messages threshold
-        wait_before_request: float = 10.0,  # New: Wait time after initializing placeholders (seconds)
-        enable_auto_tagging: bool = False,
-        enable_auto_titling: bool = False,
-    ) -> Generator[str, None, Optional[Dict[str, Any]]]:
+        chat_id: Optional[str] = None,
+        model: Optional[str] = None,
+        chat_title: Optional[str] = None,
+        **kwargs,
+    ) -> Generator[Dict[str, Any], None, None]:
         """
         Initiates a streaming chat session. Yields content chunks as they are received.
-        At the end of the stream, returns the full response content, sources, and follow-up suggestions.
         """
         return self._chat_manager.stream_chat(
-            question,
-            chat_title,
-            model_id,
-            folder_name,
-            image_paths,
-            tags,
-            rag_files,
-            rag_collections,
-            tool_ids,
-            enable_follow_up,
-            cleanup_placeholder_messages,
-            placeholder_pool_size,
-            min_available_messages,
-            wait_before_request,
-            enable_auto_tagging,
-            enable_auto_titling,
+            question=question,
+            chat_id=chat_id,
+            model=model,
+            chat_title=chat_title,
+            **kwargs,
         )
 
-    def continuous_chat(
+    def trigger_action(
         self,
-        initial_question: str,
-        num_questions: int,
-        chat_title: str,
-        model_id: Optional[str] = None,
-        folder_name: Optional[str] = None,
-        image_paths: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
-        tool_ids: Optional[List[str]] = None,
-        enable_auto_tagging: bool = False,
-        enable_auto_titling: bool = False,
-    ) -> Optional[Dict[str, Any]]:
-        """Perform continuous conversation with automatic follow-up questions."""
-        return self._chat_manager.continuous_chat(
-            initial_question,
-            num_questions,
-            chat_title,
-            model_id,
-            folder_name,
-            image_paths,
-            tags,
-            rag_files,
-            rag_collections,
-            tool_ids,
-            enable_auto_tagging,
-            enable_auto_titling,
-        )
+        action_id: str,
+        chat_id: str,
+        message_id: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Optional[ActionResult]:
+        """
+        Trigger a specific action for a chat message.
 
-    def continuous_parallel_chat(
-        self,
-        initial_question: str,
-        num_questions: int,
-        chat_title: str,
-        model_ids: List[str],
-        folder_name: Optional[str] = None,
-        image_paths: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
-        tool_ids: Optional[List[str]] = None,
-        enable_auto_tagging: bool = False,
-        enable_auto_titling: bool = False,
-    ) -> Optional[Dict[str, Any]]:
-        """Perform continuous conversation with multiple models in parallel."""
-        return self._chat_manager.continuous_parallel_chat(
-            initial_question,
-            num_questions,
-            chat_title,
-            model_ids,
-            folder_name,
-            image_paths,
-            tags,
-            rag_files,
-            rag_collections,
-            tool_ids,
-            enable_auto_tagging,
-            enable_auto_titling,
-        )
+        Args:
+            action_id: The ID of the action to trigger (e.g., "异步上下文压缩")
+            chat_id: The ID of the chat containing the message
+            message_id: The ID of the message to apply the action to
+            params: Optional dictionary of additional parameters for the action
 
-    def continuous_stream_chat(
-        self,
-        initial_question: str,
-        num_questions: int,
-        chat_title: str,
-        model_id: Optional[str] = None,
-        folder_name: Optional[str] = None,
-        image_paths: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
-        rag_files: Optional[List[str]] = None,
-        rag_collections: Optional[List[str]] = None,
-        tool_ids: Optional[List[str]] = None,
-        enable_auto_tagging: bool = False,
-        enable_auto_titling: bool = False,
-    ) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
-        """Perform continuous conversation with streaming responses."""
-        return self._chat_manager.continuous_stream_chat(
-            initial_question,
-            num_questions,
-            chat_title,
-            model_id,
-            folder_name,
-            image_paths,
-            tags,
-            rag_files,
-            rag_collections,
-            tool_ids,
-            enable_auto_tagging,
-            enable_auto_titling,
-        )
+        Returns:
+            The response from the action (usually a dictionary), or None if failed.
+        """
+        return self._chat_manager.trigger_action(action_id, chat_id, message_id, params)
 
     def deep_research(
         self,
@@ -661,11 +589,32 @@ class OpenWebUIClient:
         """Switch the model(s) for an existing chat."""
         return self._chat_manager.switch_chat_model(chat_id, model_ids)
 
-    def list_chats(self, page: Optional[int] = None) -> Optional[List[Dict[str, Any]]]:
+    def get_functions(self) -> Optional[List[Function]]:
+        """
+        Get all available functions (actions/tools).
+
+        Returns:
+            List of function definitions or None if failed
+        """
+        return self._chat_manager.get_functions()
+
+    def get_chat(self, chat_id: str) -> Optional[ChatDetails]:
+        """
+        Get full details of a specific chat.
+
+        Args:
+            chat_id: The ID of the chat to retrieve
+
+        Returns:
+            ChatDetails object containing chat details or None if failed
+        """
+        return self._chat_manager.get_chat(chat_id)
+
+    def list_chats(self, page: Optional[int] = None) -> Optional[List[ChatDetails]]:
         """List all chats for the current user."""
         return self._chat_manager.list_chats(page)
 
-    def get_chats_by_folder(self, folder_id: str) -> Optional[List[Dict[str, Any]]]:
+    def get_chats_by_folder(self, folder_id: str) -> Optional[List[ChatDetails]]:
         """Get all chats in a specific folder."""
         return self._chat_manager.get_chats_by_folder(folder_id)
 
@@ -1747,10 +1696,11 @@ class OpenWebUIClient:
         api_messages.append({"role": "user", "content": final_api_content})
 
         logger.info("Calling NON-STREAMING completions API to get model response...")
-        assistant_content, sources = (
-            self._get_model_completion(  # Call non-streaming method
-                self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
-            )
+        (
+            assistant_content,
+            sources,
+        ) = self._get_model_completion(  # Call non-streaming method
+            self.chat_id, api_messages, api_rag_payload, self.model_id, tool_ids
         )
         if assistant_content is None:
             return None, None, None

@@ -11,12 +11,14 @@
 ### 1. 精确的文件映射系统
 
 #### 优化前
+
 - ❌ 使用宽泛的通配符模式（如 `**/*chat*.py`）
 - ❌ 一个文件变更可能触发10+个不相关的测试
 - ❌ 难以预测哪些测试会被触发
 - ❌ CI运行时间长，资源浪费严重
 
 #### 优化后
+
 - ✅ **51个精确的文件映射规则**
 - ✅ 每个核心文件都有明确的测试映射
 - ✅ 精确路径匹配优先于通配符
@@ -40,18 +42,21 @@
 新增3个强大的工具：
 
 #### validate_test_mapping.py
+
 - 验证配置文件的正确性
 - 测试特定文件会触发哪些测试
 - 显示所有映射规则
 - 检测配置错误和警告
 
 #### detect_required_tests.py (增强版)
+
 - 精确的文件匹配逻辑
 - 详细的调试日志输出
 - 支持多种GitHub事件类型
 - 文件到测试的完整映射
 
 #### SELECTIVE_TESTING_GUIDE.md
+
 - 完整的使用指南
 - 故障排除手册
 - 最佳实践建议
@@ -73,6 +78,7 @@
 ### 实际案例
 
 #### 案例 1: 修改聊天管理器
+
 ```bash
 文件: openwebui_chat_client/modules/chat_manager.py
 
@@ -91,13 +97,13 @@
 优化后触发:
 - basic_chat
 - model_switching
-- continuous_conversation
-总计: 3个测试
+总计: 2个测试
 
-效率提升: 67%
+效率提升: 78%
 ```
 
 #### 案例 2: 修改笔记管理器
+
 ```bash
 文件: openwebui_chat_client/modules/notes_manager.py
 
@@ -116,6 +122,7 @@
 ```
 
 #### 案例 3: 修改异步客户端
+
 ```bash
 文件: openwebui_chat_client/async_openwebui_client.py
 
@@ -145,9 +152,10 @@
 ### 1. 精确映射规则
 
 #### 同步客户端模块
+
 ```yaml
 openwebui_chat_client/modules/
-├── chat_manager.py          → basic_chat, model_switching, continuous_conversation
+├── chat_manager.py          → basic_chat, model_switching
 ├── model_manager.py         → model_management, connectivity
 ├── notes_manager.py         → notes_api
 ├── prompts_manager.py       → prompts_api
@@ -157,6 +165,7 @@ openwebui_chat_client/modules/
 ```
 
 #### 异步客户端模块
+
 ```yaml
 openwebui_chat_client/modules/
 ├── async_chat_manager.py    → async_basic_chat, async_streaming_chat
@@ -167,6 +176,7 @@ openwebui_chat_client/modules/
 ```
 
 #### 示例文件
+
 ```yaml
 examples/
 ├── getting_started/
@@ -191,6 +201,7 @@ examples/
 ### 2. 详细的日志输出
 
 #### GitHub Actions 日志示例
+
 ```
 🔧 GitHub Actions Environment Detected
    Event: push
@@ -210,7 +221,7 @@ examples/
 🔍 Checking: openwebui_chat_client/modules/chat_manager.py
   ✓ Exact match: openwebui_chat_client/modules/chat_manager.py
     → Sync chat manager - triggers chat-related tests
-  ✅ Triggered 3 test(s): ['basic_chat', 'continuous_conversation', 'model_switching']
+   ✅ Triggered 2 test(s): ['basic_chat', 'model_switching']
 
 🔍 Checking: examples/getting_started/basic_chat.py
   ✓ Exact match: examples/getting_started/basic_chat.py
@@ -225,18 +236,18 @@ Files with specific mappings: 2
 Files using default mappings: 0
 Total unique test categories: 3
 
-🎯 Tests to run: ['basic_chat', 'continuous_conversation', 'model_switching']
+🎯 Tests to run: ['basic_chat', 'model_switching']
 ================================================================================
 
 📊 Detection Results:
   ✅ basic_chat
-  ✅ continuous_conversation
   ✅ model_switching
 ```
 
 ### 3. 强大的验证工具
 
 #### 配置验证
+
 ```bash
 $ python .github/scripts/validate_test_mapping.py
 
@@ -246,6 +257,7 @@ $ python .github/scripts/validate_test_mapping.py
 ```
 
 #### 文件测试
+
 ```bash
 $ python .github/scripts/validate_test_mapping.py \
   --test-file "openwebui_chat_client/modules/chat_manager.py"
@@ -254,7 +266,7 @@ $ python .github/scripts/validate_test_mapping.py \
    ✅ Exact Matches (1):
       Pattern: openwebui_chat_client/modules/chat_manager.py
       Description: Sync chat manager - triggers chat-related tests
-      Tests: basic_chat, model_switching, continuous_conversation
+      Tests: basic_chat, model_switching
    🎯 Total Tests Triggered: 3
 ```
 
@@ -263,18 +275,22 @@ $ python .github/scripts/validate_test_mapping.py \
 ## 📁 新增文件
 
 ### 配置文件
+
 - ✅ `.github/test-mapping.yml` (优化，51个精确映射)
 
 ### 脚本工具
+
 - ✅ `.github/scripts/detect_required_tests.py` (增强版)
 - ✅ `.github/scripts/validate_test_mapping.py` (新增)
 
 ### 文档
+
 - ✅ `.github/SELECTIVE_TESTING_GUIDE.md` (完整指南)
 - ✅ `.github/TESTING_QUICK_REFERENCE.md` (快速参考)
 - ✅ `INTEGRATION_TEST_OPTIMIZATION_SUMMARY.md` (本文档)
 
 ### 工作流
+
 - ✅ `.github/workflows/integration-test.yml` (增强日志)
 
 ---
@@ -284,6 +300,7 @@ $ python .github/scripts/validate_test_mapping.py \
 ### 开发者日常使用
 
 #### 1. 提交代码前验证
+
 ```bash
 # 检查你的改动会触发哪些测试
 python .github/scripts/validate_test_mapping.py \
@@ -291,6 +308,7 @@ python .github/scripts/validate_test_mapping.py \
 ```
 
 #### 2. 添加新功能
+
 ```bash
 # 1. 开发新功能
 # 2. 创建示例代码
@@ -304,6 +322,7 @@ python .github/scripts/validate_test_mapping.py \
 ```
 
 #### 3. 调试测试触发
+
 ```bash
 # 启用详细日志
 export VERBOSE=true
@@ -313,11 +332,13 @@ python .github/scripts/detect_required_tests.py
 ### CI/CD 自动化
 
 #### GitHub Actions 自动触发
+
 - Push到main/master分支
 - 创建Pull Request
 - 手动触发（workflow_dispatch）
 
 #### 智能测试选择
+
 - 自动分析变更文件
 - 精确匹配测试类别
 - 并行运行选定的测试
@@ -331,7 +352,7 @@ python .github/scripts/detect_required_tests.py
 
 | 功能模块 | 测试类别 | 覆盖率 |
 |---------|---------|--------|
-| 同步聊天 | basic_chat, model_switching, continuous_conversation | 100% |
+| 同步聊天 | basic_chat, model_switching | 100% |
 | 异步聊天 | async_basic_chat, async_streaming_chat | 100% |
 | 模型管理 | model_management, async_model_operations | 100% |
 | 笔记API | notes_api | 100% |
@@ -356,6 +377,7 @@ python .github/scripts/detect_required_tests.py
 ### 1. 映射规则设计
 
 ✅ **推荐**
+
 ```yaml
 # 精确路径，明确描述
 - pattern: "openwebui_chat_client/modules/chat_manager.py"
@@ -364,6 +386,7 @@ python .github/scripts/detect_required_tests.py
 ```
 
 ❌ **避免**
+
 ```yaml
 # 过度宽泛的通配符
 - pattern: "**/*chat*.py"
@@ -373,11 +396,13 @@ python .github/scripts/detect_required_tests.py
 ### 2. 测试类别设计
 
 ✅ **推荐**
+
 - 功能明确的测试类别
 - 每个类别对应一个具体的测试命令
 - 清晰的描述说明
 
 ❌ **避免**
+
 - 过于宽泛的测试类别
 - 多个功能混在一个类别中
 - 缺少描述信息
@@ -451,16 +476,19 @@ python .github/scripts/detect_required_tests.py
 ## 📚 相关资源
 
 ### 文档
+
 - [选择性测试完整指南](.github/SELECTIVE_TESTING_GUIDE.md)
 - [快速参考手册](.github/TESTING_QUICK_REFERENCE.md)
 - [测试映射配置](.github/test-mapping.yml)
 
 ### 工具
+
 - [配置验证工具](.github/scripts/validate_test_mapping.py)
 - [测试检测脚本](.github/scripts/detect_required_tests.py)
 - [测试运行器](.github/scripts/run_all_integration_tests.py)
 
 ### 工作流
+
 - [集成测试工作流](.github/workflows/integration-test.yml)
 
 ---

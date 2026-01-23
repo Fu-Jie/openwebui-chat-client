@@ -4,6 +4,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [未发布]
+
+### 移除
+
+- **连续对话**: 移除 `continuous_chat`、`continuous_parallel_chat`、`continuous_stream_chat` 及其相关实现、测试和示例。
+
 ## [0.1.24] - 2025-12-29
 
 ### 新增

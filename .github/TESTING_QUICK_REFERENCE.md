@@ -3,11 +3,13 @@
 ## 🚀 快速开始
 
 ### 验证配置
+
 ```bash
 python .github/scripts/validate_test_mapping.py
 ```
 
 ### 测试文件映射
+
 ```bash
 # 单个文件
 python .github/scripts/validate_test_mapping.py --test-file "path/to/file.py"
@@ -17,6 +19,7 @@ python .github/scripts/validate_test_mapping.py --test-files "file1.py,file2.py"
 ```
 
 ### 查看所有映射
+
 ```bash
 python .github/scripts/validate_test_mapping.py --show-all
 ```
@@ -31,7 +34,7 @@ python .github/scripts/validate_test_mapping.py --show-all
 |------|-----------|
 | `openwebui_chat_client/openwebui_chat_client.py` | connectivity, basic_chat, model_management, sync_live_client, sync_live_stream |
 | `openwebui_chat_client/core/base_client.py` | connectivity, basic_chat, sync_live_client |
-| `openwebui_chat_client/modules/chat_manager.py` | basic_chat, model_switching, continuous_conversation |
+| `openwebui_chat_client/modules/chat_manager.py` | basic_chat, model_switching |
 | `openwebui_chat_client/modules/model_manager.py` | model_management, connectivity |
 | `openwebui_chat_client/modules/notes_manager.py` | notes_api |
 | `openwebui_chat_client/modules/prompts_manager.py` | prompts_api |
@@ -59,7 +62,6 @@ python .github/scripts/validate_test_mapping.py --show-all
 | `examples/chat_features/model_switching.py` | model_switching |
 | `examples/chat_features/streaming_chat.py` | sync_live_stream |
 | `examples/chat_features/async_streaming_chat.py` | async_streaming_chat |
-| `examples/advanced_features/continuous_conversation.py` | continuous_conversation |
 | `examples/model_management/model_operations.py` | model_management |
 | `examples/model_management/async_model_operations.py` | async_model_operations |
 | `examples/notes_api/basic_notes.py` | notes_api |
@@ -81,9 +83,8 @@ python .github/scripts/validate_test_mapping.py --show-all
 | `notes_api` | 笔记API | `examples/notes_api/basic_notes.py` |
 | `prompts_api` | Prompts API | `examples/prompts_api/basic_prompts.py` |
 | `rag_integration` | RAG集成 | `examples/rag_knowledge/file_rag.py` |
-| `continuous_conversation` | 连续对话 | `examples/advanced_features/continuous_conversation.py` |
 | `comprehensive_demos` | 综合演示 | `examples/getting_started/quick_start.py` |
-| `sync_live_stream` | 同步流式聊天 | `examples/integration/test_integration_sync_stream_chat.py` |
+| `sync_live_stream` | 同步流式聊天 | `tests/integration/test_integration_sync_stream_chat.py` |
 | `async_streaming_chat` | 异步流式聊天 | `examples/chat_features/async_streaming_chat.py` |
 
 ---
@@ -129,7 +130,7 @@ python .github/scripts/validate_test_mapping.py \
 
 ```bash
 # 文件: openwebui_chat_client/modules/chat_manager.py
-# 触发: basic_chat, model_switching, continuous_conversation
+# 触发: basic_chat, model_switching
 ```
 
 ### 场景 2: 添加新的异步功能

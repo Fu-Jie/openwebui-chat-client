@@ -18,7 +18,6 @@ from extract_changelog import (  # noqa: E402
 
 
 class TestChangelogExtraction(unittest.TestCase):
-
     def setUp(self):
         """Set up test fixtures."""
         self.test_changelog = """# Changelog

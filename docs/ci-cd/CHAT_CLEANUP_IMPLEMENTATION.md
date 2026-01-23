@@ -1,9 +1,11 @@
 # Chat测试清理功能实现总结
 
 ## 📅 实现日期
+
 2025-01-09
 
 ## 🎯 实现目标
+
 在运行chat集成测试前自动清理所有会话，确保测试环境的干净和一致性。
 
 ---
@@ -13,9 +15,11 @@
 ### 1. 创建清理脚本
 
 #### `.github/scripts/cleanup_test_chats.py`
+
 **功能**: 独立的清理脚本，用于删除所有聊天会话
 
 **特性**:
+
 - ✅ 连接到OpenWebUI实例
 - ✅ 获取所有现有聊天
 - ✅ 批量删除所有聊天
@@ -24,6 +28,7 @@
 - ✅ 错误处理和异常捕获
 
 **使用方法**:
+
 ```bash
 python .github/scripts/cleanup_test_chats.py
 ```
@@ -35,6 +40,7 @@ python .github/scripts/cleanup_test_chats.py
 #### `.github/workflows/integration-test.yml`
 
 **新增步骤**:
+
 ```yaml
 - name: Cleanup Test Environment (for chat tests)
   if: contains(matrix.test-category, 'chat') || contains(matrix.test-category, 'conversation')
@@ -45,12 +51,14 @@ python .github/scripts/cleanup_test_chats.py
 ```
 
 **环境变量**:
+
 ```yaml
 env:
   OUI_CLEANUP_BEFORE_TEST: 'true'  # Always cleanup before chat tests in CI
 ```
 
 **触发条件**:
+
 - 测试类别包含 "chat"
 - 测试类别包含 "conversation"
 
@@ -61,15 +69,18 @@ env:
 以下示例已经内置了清理支持（通过 `OUI_CLEANUP_BEFORE_TEST` 环境变量）：
 
 #### 同步示例
+
 - ✅ `examples/getting_started/basic_chat.py`
 - ✅ `examples/chat_features/model_switching.py`
 - ✅ `examples/chat_features/streaming_chat.py`
 
 #### 异步示例
+
 - ✅ `examples/getting_started/async_basic_chat.py`
 - ✅ `examples/chat_features/async_streaming_chat.py`
 
 **实现代码**:
+
 ```python
 CLEANUP_BEFORE_TEST = os.getenv("OUI_CLEANUP_BEFORE_TEST", "false").lower() == "true"
 
@@ -87,9 +98,11 @@ if CLEANUP_BEFORE_TEST:
 ### 4. 创建文档
 
 #### `.github/CHAT_TEST_CLEANUP.md`
+
 **内容**: 完整的清理机制文档（约600行）
 
 **章节**:
+
 1. 概述和目标
 2. 为什么需要清理
 3. 实现方式
@@ -102,9 +115,11 @@ if CLEANUP_BEFORE_TEST:
 10. 最佳实践
 
 #### `.github/CLEANUP_QUICK_REFERENCE.md`
+
 **内容**: 快速参考卡片
 
 **包含**:
+
 - 快速开始命令
 - 清理触发条件
 - 环境变量配置
@@ -171,7 +186,6 @@ export OUI_CLEANUP_BEFORE_TEST=true
 | `basic_chat` | ✅ | ✅ | 2次 |
 | `async_basic_chat` | ✅ | ✅ | 2次 |
 | `model_switching` | ✅ | ✅ | 2次 |
-| `continuous_conversation` | ✅ | ✅ | 2次 |
 | `sync_live_stream` | ✅ | ✅ | 2次 |
 | `async_streaming_chat` | ✅ | ✅ | 2次 |
 | `connectivity` | ❌ | ❌ | 0次 |
@@ -187,11 +201,13 @@ export OUI_CLEANUP_BEFORE_TEST=true
 ### 1. 双重保障机制
 
 #### 第一层: GitHub Actions工作流
+
 - 在测试运行前执行
 - 独立的清理脚本
 - 失败不影响测试继续
 
 #### 第二层: 示例代码内部
+
 - 在客户端初始化后执行
 - 使用客户端的 `delete_all_chats()` 方法
 - 失败只记录警告
@@ -199,6 +215,7 @@ export OUI_CLEANUP_BEFORE_TEST=true
 ### 2. 灵活的控制
 
 #### 环境变量控制
+
 ```bash
 # 启用清理
 export OUI_CLEANUP_BEFORE_TEST=true
@@ -208,6 +225,7 @@ export OUI_CLEANUP_BEFORE_TEST=false
 ```
 
 #### 条件触发
+
 ```yaml
 # 只对chat相关测试清理
 if: contains(matrix.test-category, 'chat') || contains(matrix.test-category, 'conversation')
@@ -216,6 +234,7 @@ if: contains(matrix.test-category, 'chat') || contains(matrix.test-category, 'co
 ### 3. 优雅降级
 
 #### 清理失败处理
+
 ```yaml
 continue-on-error: true  # 清理失败不阻止测试
 ```
@@ -230,6 +249,7 @@ else:
 ### 4. 详细日志
 
 #### 成功日志
+
 ```
 🧹 Starting chat cleanup process...
 ✅ Connected to OpenWebUI at http://localhost:3000
@@ -239,6 +259,7 @@ else:
 ```
 
 #### 失败日志
+
 ```
 🧹 Starting chat cleanup process...
 ❌ OUI_AUTH_TOKEN environment variable not set
@@ -330,12 +351,14 @@ def cleanup_all_chats() -> bool:
 ### CI/CD环境
 
 1. ✅ **始终启用清理**
+
    ```yaml
    env:
      OUI_CLEANUP_BEFORE_TEST: 'true'
    ```
 
 2. ✅ **允许失败继续**
+
    ```yaml
    continue-on-error: true
    ```
@@ -351,6 +374,7 @@ def cleanup_all_chats() -> bool:
    - 保护开发数据
 
 2. ✅ **需要时手动清理**
+
    ```bash
    python .github/scripts/cleanup_test_chats.py
    ```
@@ -364,15 +388,18 @@ def cleanup_all_chats() -> bool:
 ## 📚 相关文件
 
 ### 新增文件
+
 - ✅ `.github/scripts/cleanup_test_chats.py` - 清理脚本
 - ✅ `.github/CHAT_TEST_CLEANUP.md` - 完整文档
 - ✅ `.github/CLEANUP_QUICK_REFERENCE.md` - 快速参考
 - ✅ `CHAT_CLEANUP_IMPLEMENTATION.md` - 实现总结（本文档）
 
 ### 修改文件
+
 - ✅ `.github/workflows/integration-test.yml` - 添加清理步骤
 
 ### 已支持文件（无需修改）
+
 - ✅ `examples/getting_started/basic_chat.py`
 - ✅ `examples/getting_started/async_basic_chat.py`
 - ✅ `examples/chat_features/model_switching.py`

@@ -49,11 +49,6 @@ test_categories:
     command: 'python -c "from openwebui_chat_client import OpenWebUIClient; import os; import sys; client = OpenWebUIClient(os.getenv(''OUI_BASE_URL''), os.getenv(''OUI_AUTH_TOKEN''), os.getenv(''OUI_DEFAULT_MODEL'')); models = client.list_models(); print(f''✅ Connected. Found {len(models) if models else 0} models.'') if models is not None else sys.exit(1)"'
     description: "Tests basic client connectivity and authentication"
 
-  continuous_conversation:
-    name: "Continuous Conversation Integration Test"
-    command: "python examples/advanced_features/continuous_conversation.py"
-    description: "Tests continuous conversation features including multi-turn dialogues, follow-up suggestions, and advanced conversation management"
-
   deep_research:
     name: "Deep Research Agent Integration Test"
     command: "python examples/advanced_features/deep_research_example.py"
@@ -71,7 +66,7 @@ test_categories:
 
   decision_model:
     name: "Decision Model Integration Test"
-    command: "python examples/integration/test_integration_decision_model.py"
+    command: "python tests/integration/test_integration_decision_model.py"
     description: "Tests the decision model feature for automatic option selection in autonomous task processing"
 
   async_basic_chat:
@@ -91,32 +86,32 @@ test_categories:
 
   async_live_client:
     name: "Async Live Client Integration Test"
-    command: "python examples/integration/test_integration_async_client_live.py"
+    command: "python tests/integration/test_integration_async_client_live.py"
     description: "Live async client smoke: list_models and chat"
 
   async_live_stream:
     name: "Async Live Streaming Integration Test"
-    command: "python examples/integration/test_integration_async_stream_chat.py"
+    command: "python tests/integration/test_integration_async_stream_chat.py"
     description: "Live async streaming chat smoke"
 
   async_live_model_ops:
     name: "Async Live Model Ops Integration Test"
-    command: "python examples/integration/test_integration_async_model_ops.py"
+    command: "python tests/integration/test_integration_async_model_ops.py"
     description: "Live async model list and detail fetch"
 
   sync_live_client:
     name: "Sync Live Client Integration Test"
-    command: "python examples/integration/test_integration_openwebui_chat_client.py"
+    command: "python tests/integration/test_integration_openwebui_chat_client.py"
     description: "Live sync client smoke: chat and model CRUD"
 
   sync_live_stream:
     name: "Sync Live Streaming Integration Test"
-    command: "python examples/integration/test_integration_sync_stream_chat.py"
+    command: "python tests/integration/test_integration_sync_stream_chat.py"
     description: "Live sync streaming chat smoke"
 
 # File patterns mapped to test categories
 # When files matching these patterns change, the corresponding tests will run
-# 
+#
 # 🎯 映射优先级规则:
 # 1. 具体文件路径优先于通配符模式
 # 2. 更长的路径模式优先于更短的路径模式
@@ -131,7 +126,7 @@ file_mappings:
   # ============================================================================
   # 1. 核心客户端文件 - 精确映射
   # ============================================================================
-  
+
   # 同步客户端主文件
   - pattern: "openwebui_chat_client/openwebui_chat_client.py"
     categories:
@@ -157,7 +152,7 @@ file_mappings:
   # ============================================================================
   # 2. 核心基础类 - 精确映射
   # ============================================================================
-  
+
   # 同步基础客户端
   - pattern: "openwebui_chat_client/core/base_client.py"
     categories:
@@ -177,13 +172,12 @@ file_mappings:
   # ============================================================================
   # 3. 模块管理器 - 精确映射到相关功能
   # ============================================================================
-  
+
   # 聊天管理器（同步）
   - pattern: "openwebui_chat_client/modules/chat_manager.py"
     categories:
       - "basic_chat"
       - "model_switching"
-      - "continuous_conversation"
     description: "Sync chat manager - triggers chat-related tests"
 
   # 聊天管理器（异步）
@@ -269,7 +263,7 @@ file_mappings:
   # ============================================================================
   # 4. 示例文件 - 精确映射到对应测试
   # ============================================================================
-  
+
   # Getting Started 示例
   - pattern: "examples/getting_started/basic_chat.py"
     categories:
@@ -308,11 +302,6 @@ file_mappings:
     description: "Async streaming chat example - triggers async streaming test"
 
   # Advanced Features 示例
-  - pattern: "examples/advanced_features/continuous_conversation.py"
-    categories:
-      - "continuous_conversation"
-    description: "Continuous conversation example - triggers continuous conversation test"
-
   - pattern: "examples/advanced_features/deep_research_example.py"
     categories:
       - "deep_research"
@@ -363,32 +352,32 @@ file_mappings:
     description: "File RAG example - triggers RAG integration test"
 
   # Integration 示例
-  - pattern: "examples/integration/test_integration_async_client_live.py"
+  - pattern: "tests/integration/test_integration_async_client_live.py"
     categories:
       - "async_live_client"
     description: "Async client live test - triggers async live client test"
 
-  - pattern: "examples/integration/test_integration_async_stream_chat.py"
+  - pattern: "tests/integration/test_integration_async_stream_chat.py"
     categories:
       - "async_live_stream"
     description: "Async stream chat live test - triggers async live stream test"
 
-  - pattern: "examples/integration/test_integration_async_model_ops.py"
+  - pattern: "tests/integration/test_integration_async_model_ops.py"
     categories:
       - "async_live_model_ops"
     description: "Async model ops live test - triggers async live model ops test"
 
-  - pattern: "examples/integration/test_integration_openwebui_chat_client.py"
+  - pattern: "tests/integration/test_integration_openwebui_chat_client.py"
     categories:
       - "sync_live_client"
     description: "Sync client live test - triggers sync live client test"
 
-  - pattern: "examples/integration/test_integration_sync_stream_chat.py"
+  - pattern: "tests/integration/test_integration_sync_stream_chat.py"
     categories:
       - "sync_live_stream"
     description: "Sync stream chat live test - triggers sync live stream test"
 
-  - pattern: "examples/integration/test_integration_decision_model.py"
+  - pattern: "tests/integration/test_integration_decision_model.py"
     categories:
       - "decision_model"
     description: "Decision model test - triggers decision model test"
@@ -396,7 +385,7 @@ file_mappings:
   # ============================================================================
   # 5. 测试文件 - 精确映射
   # ============================================================================
-  
+
   - pattern: "tests/test_notes_functionality.py"
     categories:
       - "notes_api"
@@ -439,10 +428,10 @@ file_mappings:
   # ============================================================================
   # 6. 通配符模式 - 作为后备（优先级最低）
   # ============================================================================
-  
+
   # 只有当上面的精确模式都不匹配时，才会使用这些通配符
   # 注意：这些模式应该非常保守，避免过度触发测试
-  
+
   # 核心包的__init__.py变更
   - pattern: "openwebui_chat_client/__init__.py"
     categories:

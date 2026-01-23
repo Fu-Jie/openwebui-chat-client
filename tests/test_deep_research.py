@@ -5,7 +5,6 @@ from openwebui_chat_client import OpenWebUIClient
 
 
 class TestDeepResearch(unittest.TestCase):
-
     def setUp(self):
         """Set up a client instance for each test."""
         self.client = OpenWebUIClient(

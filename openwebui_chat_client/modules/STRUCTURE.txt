@@ -1,0 +1,82 @@
+OpenWebUI Chat Client - Modules Directory Structure
+====================================================
+
+modules/
+|
++-- __init__.py                        Module exports & documentation
++-- README.md                          Architecture guide & best practices
++-- STRUCTURE.txt                      This file (directory overview)
+|
++-- CHAT MODULE (Modular Architecture)
+|   +-- chat_manager.py       [254 lines]  Facade: Coordinates all chat operations
+|   +-- chat_api.py          [154 lines]  HTTP: Raw API communication layer
+|   +-- chat_workflow.py     [82 lines]   Workflow: 3-step chat orchestration
+|   +-- chat_tasks.py        [384 lines]  Tasks: ReAct loop & deep research
+|   +-- chat_actions.py      [90 lines]   Actions: Trigger chat message actions
+|   +-- chat_rag.py          [54 lines]   RAG: File handling & context injection
+|   +-- chat_parallel.py     [~200 lines] Parallel: Multi-model chat
+|   +-- chat_payloads.py     [90 lines]   Payloads: OpenWebUI schema builders
+|
++-- FEATURE MANAGERS (Sync)
+|   +-- file_manager.py                   File uploads & management
+|   +-- knowledge_base_manager.py         Knowledge base CRUD operations
+|   +-- model_manager.py                  Model management & operations
+|   +-- notes_manager.py                  Notes API operations
+|   +-- prompts_manager.py                Prompts management
+|   +-- user_manager.py                   User management (admin only)
+|
++-- FEATURE MANAGERS (Async)
+    +-- async_chat_manager.py             Async chat operations
+    +-- async_file_manager.py             Async file operations
+    +-- async_knowledge_base_manager.py   Async KB operations
+    +-- async_model_manager.py            Async model management
+    +-- async_notes_manager.py            Async notes operations
+    +-- async_prompts_manager.py          Async prompts management
+    +-- async_user_manager.py             Async user management
+
+TOTAL: 22 Python modules (clean, organized, no legacy code)
+
+Architecture Highlights
+=======================
+
+BEFORE (Mixin Hell):
+- 9 Mixins with 100+ methods mixed together
+- Unclear responsibilities
+- Hard to test and maintain
+- Circular dependencies
+
+AFTER (Clean Modules):
+- 8 focused chat modules with clear roles
+- Easy to understand and modify
+- Independent testing possible
+- Clear dependency flow
+
+Module Dependency Graph
+=======================
+
+                    ChatManager
+                    (Facade)
+                        |
+         +--------------+--------------+
+         |              |              |
+    ChatAPI        ChatTasks      ChatActions
+         |              |              
+    ChatWorkflow    ChatRAG          
+
+ChatManager delegates to:
+- ChatAPI         : HTTP communication
+- ChatWorkflow    : Business logic orchestration
+- ChatTasks       : Advanced AI features (ReAct, Research)
+- ChatActions     : Action triggering
+- ChatRAG         : RAG utilities
+- ChatParallel    : Multi-model operations
+
+Notes
+=====
+- All legacy mixin files have been removed
+- chat_core.py deleted (logic moved to modules)
+- chat/ subdirectory deleted (old imports)
+- No more circular dependencies
+- Clean, maintainable architecture
+
+Last Updated: 2026-01-23

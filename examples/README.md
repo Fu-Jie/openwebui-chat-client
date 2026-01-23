@@ -19,7 +19,8 @@ examples/
 │   ├── streaming_chat.py        # Streaming chat examples
 │   ├── async_streaming_chat.py  # Async streaming chat examples
 │   ├── model_switching.py       # Switching models in chats
-│   ├── parallel_chat.py         # Multi-model parallel chat
+│   ├── parallel_chat_simple.py  # Simple parallel chat demo
+│   ├── parallel_chat_with_history.py # Parallel chat with history tree validation
 │   ├── follow_up_suggestions.py # Chat with follow-up suggestions
 │   ├── chat_with_images.py      # Multimodal chat with images
 │   └── chat_management.py       # Chat management (rename, metadata, etc.)
@@ -41,7 +42,6 @@ examples/
 │   ├── advanced_prompts.py      # Advanced prompts with variables
 │   └── README.md                # Detailed prompts usage guide
 ├── advanced_features/            # Advanced functionality
-│   ├── continuous_conversation.py # Multi-turn conversations with follow-ups
 │   ├── deep_research_example.py # Autonomous research agent
 │   ├── process_task_example.py  # Multi-step task processing agent
 │   ├── stream_process_task_example.py # Streaming task processing
@@ -105,8 +105,10 @@ Core conversation functionality:
 - **`basic_chat.py`**: Simple single-model conversations
 - **`streaming_chat.py`**: Real-time streaming responses
 - **`async_streaming_chat.py`**: Async streaming with timing analysis and concurrency
-- **`parallel_chat.py`**: Multi-model parallel conversations
+- **`parallel_chat_simple.py`**: Simple multi-model parallel chat demo
+- **`parallel_chat_with_history.py`**: Parallel chat with history tree structure validation
 - **`model_switching.py`**: Switching models within existing chats
+- **Key Features**: chat_id parameter support, history tree structure, modelIdx for multi-model
 
 ### 📚 RAG & Knowledge (`rag_knowledge/`)
 
@@ -136,7 +138,6 @@ Structured note management:
 
 Advanced autonomous agents and multi-step processing:
 
-- **`continuous_conversation.py`**: Multi-turn conversations with automatic follow-up suggestions
 - **`deep_research_example.py`**: Autonomous research agent with intelligent model routing
 - **`process_task_example.py`**: Multi-step task processing with agentic loop (tool use)
 - **`stream_process_task_example.py`**: Streaming version of task processing with real-time updates
@@ -156,11 +157,11 @@ Entry-level examples for new users:
 
 Env-gated live smoke tests (require `OUI_BASE_URL` and `OUI_AUTH_TOKEN`):
 
-- **`test_integration_async_client_live.py`**: Async client live basics (list_models + chat)
-- **`test_integration_async_stream_chat.py`**: Async streaming chat live
-- **`test_integration_async_model_ops.py`**: Async model list and detail fetch
-- **`test_integration_sync_stream_chat.py`**: Sync streaming chat live
-- **`test_integration_openwebui_chat_client.py`**: Sync client live (chat + model CRUD; may skip on restricted servers)
+- **`tests/integration/test_integration_async_client_live.py`**: Async client live basics (list_models + chat)
+- **`tests/integration/test_integration_async_stream_chat.py`**: Async streaming chat live
+- **`tests/integration/test_integration_async_model_ops.py`**: Async model list and detail fetch
+- **`tests/integration/test_integration_sync_stream_chat.py`**: Sync streaming chat live
+- **`tests/integration/test_integration_openwebui_chat_client.py`**: Sync client live (chat + model CRUD; may skip on restricted servers)
 
 ## 📋 Example Standards
 
@@ -281,8 +282,30 @@ if __name__ == "__main__":
 - `OUI_AUTH_TOKEN`: Your OpenWebUI API token
 - `OUI_DEFAULT_MODEL`: Default model ID (default: gpt-4.1)
 - `OUI_TOOL_SERVER_ID`: Tool server ID for process_task examples (optional)
-- `OUI_PARALLEL_MODELS`: Comma-separated model IDs for parallel examples
+- `OUI_PARALLEL_MODELS`: Comma-separated model IDs for parallel examples (e.g., "gpt-4.1,gemini-2.5-flash")
 - `OUI_RAG_MODEL`: Model ID for RAG examples
+
+## 🧪 Running Integration Tests
+
+### Parallel Chat with History Tree Tests
+
+Test the new parallel chat and history tree features:
+
+```bash
+# Simple parallel chat demo
+python examples/chat_features/parallel_chat_simple.py
+
+# Comprehensive integration tests with validation
+python examples/chat_features/parallel_chat_with_history.py
+```
+
+The integration test validates:
+
+- ✅ chat() with chat_id parameter
+- ✅ parallel_chat() with chat_id parameter
+- ✅ History tree structure (parentId, childrenIds, currentId)
+- ✅ modelIdx field in parallel responses
+- ✅ Tree navigation and message chain building
 
 ### Common Issues
 

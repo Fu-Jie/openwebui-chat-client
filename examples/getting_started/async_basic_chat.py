@@ -25,13 +25,14 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional
 
 # Add the parent directory to path to import the client
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from openwebui_chat_client import AsyncOpenWebUIClient
 from dotenv import load_dotenv
+
+from openwebui_chat_client import AsyncOpenWebUIClient
 
 # Load environment variables from project root .env (if present) and current dir fallback
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

@@ -9,7 +9,6 @@ DEFAULT_MODEL = "test_model"
 
 
 class TestTaskProcessing(unittest.TestCase):
-
     def setUp(self):
         """Set up for each test."""
         with patch("requests.Session", MagicMock()):

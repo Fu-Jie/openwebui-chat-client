@@ -153,7 +153,6 @@
 | `chat()` | 带可选功能的单模型对话 |
 | `stream_chat()` | 带实时更新的流式对话 |
 | `parallel_chat()` | 多模型并行对话 |
-| `continuous_chat()` | 带后续问题的连续对话 |
 | `process_task()` | 自主多步骤任务处理 |
 | `deep_research()` | 多步骤研究代理 |
 

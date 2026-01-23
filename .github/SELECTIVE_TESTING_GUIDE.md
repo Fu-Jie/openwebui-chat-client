@@ -64,7 +64,6 @@ file_mappings:
     categories:
       - "basic_chat"
       - "model_switching"
-      - "continuous_conversation"
     description: "Sync chat manager - triggers chat-related tests"
   
   # 通配符映射
@@ -148,8 +147,8 @@ python .github/scripts/validate_test_mapping.py \
 #    ✅ Exact Matches (1):
 #       Pattern: openwebui_chat_client/modules/chat_manager.py
 #       Description: Sync chat manager - triggers chat-related tests
-#       Tests: basic_chat, model_switching, continuous_conversation
-#    🎯 Total Tests Triggered: 3
+#       Tests: basic_chat, model_switching
+#    🎯 Total Tests Triggered: 2
 ```
 
 ### 3. 测试多个文件
@@ -171,7 +170,7 @@ python .github/scripts/validate_test_mapping.py --show-all
 # 📌 Exact Patterns (35):
 #    openwebui_chat_client/modules/chat_manager.py
 #       → Sync chat manager - triggers chat-related tests
-#       Tests: basic_chat, model_switching, continuous_conversation
+#       Tests: basic_chat, model_switching
 # ...
 ```
 
@@ -191,7 +190,7 @@ python .github/scripts/detect_required_tests.py
 # 📋 Analyzing 2 non-documentation files:
 # 🔍 Checking: openwebui_chat_client/modules/chat_manager.py
 #   ✓ Exact match: openwebui_chat_client/modules/chat_manager.py
-#   ✅ Triggered 3 test(s): ['basic_chat', 'continuous_conversation', 'model_switching']
+#   ✅ Triggered 2 test(s): ['basic_chat', 'model_switching']
 # ...
 ```
 
@@ -269,6 +268,7 @@ git push
 ```
 
 GitHub Actions 会自动：
+
 1. 检测到 `user_manager.py` 的变更
 2. 触发 `user_management` 集成测试
 3. 只运行相关测试，不运行其他无关测试
@@ -411,6 +411,7 @@ done
 ### 性能指标
 
 跟踪以下指标：
+
 - 平均触发的测试数量
 - CI运行时间
 - 测试覆盖率

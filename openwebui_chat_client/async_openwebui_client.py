@@ -3,24 +3,34 @@ Async OpenWebUI Client - Async version of the client.
 """
 
 import logging
-from typing import TYPE_CHECKING, AsyncGenerator, Optional
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
+
+from openwebui_chat_client.models import (
+    ActionResult,
+    ChatDetails,
+    ChatResponse,
+    Function,
+    ModelAccessMixin,
+)
 
 if TYPE_CHECKING:
     pass
 
 from .core.async_base_client import AsyncBaseClient
-from .modules.async_chat_manager import AsyncChatManager
-from .modules.async_file_manager import AsyncFileManager
-from .modules.async_knowledge_base_manager import AsyncKnowledgeBaseManager
-from .modules.async_model_manager import AsyncModelManager
-from .modules.async_notes_manager import AsyncNotesManager
-from .modules.async_prompts_manager import AsyncPromptsManager
-from .modules.async_user_manager import AsyncUserManager
+from .modules.async_ import (
+    AsyncChatManager,
+    AsyncFileManager,
+    AsyncKnowledgeBaseManager,
+    AsyncModelManager,
+    AsyncNotesManager,
+    AsyncPromptsManager,
+    AsyncUserManager,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncOpenWebUIClient:
+class AsyncOpenWebUIClient(ModelAccessMixin):
     """
     Asynchronous Python client for the Open WebUI API.
     """
@@ -59,18 +69,64 @@ class AsyncOpenWebUIClient:
     # Chat
     async def chat(
         self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs
-    ):
+    ) -> Optional[ChatResponse]:
         return await self._chat_manager.chat(question, chat_title, model_id, **kwargs)
+
+    async def trigger_action(
+        self,
+        action_id: str,
+        chat_id: str,
+        message_id: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Optional[ActionResult]:
+        """
+        Trigger a specific action for a chat message asynchronously.
+
+        Args:
+            action_id: The ID of the action to trigger (e.g., "异步上下文压缩")
+            chat_id: The ID of the chat containing the message
+            message_id: The ID of the message to apply the action to
+            params: Optional dictionary of additional parameters for the action
+
+        Returns:
+            The response from the action (usually a dictionary), or None if failed.
+        """
+        return await self._chat_manager.trigger_action(
+            action_id, chat_id, message_id, params
+        )
 
     async def stream_chat(
         self, question: str, chat_title: str, model_id: Optional[str] = None, **kwargs
     ) -> AsyncGenerator[str, None]:
-        async for item in self._chat_manager.stream_chat(
+        async for chunk in self._chat_manager.stream_chat(
             question, chat_title, model_id, **kwargs
         ):
-            yield item
+            yield chunk
 
-    async def list_chats(self, page: Optional[int] = None):
+    async def get_functions(self) -> Optional[List[Function]]:
+        """
+        Get all available functions (actions/tools).
+
+        Returns:
+            List of function definitions or None if failed
+        """
+        return await self._chat_manager.get_functions()
+
+    async def get_chat(self, chat_id: str) -> Optional[ChatDetails]:
+        """
+        Get full details of a specific chat.
+
+        Args:
+            chat_id: The ID of the chat to retrieve
+
+        Returns:
+            ChatDetails object containing chat details or None if failed
+        """
+        return await self._chat_manager.get_chat(chat_id)
+
+    async def list_chats(
+        self, page: Optional[int] = None
+    ) -> Optional[List[ChatDetails]]:
         return await self._chat_manager.list_chats(page)
 
     async def delete_all_chats(self) -> bool:

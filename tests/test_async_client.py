@@ -54,7 +54,8 @@ class TestAsyncOpenWebUIClient(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(chats)
         self.assertEqual(len(chats), 1)
-        self.assertEqual(chats[0]["id"], "chat1")
+        # chats[0] is now a ChatDetails object
+        self.assertEqual(chats[0].id, "chat1")
 
     async def test_chat(self):
         # Mock search response (chat not found)
@@ -99,7 +100,7 @@ class TestAsyncOpenWebUIClient(unittest.IsolatedAsyncioTestCase):
         response = await self.client.chat("Hello", "New Chat")
 
         self.assertIsNotNone(response)
-        self.assertEqual(response["response"], "Hello user!")
+        self.assertEqual(response.response, "Hello user!")
 
 
 class TestAsyncChatManagerBehavior(unittest.IsolatedAsyncioTestCase):
@@ -157,7 +158,7 @@ class TestAsyncChatManagerBehavior(unittest.IsolatedAsyncioTestCase):
                 tool_ids=["tool-1"],
             )
 
-        self.assertEqual(result["response"], "Hello async")
+        self.assertEqual(result.response, "Hello async")
 
         base_client._make_request.assert_awaited()
         called_payload = base_client._make_request.call_args.kwargs.get("json_data")

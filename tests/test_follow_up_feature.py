@@ -6,7 +6,6 @@ from openwebui_chat_client import OpenWebUIClient
 
 
 class TestFollowUpFeature(unittest.TestCase):
-
     def setUp(self):
         """Set up a client instance before each test."""
         self.client = OpenWebUIClient(
@@ -219,8 +218,8 @@ Hope this helps!"""
         self.assertEqual(
             mock_update_remote_chat.call_count, 2, "Should update remote chat twice"
         )
-        self.assertIn("follow_ups", result)
-        self.assertEqual(result["follow_ups"], ["Follow-up 1", "Follow-up 2"])
+        self.assertTrue(hasattr(result, "follow_ups"))
+        self.assertEqual(result.follow_ups, ["Follow-up 1", "Follow-up 2"])
 
         # Check that the follow-up API was called correctly
         # The call order is: new, completions, follow_up
@@ -301,7 +300,7 @@ Hope this helps!"""
         self.assertEqual(
             mock_update_remote_chat.call_count, 2, "Should update remote chat twice"
         )
-        self.assertIn("follow_ups", result)
+        self.assertTrue(hasattr(result, "follow_ups"))
         expected_follow_ups = [
             "如果订单表和出库单表之间还有其他关联字段，会影响我们的查询逻辑吗？",
             "在实际业务中，是否存在订单没有关联出库单的情况？如果有，如何处理这些订单？",
@@ -309,7 +308,7 @@ Hope this helps!"""
             "能否提供一个具体的订单号示例，让我看看查询结果是什么样的？",
             "除了SignTime，还有其他字段可以用来确认签收时间吗？",
         ]
-        self.assertEqual(result["follow_ups"], expected_follow_ups)
+        self.assertEqual(result.follow_ups, expected_follow_ups)
 
         # Check that the follow-up API was called correctly
         self.assertEqual(self.mock_session.post.call_count, 3)

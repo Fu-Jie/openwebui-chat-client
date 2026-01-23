@@ -3,6 +3,7 @@
 ## 🚀 快速开始
 
 ### CI/CD（自动）
+
 ```yaml
 # 在 GitHub Actions 中自动执行
 # 无需额外配置，chat测试会自动清理
@@ -33,7 +34,6 @@ OUI_CLEANUP_BEFORE_TEST=true python examples/getting_started/basic_chat.py
 | `basic_chat` | ✅ |
 | `async_basic_chat` | ✅ |
 | `model_switching` | ✅ |
-| `continuous_conversation` | ✅ |
 | `sync_live_stream` | ✅ |
 | `async_streaming_chat` | ✅ |
 | `connectivity` | ❌ |
@@ -73,6 +73,7 @@ export OUI_CLEANUP_BEFORE_TEST="true"  # 启用清理
 ## 🐛 常见问题
 
 ### 清理失败
+
 ```bash
 # 检查认证
 echo $OUI_AUTH_TOKEN
@@ -85,6 +86,7 @@ python .github/scripts/cleanup_test_chats.py
 ```
 
 ### 部分聊天未删除
+
 ```bash
 # 多次运行清理
 python .github/scripts/cleanup_test_chats.py
@@ -104,18 +106,21 @@ python .github/scripts/cleanup_test_chats.py
 ## 💡 最佳实践
 
 ### CI/CD
+
 - ✅ 始终启用清理
 - ✅ 允许失败继续
 - ✅ 记录清理日志
 
 ### 本地开发
+
 - ✅ 默认禁用清理
 - ✅ 需要时手动清理
 - ✅ 使用测试账号
 
 ---
 
-**快速帮助**: 
+**快速帮助**:
+
 - 清理所有聊天: `python .github/scripts/cleanup_test_chats.py`
 - 启用自动清理: `export OUI_CLEANUP_BEFORE_TEST=true`
 - 查看完整文档: [CHAT_TEST_CLEANUP.md](CHAT_TEST_CLEANUP.md)

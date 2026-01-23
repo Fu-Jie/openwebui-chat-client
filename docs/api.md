@@ -153,7 +153,6 @@ The async client class for asynchronous operations.
 | `chat()` | Single-model conversation with optional features |
 | `stream_chat()` | Streaming conversation with real-time updates |
 | `parallel_chat()` | Multi-model parallel conversation |
-| `continuous_chat()` | Continuous conversation with follow-ups |
 | `process_task()` | Autonomous multi-step task processing |
 | `deep_research()` | Multi-step research agent |
 

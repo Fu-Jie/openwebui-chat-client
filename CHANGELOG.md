@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 <!-- markdownlint-disable MD024 -->
 
+## [Unreleased]
+
+### Removed
+
+- **Continuous Conversation**: Removed `continuous_chat`, `continuous_parallel_chat`, and `continuous_stream_chat` along with related implementation, tests, and examples.
+
 ## [0.1.24] - 2025-12-29
 
 ### Added

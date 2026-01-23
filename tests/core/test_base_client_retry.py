@@ -6,7 +6,6 @@ from openwebui_chat_client.core.base_client import BaseClient
 
 
 class TestBaseClientRetry(unittest.TestCase):
-
     def setUp(self):
         """Set up a BaseClient instance for each test."""
         self.base_client = BaseClient(

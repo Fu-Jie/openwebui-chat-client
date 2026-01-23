@@ -7,12 +7,12 @@ without needing to navigate to the .github/scripts directory.
 
 Usage:
     python run_integration_tests.py [options]
-    
+
 This script is a convenience wrapper around the main integration test runner.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -20,15 +20,17 @@ def main():
     """Run the integration test script with forwarded arguments."""
     # Get the path to the actual integration test script
     script_dir = Path(__file__).parent
-    integration_script = script_dir / ".github" / "scripts" / "run_all_integration_tests.py"
-    
+    integration_script = (
+        script_dir / ".github" / "scripts" / "run_all_integration_tests.py"
+    )
+
     if not integration_script.exists():
         print(f"❌ Error: Integration test script not found at {integration_script}")
         sys.exit(1)
-    
+
     # Forward all arguments to the real script
     cmd = [sys.executable, str(integration_script)] + sys.argv[1:]
-    
+
     try:
         # Run the integration test script
         result = subprocess.run(cmd, cwd=script_dir)
@@ -41,5 +43,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

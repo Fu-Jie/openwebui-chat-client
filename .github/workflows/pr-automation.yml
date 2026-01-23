@@ -54,14 +54,14 @@ jobs:
         run: |
           echo "📋 PR Checklist"
           echo "==============="
-          
+
           # Check if PR has a description
           if [ -z "${{ github.event.pull_request.body }}" ]; then
             echo "⚠️  PR description is empty. Please add a description."
           else
             echo "✅ PR has a description"
           fi
-          
+
           # Check PR title format
           TITLE="${{ github.event.pull_request.title }}"
           if echo "$TITLE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+"; then
@@ -86,10 +86,10 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           pr-message: |
             👋 Welcome to openwebui-chat-client! Thanks for your first PR!
-            
+
             Here are some things to keep in mind:
             - Make sure all tests pass
             - Update documentation if needed
             - Add entries to CHANGELOG.md under `[Unreleased]` section
-            
+
             A maintainer will review your PR soon. Thanks for contributing! 🎉

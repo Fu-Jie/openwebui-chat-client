@@ -24,13 +24,13 @@ import logging
 import os
 import sys
 import time
-from typing import Optional, Dict, Any
 
 # Add the parent directory to path to import the client
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from dotenv import load_dotenv
 
 from openwebui_chat_client import OpenWebUIClient
-from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
@@ -44,8 +44,7 @@ CLEANUP_BEFORE_TEST = os.getenv("OUI_CLEANUP_BEFORE_TEST", "false").lower() == "
 
 # Logging setup
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -54,160 +53,182 @@ def basic_chat_example(client: OpenWebUIClient) -> bool:
     """Demonstrate basic chat functionality."""
     logger.info("💬 Basic Chat Example")
     logger.info("=" * 30)
-    
+
     # Send a simple question
     result = client.chat(
-        question="What is the capital of France?",
-        chat_title="Geography Quiz"
+        question="What is the capital of France?", chat_title="Geography Quiz"
     )
-    
-    if result and result.get("response"):
-        print(f"\n🤖 Response: {result['response']}")
-        
-        if result.get("chat_id"):
-            logger.info(f"💾 Chat ID: {result['chat_id'][:8]}...")
+
+    if result:
+        response_text = result.get_text()
+        if response_text:
+            print(f"\n🤖 Response: {response_text}")
+        else:
+            logger.warning(
+                "⚠️ No immediate response text (streaming or async processing)"
+            )
+
+        if result.chat_id:
+            logger.info(f"💾 Chat ID: {result.chat_id[:8]}...")
         return True
-    else:
-        logger.error("❌ Failed to get response")
-        return False
+    logger.error("❌ Failed to get response")
+    return False
 
 
 def organized_chat_example(client: OpenWebUIClient) -> bool:
     """Demonstrate chat organization with folders and tags."""
     logger.info("\n📁 Organized Chat Example")
     logger.info("=" * 35)
-    
+
     # Create a chat with organization
     result = client.chat(
         question="Explain the basics of machine learning in simple terms",
         chat_title="ML Learning Session",
         folder_name="Education",
-        tags=["learning", "ai", "basics"]
+        tags=["learning", "ai", "basics"],
     )
-    
-    if result and result.get("response"):
-        print(f"\n🤖 Response: {result['response'][:200]}...")
+
+    if result:
+        response_text = result.get_text()
+        if response_text:
+            print(f"\n🤖 Response: {response_text[:200]}...")
+        else:
+            logger.warning(
+                "⚠️ No immediate response text (streaming or async processing)"
+            )
         logger.info("✅ Created organized chat with folder and tags")
-        
-        if result.get("chat_id"):
-            logger.info(f"💾 Chat ID: {result['chat_id'][:8]}...")
+
+        if result.chat_id:
+            logger.info(f"💾 Chat ID: {result.chat_id[:8]}...")
             logger.info("📁 Folder: Education")
             logger.info("🏷️ Tags: learning, ai, basics")
         return True
-    else:
-        logger.error("❌ Failed to create organized chat")
-        return False
+    logger.error("❌ Failed to create organized chat")
+    return False
 
 
 def multi_message_chat_example(client: OpenWebUIClient) -> bool:
     """Demonstrate multiple messages in the same chat."""
     logger.info("\n🔄 Multi-Message Chat Example")
     logger.info("=" * 40)
-    
+
     chat_title = "Python Programming Help"
-    
+
     # First message
     logger.info("📝 Sending first message...")
     result1 = client.chat(
         question="What is a Python list?",
         chat_title=chat_title,
-        folder_name="Programming"
+        folder_name="Programming",
     )
-    
-    if result1 and result1.get("response"):
-        print(f"\n🤖 First Response: {result1['response'][:150]}...")
-        
+
+    if result1:
+        first_text = result1.get_text()
+        if first_text:
+            print(f"\n🤖 First Response: {first_text[:150]}...")
+        else:
+            logger.warning("⚠️ No immediate response text for first message")
+
         # Wait a moment, then send a follow-up
         time.sleep(1)
-        
+
         # Second message in the same chat
         logger.info("📝 Sending follow-up message...")
         result2 = client.chat(
             question="Can you give me an example of creating and using a Python list?",
-            chat_title=chat_title  # Same title will continue the conversation
+            chat_title=chat_title,  # Same title will continue the conversation
         )
-        
-        if result2 and result2.get("response"):
-            print(f"\n🤖 Follow-up Response: {result2['response'][:150]}...")
+
+        if result2:
+            follow_text = result2.get_text()
+            if follow_text:
+                print(f"\n🤖 Follow-up Response: {follow_text[:150]}...")
+            else:
+                logger.warning("⚠️ No immediate response text for follow-up")
             logger.info("✅ Successfully continued conversation")
             return True
-        else:
-            logger.error("❌ Failed to send follow-up message")
-            return False
-    else:
-        logger.error("❌ Failed to send first message")
+        logger.error("❌ Failed to send follow-up message")
         return False
+    logger.error("❌ Failed to send first message")
+    return False
 
 
 def different_models_example(client: OpenWebUIClient) -> bool:
     """Demonstrate using different models."""
     logger.info("\n🤖 Different Models Example")
     logger.info("=" * 35)
-    
+
     # Get available models first
     models = client.list_models()
     if not models or len(models) < 2:
         logger.warning("⚠️ Need at least 2 models for this example - skipping")
         return True  # This is acceptable, not a failure
-    
+
     # Get the first two available models
-    model1 = models[0].get('id', DEFAULT_MODEL)
-    model2 = models[1].get('id', DEFAULT_MODEL) if len(models) > 1 else DEFAULT_MODEL
-    
+    model1 = models[0].get("id", DEFAULT_MODEL)
+    model2 = models[1].get("id", DEFAULT_MODEL) if len(models) > 1 else DEFAULT_MODEL
+
     logger.info(f"🎯 Using models: {model1} and {model2}")
-    
+
     question = "What's the most interesting thing about space exploration?"
-    
+
     # Chat with first model
     result1 = client.chat(
         question=question,
         chat_title=f"Space Chat - {model1}",
         model_id=model1,
-        folder_name="Science"
+        folder_name="Science",
     )
-    
-    if result1 and result1.get("response"):
-        print(f"\n🤖 {model1}: {result1['response'][:150]}...")
+
+    if result1:
+        text1 = result1.get_text()
+        if text1:
+            print(f"\n🤖 {model1}: {text1[:150]}...")
+        else:
+            logger.warning(f"⚠️ No immediate response text from {model1}")
     else:
         logger.error(f"❌ Failed to get response from {model1}")
         return False
-    
-    # Chat with second model  
+
+    # Chat with second model
     result2 = client.chat(
         question=question,
         chat_title=f"Space Chat - {model2}",
         model_id=model2,
-        folder_name="Science"
+        folder_name="Science",
     )
-    
-    if result2 and result2.get("response"):
-        print(f"\n🤖 {model2}: {result2['response'][:150]}...")
+
+    if result2:
+        text2 = result2.get_text()
+        if text2:
+            print(f"\n🤖 {model2}: {text2[:150]}...")
+        else:
+            logger.warning(f"⚠️ No immediate response text from {model2}")
         logger.info("✅ Successfully used different models")
         return True
-    else:
-        logger.error("❌ Failed to use different models")
-        return False
+    logger.error("❌ Failed to use different models")
+    return False
 
 
 def chat_management_example(client: OpenWebUIClient) -> bool:
     """Demonstrate basic chat management."""
     logger.info("\n🛠️ Chat Management Example")
     logger.info("=" * 35)
-    
+
     # Create a chat to manage
     result = client.chat(
         question="What is artificial intelligence?",
-        chat_title="AI Discussion - Original Title"
+        chat_title="AI Discussion - Original Title",
     )
-    
-    if result and result.get("chat_id"):
-        chat_id = result["chat_id"]
+
+    if result and result.chat_id:
+        chat_id = result.chat_id
         logger.info(f"✅ Created chat: {chat_id[:8]}...")
-        
+
         # Rename the chat
         new_title = "AI Discussion - Updated Title"
         success = client.rename_chat(chat_id, new_title)
-        
+
         if success:
             logger.info(f"✅ Successfully renamed chat to: {new_title}")
             return True
@@ -223,25 +244,27 @@ def main() -> None:
     """Main function demonstrating basic chat functionality."""
     logger.info("🚀 OpenWebUI Chat Client - Basic Chat Examples")
     logger.info("=" * 60)
-    
+
     # Validation
     if not AUTH_TOKEN:
         logger.error("❌ OUI_AUTH_TOKEN environment variable not set")
         logger.error("Please set your OpenWebUI API token:")
         logger.error("  export OUI_AUTH_TOKEN='your_token_here'")
         sys.exit(1)
-    
+
     # Client initialization
     try:
         client = OpenWebUIClient(BASE_URL, AUTH_TOKEN, DEFAULT_MODEL)
         # Test basic connectivity
         models = client.list_models()
         if not models:
-            logger.error("❌ Failed to list models - connectivity or authentication issue")
+            logger.error(
+                "❌ Failed to list models - connectivity or authentication issue"
+            )
             sys.exit(1)
         logger.info(f"Successfully listed {len(models)} models.")
         logger.info("✅ Client initialized successfully")
-        
+
         # 🧹 Optional: Clean up all existing chats before running tests
         # Enable by setting OUI_CLEANUP_BEFORE_TEST=true
         if CLEANUP_BEFORE_TEST:
@@ -250,12 +273,14 @@ def main() -> None:
             if cleanup_success:
                 logger.info("✅ Test environment cleaned (all previous chats deleted)")
             else:
-                logger.warning("⚠️ Could not clean up previous chats, continuing anyway...")
-        
+                logger.warning(
+                    "⚠️ Could not clean up previous chats, continuing anyway..."
+                )
+
     except Exception as e:
         logger.error(f"❌ Failed to initialize client: {e}")
         sys.exit(1)
-    
+
     # Run examples and track success
     examples = [
         ("basic_chat", basic_chat_example),
@@ -264,7 +289,7 @@ def main() -> None:
         # ("different_models", different_models_example),
         # ("chat_management", chat_management_example)
     ]
-    
+
     success_count = 0
     try:
         for example_name, example_func in examples:
@@ -276,7 +301,7 @@ def main() -> None:
                     logger.error(f"❌ {example_name} example failed")
             except Exception as e:
                 logger.error(f"❌ {example_name} example failed with exception: {e}")
-        
+
         # Require most examples to succeed
         total_examples = len(examples)
         if success_count == 0:
@@ -287,15 +312,19 @@ def main() -> None:
         required_success = min(3, total_examples)
         if success_count < required_success:
             logger.error(f"❌ Only {success_count}/{total_examples} examples succeeded")
-            logger.error("Integration test requires most basic features to work properly")
+            logger.error(
+                "Integration test requires most basic features to work properly"
+            )
             sys.exit(1)
-        
-        logger.info(f"\n🎉 Basic chat examples completed successfully: {success_count}/{total_examples}!")
+
+        logger.info(
+            f"\n🎉 Basic chat examples completed successfully: {success_count}/{total_examples}!"
+        )
         logger.info("💡 Next steps:")
         logger.info("   - Try: python examples/chat_features/streaming_chat.py")
         logger.info("   - Try: python examples/rag_knowledge/file_rag.py")
         logger.info("   - Try: python examples/chat_features/parallel_chat.py")
-        
+
     except Exception as e:
         logger.error(f"❌ Basic chat examples failed: {e}")
         sys.exit(1)

@@ -11,15 +11,15 @@ repos:
       - id: end-of-file-fixer
         exclude: ^(.*\.md|.*\.txt)$
       - id: check-yaml
-        args: ['--unsafe']  # Allow custom tags in GitHub Actions
+        args: ["--unsafe"] # Allow custom tags in GitHub Actions
       - id: check-added-large-files
-        args: ['--maxkb=1000']
+        args: ["--maxkb=1000"]
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-json
       - id: check-toml
       - id: mixed-line-ending
-        args: ['--fix=lf']
+        args: ["--fix=lf"]
 
   # Python code formatting
   - repo: https://github.com/psf/black
@@ -27,14 +27,14 @@ repos:
     hooks:
       - id: black
         language_version: python3
-        args: ['--line-length=88']
+        args: ["--line-length=88"]
 
   # Python import sorting
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
-        args: ['--profile', 'black', '--line-length', '88']
+        args: ["--profile", "black", "--line-length", "88"]
 
   # Python linting
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -59,7 +59,7 @@ repos:
     rev: 1.7.6
     hooks:
       - id: bandit
-        args: ['-ll', '-ii']  # Low severity, ignore info
+        args: ["-ll", "-ii"] # Low severity, ignore info
         exclude: ^(tests/|examples/)
 
 # Configuration
@@ -86,4 +86,4 @@ exclude: |
 fail_fast: false
 
 # Minimum pre-commit version
-minimum_pre_commit_version: '2.20.0'
+minimum_pre_commit_version: "2.20.0"
