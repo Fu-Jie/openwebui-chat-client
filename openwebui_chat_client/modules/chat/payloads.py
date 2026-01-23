@@ -479,11 +479,15 @@ class ChatPayloads:
                 logger.error(f"Messages must be a list, got: {type(messages)}")
                 raise TypeError(f"Messages must be a list, got: {type(messages)}")
 
-            if not current_id or not isinstance(current_id, str):
-                logger.error(f"Invalid current_id: {current_id}")
-                raise ValueError(
-                    f"current_id must be a non-empty string, got: {current_id}"
+            if not isinstance(current_id, str):
+                logger.error(f"Invalid current_id type: {type(current_id)}")
+                raise TypeError(
+                    f"current_id must be a string, got: {type(current_id)}"
                 )
+
+            # For new chats, empty messages and empty current_id are valid
+            if len(messages) == 0:
+                return {"currentId": current_id, "messages": {}}
 
             # Convert list to dictionary mapping with validation
             messages_dict = {}
@@ -499,8 +503,8 @@ class ChatPayloads:
                 msg_id = msg["id"]
                 messages_dict[msg_id] = msg
 
-            # Verify current_id exists in messages
-            if current_id not in messages_dict:
+            # Verify current_id exists in messages (only if current_id is not empty)
+            if current_id and current_id not in messages_dict:
                 logger.warning(f"current_id '{current_id}' not found in messages")
 
             return {"currentId": current_id, "messages": messages_dict}
@@ -851,8 +855,10 @@ class ChatPayloads:
             **extra_data: Additional completion data
 
         Official: backend/open_webui/main.py @app.post("/api/chat/completed")
+        
+        Note: Backend expects 'id' field, not 'chat_id'.
         """
-        return {"chat_id": chat_id, "message_id": message_id, **extra_data}
+        return {"id": chat_id, "message_id": message_id, **extra_data}
 
     @staticmethod
     def convert_to_openai_format(

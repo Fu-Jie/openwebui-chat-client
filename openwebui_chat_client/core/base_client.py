@@ -5,7 +5,7 @@ Provides core authentication, session management, and common utilities.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Generator
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -203,6 +203,59 @@ class BaseClient:
             return response.json()
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {e}")
+            return None
+
+    def _stream_request(
+        self,
+        method: str,
+        endpoint: str,
+        json_data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Optional[Generator[bytes, None, None]]:
+        """
+        Make a streaming request that yields response chunks.
+
+        Args:
+            method: HTTP method (typically POST)
+            endpoint: API endpoint
+            json_data: JSON payload
+            params: URL parameters
+            headers: Additional headers
+
+        Yields:
+            bytes: Response chunks
+
+        Returns:
+            None if request failed to initialize
+        """
+        url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        
+        try:
+            request_headers = self.json_headers.copy()
+            if headers:
+                request_headers.update(headers)
+            
+            response = self.session.post(
+                url,
+                json=json_data,
+                params=params,
+                headers=request_headers,
+                stream=True,
+                timeout=self.DEFAULT_TIMEOUT
+            )
+            response.raise_for_status()
+            
+            # Yield chunks
+            for chunk in response.iter_lines():
+                if chunk:
+                    yield chunk
+                    
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Stream request error for {method} {endpoint}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error in stream request for {method} {endpoint}: {e}")
             return None
 
     def _extract_error_detail(self, error: requests.exceptions.HTTPError) -> str:

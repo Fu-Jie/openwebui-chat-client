@@ -207,7 +207,7 @@ class OpenWebUIClient(ModelAccessMixin):
         auto_followup: bool = True,
         auto_tags: bool = False,
         **kwargs,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[ChatResponse]:
         """Send a chat message with a single model."""
         return self._chat_manager.chat(
             question=question,
@@ -257,19 +257,19 @@ class OpenWebUIClient(ModelAccessMixin):
             ParallelChatResponse with responses from all models
         """
         return self._chat_manager.parallel_chat(
-            question,
-            chat_title,
-            model_ids,
-            chat_id,
-            folder_name,
-            image_paths,
-            tags,
-            rag_files,
-            rag_collections,
-            tool_ids,
-            enable_follow_up,
-            enable_auto_tagging,
-            enable_auto_titling,
+            question=question,
+            model_ids=model_ids,
+            chat_title=chat_title,
+            chat_id=chat_id,
+            folder_name=folder_name,
+            image_paths=image_paths,
+            tags=tags,
+            rag_files=rag_files,
+            rag_collections=rag_collections,
+            tool_ids=tool_ids,
+            enable_follow_up=enable_follow_up,
+            enable_auto_tagging=enable_auto_tagging,
+            enable_auto_titling=enable_auto_titling,
         )
 
     def stream_chat(

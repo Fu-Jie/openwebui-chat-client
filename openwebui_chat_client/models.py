@@ -220,6 +220,10 @@ class ChatResponse(BaseModel):
     follow_ups: Optional[List[str]] = None
     sources: Optional[List[Dict[str, Any]]] = None
 
+    def get_text(self) -> Optional[str]:
+        """Get the response text."""
+        return self.response
+
 
 @dataclass
 class ParallelModelResponse(BaseModel):

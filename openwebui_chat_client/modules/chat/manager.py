@@ -3,7 +3,7 @@ import logging
 
 from openwebui_chat_client.core.base_manager import BaseManager
 from openwebui_chat_client.core.base_client import BaseClient
-from openwebui_chat_client.models import ActionResult
+from openwebui_chat_client.models import ActionResult, ChatResponse
 
 # Import orchestrated modules
 from .api import ChatAPI
@@ -31,11 +31,13 @@ class ChatManager(BaseManager):
         self._api = ChatAPI(base_client)
         self._workflow = ChatWorkflow(self._api)
         self._rag = ChatRAG()
+        
+        # Expose properties for internal access BEFORE initializing dependent modules
+        self.api = self._api
+        
+        # Initialize modules that depend on exposed properties
         self._tasks = ChatTasks(self)
         self._actions = ChatActions(self)
-
-        # Expose properties for internal access if needed (e.g. by ChatTasks)
-        self.api = self._api
 
     # --- Workflow Delegation ---
 
@@ -49,11 +51,15 @@ class ChatManager(BaseManager):
         auto_followup: bool = True,
         auto_tags: bool = False,
         **kwargs,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[ChatResponse]:
         """
         Send a message using the full 3-step workflow.
+        
+        Returns:
+            ChatResponse object with response text, chat_id, message_id, etc.
+            or None if the operation fails.
         """
-        return self._workflow.execute_full_turn(
+        result = self._workflow.execute_full_turn(
             question=question,
             chat_id=chat_id,
             model=model or self.base_client.default_model_id,
@@ -62,6 +68,31 @@ class ChatManager(BaseManager):
             auto_followup=auto_followup,
             auto_tags=auto_tags,
             **kwargs,
+        )
+        
+        if not result:
+            return None
+        
+        # Convert workflow result to ChatResponse
+        completion_resp = result.get("completion_response", {})
+        metadata = result.get("metadata", {})
+        
+        # Extract response text from completion
+        response_text = None
+        if completion_resp:
+            choices = completion_resp.get("choices", [])
+            if choices and len(choices) > 0:
+                message = choices[0].get("message", {})
+                response_text = message.get("content")
+        
+        return ChatResponse(
+            response=response_text,
+            chat_id=metadata.get("chat_id"),
+            message_id=metadata.get("message_id"),
+            suggested_tags=None,  # TODO: Extract from result if available
+            suggested_title=None,  # TODO: Extract from result if available
+            follow_ups=None,  # TODO: Extract from result if available
+            sources=None,
         )
 
     def stream_chat(
@@ -74,7 +105,13 @@ class ChatManager(BaseManager):
     ) -> Generator[Dict[str, Any], None, None]:
         """
         Stream a chat response.
+        
+        Yields:
+            Dictionaries containing streaming chunks of the response.
         """
+        import json
+        import uuid
+        
         if not chat_id:
             create_resp = self._api.create_chat(
                 {"chat": {"title": chat_title or "New Chat"}}
@@ -86,18 +123,30 @@ class ChatManager(BaseManager):
 
         model = model or self.base_client.default_model_id
 
+        # Build streaming completion payload
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": question}],
             "stream": True,
+            "session_id": str(uuid.uuid4()),
             **kwargs,
         }
 
-        stream_resp = self.base_client._stream_request(
-            "POST", f"/api/v1/chats/{chat_id}", json_data=payload
-        )
+        stream_resp = self._api.stream_completion(payload)
+        if not stream_resp:
+            return
+        
         for chunk in stream_resp:
-            yield chunk
+            if chunk.startswith(b'data: '):
+                data_str = chunk[6:].decode('utf-8').strip()
+                if data_str == '[DONE]':
+                    break
+
+                try:
+                    data = json.loads(data_str)
+                    yield data
+                except json.JSONDecodeError:
+                    continue
 
     # --- Task Processing Delegation ---
 
@@ -207,6 +256,50 @@ class ChatManager(BaseManager):
     def archive_chat(self, chat_id: str, archive: bool = True) -> bool:
         """Archive or unarchive a chat."""
         return self._api.archive_chat(chat_id, archive)
+    
+    def switch_chat_model(self, chat_id: str, new_model_id: str) -> bool:
+        """
+        Switch the model for an existing chat.
+        
+        Args:
+            chat_id: Chat ID to update
+            new_model_id: New model ID to switch to
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get current chat state
+            chat = self._api.get_chat(chat_id)
+            if not chat:
+                logger.error(f"Chat {chat_id} not found")
+                return False
+            
+            # Update the model in the chat object
+            chat_inner = chat.get("chat", {})
+            current_models = chat_inner.get("models", [])
+            
+            # Replace or add the new model
+            if not current_models:
+                new_models = [new_model_id]
+            else:
+                new_models = [new_model_id]
+            
+            chat_inner["models"] = new_models
+            
+            # Update the chat
+            update_payload = {"chat": chat_inner}
+            result = self._api.update_chat(chat_id, update_payload)
+            
+            if result:
+                logger.info(f"Successfully switched chat {chat_id} to model {new_model_id}")
+                return True
+            else:
+                logger.error(f"Failed to update chat {chat_id} with new model")
+                return False
+        except Exception as e:
+            logger.error(f"Error switching model for chat {chat_id}: {e}", exc_info=True)
+            return False
 
     # --- Folder & Metadata Operations ---
 
