@@ -21,6 +21,7 @@ class TestOpenWebUIClient(unittest.TestCase):
             default_model_id=self.default_model,
             skip_model_refresh=True,
         )
+        self.client._base_client._test_mode = True
         self.client._auto_cleanup_enabled = False
 
     def test_initialization(self):
@@ -446,6 +447,7 @@ class TestOpenWebUIClient(unittest.TestCase):
             f"{self.base_url}/api/v1/chats/{chat_id}",
             headers=self.client.json_headers,
             json={"chat": {"title": new_title}},
+            timeout=None,
         )
 
     def test_rename_chat_empty_id(self):
@@ -488,6 +490,7 @@ class TestOpenWebUIClient(unittest.TestCase):
 
         # Mock the create request
         mock_response = Mock()
+        mock_response.json.return_value = {"id": "new-folder-id", "name": folder_name}
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response
 
@@ -502,6 +505,7 @@ class TestOpenWebUIClient(unittest.TestCase):
                 f"{self.base_url}/api/v1/folders/",
                 json={"name": folder_name},
                 headers=self.client.json_headers,
+                timeout=None,
             )
 
     def test_handle_rag_references_files_only(self):

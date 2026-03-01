@@ -68,7 +68,7 @@ class TestModelPermissions(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    @patch("openwebui_chat_client.modules.model_manager.ModelManager.get_model")
+    @patch("openwebui_chat_client.modules.sync.model_manager.ModelManager.get_model")
     @patch("openwebui_chat_client.core.base_client.requests.Session.post")
     def test_update_model_to_public(self, mock_post, mock_get_model):
         """Test updating a model to public permissions."""
@@ -95,7 +95,7 @@ class TestModelPermissions(unittest.TestCase):
         payload = mock_post.call_args.kwargs["json"]
         self.assertIsNone(payload["access_control"])
 
-    @patch("openwebui_chat_client.modules.model_manager.ModelManager.get_model")
+    @patch("openwebui_chat_client.modules.sync.model_manager.ModelManager.get_model")
     @patch("openwebui_chat_client.core.base_client.requests.Session.post")
     def test_update_model_preserves_permissions(self, mock_post, mock_get_model):
         """Test that updating a model without specifying permissions preserves the old ones."""
@@ -121,9 +121,9 @@ class TestModelPermissions(unittest.TestCase):
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(payload["access_control"], existing_permissions)
 
-    @patch("openwebui_chat_client.modules.model_manager.ModelManager.get_model")
+    @patch("openwebui_chat_client.modules.sync.model_manager.ModelManager.get_model")
     @patch(
-        "openwebui_chat_client.modules.model_manager.ModelManager._resolve_group_ids"
+        "openwebui_chat_client.modules.sync.model_manager.ModelManager._resolve_group_ids"
     )
     @patch("openwebui_chat_client.core.base_client.requests.Session.post")
     def test_update_model_to_group(self, mock_post, mock_resolve_ids, mock_get_model):

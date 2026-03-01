@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 
 from openwebui_chat_client import AsyncOpenWebUIClient
-from openwebui_chat_client.modules.async_chat_manager import AsyncChatManager
+from openwebui_chat_client.modules.async_.async_chat_manager import AsyncChatManager
 
 
 class TestAsyncOpenWebUIClient(unittest.IsolatedAsyncioTestCase):
@@ -57,50 +57,22 @@ class TestAsyncOpenWebUIClient(unittest.IsolatedAsyncioTestCase):
         # chats[0] is now a ChatDetails object
         self.assertEqual(chats[0].id, "chat1")
 
-    async def test_chat(self):
-        # Mock search response (chat not found)
-        search_response = Mock()
-        search_response.status_code = 200
-        search_response.json.return_value = []
-
-        # Mock create response
-        create_response = Mock()
-        create_response.status_code = 200
-        create_response.json.return_value = {"id": "new_chat_id"}
-
-        # Mock load details response
-        details_response = Mock()
-        details_response.status_code = 200
-        details_response.json.return_value = {
-            "id": "new_chat_id",
-            "chat": {
-                "history": {"messages": {}, "currentId": None},
-                "models": ["test-model"],
-            },
-        }
-
+    @patch("openwebui_chat_client.modules.async_.chat.manager.AsyncChatManager.chat")
+    async def test_chat(self, mock_chat_manager_chat):
         # Mock completion response
-        completion_response = Mock()
-        completion_response.status_code = 200
-        completion_response.json.return_value = {
-            "choices": [{"message": {"content": "Hello user!"}}]
-        }
+        from openwebui_chat_client.models import ChatResponse
+        mock_chat_manager_chat.return_value = ChatResponse(
+            content="Hello user!",
+            chat_id="new_chat_id",
+            message_id="msg-123"
+        )
 
-        # Sequence of calls: search, create, load, completion
-        self.mock_httpx_client.get.side_effect = [
-            search_response,  # search
-            details_response,  # load details
-        ]
-
-        self.mock_httpx_client.post.side_effect = [
-            create_response,  # create
-            completion_response,  # completion
-        ]
-
-        response = await self.client.chat("Hello", "New Chat")
+        response = await self.client.chat("Hello", "new_chat_id")
 
         self.assertIsNotNone(response)
-        self.assertEqual(response.response, "Hello user!")
+        self.assertEqual(response.content, "Hello user!")
+        self.assertEqual(response.chat_id, "new_chat_id")
+        mock_chat_manager_chat.assert_called_once()
 
 
 class TestAsyncChatManagerBehavior(unittest.IsolatedAsyncioTestCase):
@@ -158,7 +130,7 @@ class TestAsyncChatManagerBehavior(unittest.IsolatedAsyncioTestCase):
                 tool_ids=["tool-1"],
             )
 
-        self.assertEqual(result.response, "Hello async")
+        self.assertEqual(result.content, "Hello async")
 
         base_client._make_request.assert_awaited()
         called_payload = base_client._make_request.call_args.kwargs.get("json_data")
@@ -199,9 +171,10 @@ class TestAsyncClientChatPassthrough(unittest.IsolatedAsyncioTestCase):
         )
 
         client._chat_manager.chat.assert_awaited_with(
-            "q",
-            "t",
-            "m",
+            question="q",
+            chat_id="t",
+            chat_title=None,
+            model_id="m",
             rag_files=["f"],
             rag_collections=["kb"],
             tool_ids=["tool"],

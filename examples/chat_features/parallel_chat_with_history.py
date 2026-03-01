@@ -163,7 +163,7 @@ def test_chat_with_chat_id():
 
     chat_id = result1.chat_id
     logger.info(f"✅ Created chat with ID: {chat_id[:16]}...")
-    logger.info(f"🤖 Response 1: {result1.get_text()[:100]}...")
+    logger.info(f"🤖 Response 1: {result1.content[:100]}...")
 
     # Step 2: Continue in same chat using chat_id
     logger.info("\n📝 Step 2: Continue in same chat using chat_id")
@@ -180,7 +180,7 @@ def test_chat_with_chat_id():
         return False
 
     logger.info(f"✅ Continued in same chat: {chat_id[:16]}...")
-    logger.info(f"🤖 Response 2: {result2.get_text()[:100]}...")
+    logger.info(f"🤖 Response 2: {result2.content[:100]}...")
 
     # Step 3: Validate history tree structure
     logger.info("\n📝 Step 3: Validate history tree structure")

@@ -23,7 +23,7 @@ class TestGetChat(unittest.TestCase):
 
     def test_get_chat_success(self):
         """Test successful get_chat."""
-        from openwebui_chat_client.modules.chat_manager import ChatManager
+        from openwebui_chat_client.modules.chat.manager import ChatManager
 
         # Setup mock response for _load_chat_details -> session.get
         mock_response = MagicMock()
@@ -44,7 +44,7 @@ class TestGetChat(unittest.TestCase):
 
     def test_get_chat_failure(self):
         """Test get_chat failure."""
-        from openwebui_chat_client.modules.chat_manager import ChatManager
+        from openwebui_chat_client.modules.chat.manager import ChatManager
 
         # Setup mock response for failure
         mock_response = MagicMock()
@@ -64,7 +64,7 @@ class TestAsyncGetChat(unittest.TestCase):
     def test_async_get_chat_success(self):
         """Test successful async get_chat."""
         import asyncio
-        from openwebui_chat_client.modules.async_chat_manager import AsyncChatManager
+        from openwebui_chat_client.modules.async_.async_chat_manager import AsyncChatManager
 
         async def run_test():
             mock_base_client = MagicMock()

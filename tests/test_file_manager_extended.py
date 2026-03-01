@@ -11,7 +11,7 @@ from unittest.mock import Mock, mock_open, patch
 import requests
 
 from openwebui_chat_client.core.base_client import BaseClient
-from openwebui_chat_client.modules.file_manager import FileManager
+from openwebui_chat_client.modules.sync.file_manager import FileManager
 
 
 class TestFileManagerExtended(unittest.TestCase):
@@ -59,7 +59,7 @@ class TestFileManagerExtended(unittest.TestCase):
         mock_response = Mock()
         mock_response.text = "Error message"
         error = requests.exceptions.HTTPError("API Error")
-        error.response = mock_response
+        error.content = mock_response
         self.base_client.session.post.side_effect = error
 
         result = self.manager.upload_file("test.txt")

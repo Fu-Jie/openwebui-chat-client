@@ -14,7 +14,7 @@ This test file covers:
 import unittest
 from unittest.mock import MagicMock
 
-from openwebui_chat_client.modules.chat_manager import ChatManager
+from openwebui_chat_client.modules.chat.manager import ChatManager
 
 
 class TestChatManagerCoreOperations(unittest.TestCase):

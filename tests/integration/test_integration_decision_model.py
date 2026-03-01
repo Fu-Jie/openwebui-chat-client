@@ -17,7 +17,15 @@ import uuid
 import unittest
 
 from openwebui_chat_client import OpenWebUIClient
-from .integration_helpers import ensure_env_loaded, get_env
+
+try:
+    from .integration_helpers import ensure_env_loaded, get_env
+except ImportError:
+    import sys
+    import os
+
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    from integration_helpers import ensure_env_loaded, get_env
 
 ENV_READY = ensure_env_loaded()
 DECISION_MODEL_READY = bool(get_env("OUI_DECISION_MODEL"))

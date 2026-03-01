@@ -168,7 +168,7 @@ Hope this helps!"""
             mock_create_response if "/api/v1/chats/new" in args[0] else MagicMock()
         )
 
-    @patch("openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat")
+    @patch("openwebui_chat_client.modules.chat.manager.ChatManager._update_remote_chat")
     def test_chat_with_follow_up(self, mock_update_remote_chat):
         """Test that `chat` with `enable_follow_up=True` calls the follow-up API."""
         self._mock_chat_creation_and_loading()
@@ -246,7 +246,7 @@ Hope this helps!"""
         self.assertIn("followUps", last_message)
         self.assertEqual(last_message["followUps"], ["Follow-up 1", "Follow-up 2"])
 
-    @patch("openwebui_chat_client.modules.chat_manager.ChatManager._update_remote_chat")
+    @patch("openwebui_chat_client.modules.chat.manager.ChatManager._update_remote_chat")
     def test_chat_with_follow_up_markdown_format(self, mock_update_remote_chat):
         """Test that `chat` with `enable_follow_up=True` works with markdown-formatted JSON response."""
         self._mock_chat_creation_and_loading()

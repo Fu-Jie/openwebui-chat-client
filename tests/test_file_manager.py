@@ -6,7 +6,7 @@ import base64
 import unittest
 from unittest.mock import Mock, mock_open, patch
 
-from openwebui_chat_client.modules.file_manager import FileManager
+from openwebui_chat_client.modules.sync.file_manager import FileManager
 
 
 class TestFileManager(unittest.TestCase):

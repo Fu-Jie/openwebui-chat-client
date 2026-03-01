@@ -252,7 +252,7 @@ class TestNotesFunctionality(unittest.TestCase):
 if __name__ == "__main__":
     # Override HTTP requests to avoid connection errors during initialization
     with patch(
-        "openwebui_chat_client.modules.model_manager.requests.Session.get"
+        "openwebui_chat_client.modules.sync.model_manager.requests.Session.get"
     ) as mock_get:
         # Mock the models list response during initialization
         mock_response = Mock()

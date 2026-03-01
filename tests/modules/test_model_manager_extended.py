@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import requests
 
 from openwebui_chat_client.core.base_client import BaseClient
-from openwebui_chat_client.modules.model_manager import ModelManager
+from openwebui_chat_client.modules.sync.model_manager import ModelManager
 
 
 class TestModelManagerExtended(unittest.TestCase):
@@ -98,7 +98,7 @@ class TestModelManagerExtended(unittest.TestCase):
         mock_response = Mock()
         mock_response.text = "Error message"
         error = requests.exceptions.RequestException("API Error")
-        error.response = mock_response
+        error.content = mock_response
         self.base_client.session.get.side_effect = error
 
         result = self.manager.list_models()

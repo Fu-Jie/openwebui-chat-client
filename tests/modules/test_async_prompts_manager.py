@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from openwebui_chat_client.modules.async_prompts_manager import AsyncPromptsManager
+from openwebui_chat_client.modules.async_.async_prompts_manager import AsyncPromptsManager
 
 pytestmark = pytest.mark.asyncio
 

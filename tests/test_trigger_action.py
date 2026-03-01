@@ -21,7 +21,7 @@ class TestTriggerAction(unittest.TestCase):
 
     def test_trigger_action_success(self):
         """Test successful action trigger."""
-        from openwebui_chat_client.modules.chat_manager import ChatManager
+        from openwebui_chat_client.modules.chat.manager import ChatManager
 
         # Setup mock response
         mock_response = Mock()
@@ -42,7 +42,7 @@ class TestTriggerAction(unittest.TestCase):
 
     def test_trigger_action_with_chinese_id(self):
         """Test action trigger with Chinese action ID (URL encoding)."""
-        from openwebui_chat_client.modules.chat_manager import ChatManager
+        from openwebui_chat_client.modules.chat.manager import ChatManager
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -63,7 +63,7 @@ class TestTriggerAction(unittest.TestCase):
 
     def test_trigger_action_with_params(self):
         """Test action trigger with additional parameters."""
-        from openwebui_chat_client.modules.chat_manager import ChatManager
+        from openwebui_chat_client.modules.chat.manager import ChatManager
 
         mock_response = Mock()
         mock_response.status_code = 200
@@ -85,7 +85,7 @@ class TestTriggerAction(unittest.TestCase):
 
     def test_trigger_action_failure(self):
         """Test action trigger failure handling."""
-        from openwebui_chat_client.modules.chat_manager import ChatManager
+        from openwebui_chat_client.modules.chat.manager import ChatManager
 
         self.mock_session.post.side_effect = Exception("Connection failed")
 
@@ -100,7 +100,7 @@ class TestTriggerAction(unittest.TestCase):
 
     def test_trigger_action_http_error(self):
         """Test action trigger with HTTP error response."""
-        from openwebui_chat_client.modules.chat_manager import ChatManager
+        from openwebui_chat_client.modules.chat.manager import ChatManager
         from requests.exceptions import HTTPError
 
         mock_response = Mock()
@@ -126,7 +126,7 @@ class TestAsyncTriggerAction(unittest.TestCase):
         import asyncio
 
         async def run_test():
-            from openwebui_chat_client.modules.async_chat_manager import (
+            from openwebui_chat_client.modules.async_.async_chat_manager import (
                 AsyncChatManager,
             )
 

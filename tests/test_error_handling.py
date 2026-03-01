@@ -238,7 +238,7 @@ class TestOpenWebUIClientErrorHandling(unittest.TestCase):
         mock_response = Mock()
         mock_response.text = "Server error"
         error = HTTPError("Server error")
-        error.response = mock_response
+        error.content = mock_response
         mock_post.side_effect = error
 
         result = self.client.rename_chat("chat-id", "New Title")

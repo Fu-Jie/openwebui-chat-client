@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 
-from openwebui_chat_client.modules.async_model_manager import AsyncModelManager
+from openwebui_chat_client.modules.async_.async_model_manager import AsyncModelManager
 
 pytestmark = pytest.mark.asyncio
 

@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from dotenv import load_dotenv
 
 from openwebui_chat_client import OpenWebUIClient
+from openwebui_chat_client.models import ChatResponse
 
 # Load environment variables
 load_dotenv()
@@ -55,12 +56,12 @@ def basic_chat_example(client: OpenWebUIClient) -> bool:
     logger.info("=" * 30)
 
     # Send a simple question
-    result = client.chat(
+    result: ChatResponse | None = client.chat(
         question="What is the capital of France?", chat_title="Geography Quiz"
     )
 
     if result:
-        response_text = result.get_text()
+        response_text = result.content
         if response_text:
             print(f"\n🤖 Response: {response_text}")
         else:
@@ -81,7 +82,7 @@ def organized_chat_example(client: OpenWebUIClient) -> bool:
     logger.info("=" * 35)
 
     # Create a chat with organization
-    result = client.chat(
+    result: ChatResponse | None = client.chat(
         question="Explain the basics of machine learning in simple terms",
         chat_title="ML Learning Session",
         folder_name="Education",
@@ -89,7 +90,7 @@ def organized_chat_example(client: OpenWebUIClient) -> bool:
     )
 
     if result:
-        response_text = result.get_text()
+        response_text = result.content
         if response_text:
             print(f"\n🤖 Response: {response_text[:200]}...")
         else:
@@ -123,7 +124,7 @@ def multi_message_chat_example(client: OpenWebUIClient) -> bool:
     )
 
     if result1:
-        first_text = result1.get_text()
+        first_text = result1.content
         if first_text:
             print(f"\n🤖 First Response: {first_text[:150]}...")
         else:
@@ -140,7 +141,7 @@ def multi_message_chat_example(client: OpenWebUIClient) -> bool:
         )
 
         if result2:
-            follow_text = result2.get_text()
+            follow_text = result2.content
             if follow_text:
                 print(f"\n🤖 Follow-up Response: {follow_text[:150]}...")
             else:
@@ -181,7 +182,7 @@ def different_models_example(client: OpenWebUIClient) -> bool:
     )
 
     if result1:
-        text1 = result1.get_text()
+        text1 = result1.content
         if text1:
             print(f"\n🤖 {model1}: {text1[:150]}...")
         else:
@@ -199,7 +200,7 @@ def different_models_example(client: OpenWebUIClient) -> bool:
     )
 
     if result2:
-        text2 = result2.get_text()
+        text2 = result2.content
         if text2:
             print(f"\n🤖 {model2}: {text2[:150]}...")
         else:

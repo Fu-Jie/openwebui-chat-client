@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-class TestModelManager(BaseManager):
+class MockModelManager(BaseManager):
     """测试用的 ModelManager 实现"""
 
     def __init__(self, client: BaseClient):
@@ -70,7 +70,7 @@ class IntegrationTestBaseManager(unittest.TestCase):
         )
 
         # 创建测试管理器
-        cls.model_manager = TestModelManager(cls.client)
+        cls.model_manager = MockModelManager(cls.client)
 
     def test_01_real_connection(self):
         """测试1: 真实连接 - 验证可以连接到服务器"""

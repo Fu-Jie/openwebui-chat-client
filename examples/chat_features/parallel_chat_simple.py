@@ -131,7 +131,7 @@ def main():
 
     if result3:
         logger.info(f"\n✅ Single model response:")
-        print(f"   {result3.get_text()[:150]}...")
+        print(f"   {result3.content[:150]}...")
 
     # Then parallel comparison
     result4 = client.parallel_chat(

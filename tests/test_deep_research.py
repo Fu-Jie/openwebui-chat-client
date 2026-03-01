@@ -14,7 +14,7 @@ class TestDeepResearch(unittest.TestCase):
             skip_model_refresh=True,  # Skip initial model refresh for tests
         )
 
-    @patch("openwebui_chat_client.modules.chat_manager.ChatManager.chat")
+    @patch("openwebui_chat_client.modules.chat.manager.ChatManager.chat")
     def test_deep_research_success_with_routing(self, mock_chat_method):
         """
         Test the successful execution of the deep_research workflow, ensuring
@@ -73,7 +73,7 @@ class TestDeepResearch(unittest.TestCase):
         self.assertIn(f"(using {search_models[0]})", result["research_log"][0])
         self.assertIn(f"(using {general_models[0]})", result["research_log"][1])
 
-    @patch("openwebui_chat_client.modules.chat_manager.ChatManager.chat")
+    @patch("openwebui_chat_client.modules.chat.manager.ChatManager.chat")
     def test_deep_research_step_failure(self, mock_chat_method):
         """
         Test that deep_research handles a failure during a research step.
@@ -90,7 +90,7 @@ class TestDeepResearch(unittest.TestCase):
         self.assertEqual(mock_chat_method.call_count, 1)
         self.assertIsNone(result)
 
-    @patch("openwebui_chat_client.modules.chat_manager.ChatManager.chat")
+    @patch("openwebui_chat_client.modules.chat.manager.ChatManager.chat")
     def test_deep_research_invalid_json_planning(self, mock_chat_method):
         """
         Test that deep_research handles an invalid JSON response during planning.

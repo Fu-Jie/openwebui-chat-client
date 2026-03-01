@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import requests
 
-from openwebui_chat_client.modules.model_manager import ModelManager
+from openwebui_chat_client.modules.sync.model_manager import ModelManager
 
 
 class TestModelManagerComprehensive(unittest.TestCase):

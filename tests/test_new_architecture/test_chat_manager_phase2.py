@@ -13,7 +13,7 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from openwebui_chat_client.core.base_client import BaseClient
-from openwebui_chat_client.modules.chat_manager import ChatManager
+from openwebui_chat_client.modules.chat.manager import ChatManager
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

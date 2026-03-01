@@ -10,7 +10,7 @@ import requests
 
 # Import the classes to test
 from openwebui_chat_client import OpenWebUIClient
-from openwebui_chat_client.modules.user_manager import UserManager
+from openwebui_chat_client.modules.sync.user_manager import UserManager
 
 
 class TestUserManager(unittest.TestCase):

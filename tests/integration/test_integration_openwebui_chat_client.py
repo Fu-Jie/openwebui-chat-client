@@ -5,7 +5,12 @@ Requires OUI_BASE_URL and OUI_AUTH_TOKEN to be set.
 
 import requests
 import unittest
-from .integration_helpers import ensure_env_loaded, get_env, normalize_chat_response
+try:
+    from .integration_helpers import ensure_env_loaded, get_env
+except ImportError:
+    import sys, os
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    from integration_helpers import ensure_env_loaded, get_env, normalize_chat_response
 
 from openwebui_chat_client.openwebui_chat_client import OpenWebUIClient
 

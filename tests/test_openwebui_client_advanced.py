@@ -294,7 +294,7 @@ class TestGetTitleAndTags(unittest.TestCase):
         mock_response = Mock()
         mock_response.text = "Error message"
         error = requests.exceptions.HTTPError("API Error")
-        error.response = mock_response
+        error.content = mock_response
         mock_post.side_effect = error
 
         messages = [{"role": "user", "content": "Hello"}]

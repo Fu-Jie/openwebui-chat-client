@@ -7,7 +7,7 @@ This module tests batch operations, search functionality, and variable handling.
 import unittest
 from unittest.mock import Mock
 
-from openwebui_chat_client.modules.prompts_manager import PromptsManager
+from openwebui_chat_client.modules.sync.prompts_manager import PromptsManager
 
 
 class TestPromptsManagerExtended(unittest.TestCase):

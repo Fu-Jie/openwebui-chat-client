@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from openwebui_chat_client.modules.async_chat_manager import AsyncChatManager
+from openwebui_chat_client.modules.async_.async_chat_manager import AsyncChatManager
 
 pytestmark = pytest.mark.asyncio
 
@@ -45,7 +45,10 @@ class TestAsyncChatManager:
 
         result = await self.manager.list_chats()
 
-        assert result == expected_chats
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].id == "chat1"
+        assert result[0].title == "Test Chat"
         self.mock_base_client._get_json_response.assert_called_once_with(
             "GET", "/api/v1/chats/list", params={}
         )
@@ -57,7 +60,10 @@ class TestAsyncChatManager:
 
         result = await self.manager.list_chats(page=2)
 
-        assert result == expected_chats
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].id == "chat2"
+        assert result[0].title == "Test Chat 2"
         self.mock_base_client._get_json_response.assert_called_once_with(
             "GET", "/api/v1/chats/list", params={"page": 2}
         )
@@ -95,12 +101,10 @@ class TestAsyncChatManager:
 
     async def test_find_or_create_chat_by_title_existing(self):
         """Test finding an existing chat by title."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = [
+        self.mock_base_client._get_json_response.side_effect = [
             {"id": "chat1", "title": "Test Chat", "updated_at": 1000},
             {"id": "chat2", "title": "Test Chat", "updated_at": 2000},
-        ]
-        self.mock_base_client._make_request.return_value = mock_response
+        ], []
 
         # Mock load_chat_details
         with patch.object(
@@ -118,9 +122,7 @@ class TestAsyncChatManager:
 
     async def test_find_or_create_chat_by_title_create_new(self):
         """Test creating a new chat when not found."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = []
-        self.mock_base_client._make_request.return_value = mock_response
+        self.mock_base_client._get_json_response.side_effect = [[], []]
 
         with patch.object(
             self.manager, "_create_new_chat", new_callable=AsyncMock

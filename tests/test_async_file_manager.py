@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock, mock_open, patch
 
 import pytest
 
-from openwebui_chat_client.modules.async_file_manager import AsyncFileManager
+from openwebui_chat_client.modules.async_.async_file_manager import AsyncFileManager
 
 
 class TestAsyncFileManager(unittest.TestCase):

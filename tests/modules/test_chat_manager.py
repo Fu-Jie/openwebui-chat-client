@@ -4,7 +4,7 @@ Tests for ChatManager module (sync version).
 
 from unittest.mock import MagicMock, patch
 
-from openwebui_chat_client.modules.chat_manager import ChatManager
+from openwebui_chat_client.modules.chat.manager import ChatManager
 
 
 class TestChatManager:

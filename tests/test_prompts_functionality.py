@@ -10,7 +10,7 @@ import requests
 
 # Import the classes to test
 from openwebui_chat_client import OpenWebUIClient
-from openwebui_chat_client.modules.prompts_manager import PromptsManager
+from openwebui_chat_client.modules.sync.prompts_manager import PromptsManager
 
 
 class TestPromptsManager(unittest.TestCase):
@@ -129,7 +129,7 @@ class TestPromptsManager(unittest.TestCase):
         mock_response = Mock()
         mock_response.status_code = 404
         error = requests.exceptions.HTTPError()
-        error.response = mock_response
+        error.content = mock_response
         self.base_client.session.get.side_effect = error
 
         result = self.prompts_manager.get_prompt_by_command("/nonexistent")
@@ -181,7 +181,7 @@ class TestPromptsManager(unittest.TestCase):
         mock_response = Mock()
         mock_response.status_code = 404
         error = requests.exceptions.HTTPError()
-        error.response = mock_response
+        error.content = mock_response
         self.base_client.session.delete.side_effect = error
 
         result = self.prompts_manager.delete_prompt_by_command("/nonexistent")

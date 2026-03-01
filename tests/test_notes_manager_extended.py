@@ -12,7 +12,7 @@ from unittest.mock import Mock
 import requests
 
 from openwebui_chat_client.core.base_client import BaseClient
-from openwebui_chat_client.modules.notes_manager import NotesManager
+from openwebui_chat_client.modules.sync.notes_manager import NotesManager
 
 
 class TestNotesManagerExtended(unittest.TestCase):
