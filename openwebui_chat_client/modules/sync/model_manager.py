@@ -10,11 +10,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
+from openwebui_chat_client.models import ModelResponse
+
 logger = logging.getLogger(__name__)
-from openwebui_chat_client.models import ModelAccessMixin
 
 
-class ModelManager(ModelAccessMixin):
+class ModelManager:
     """
     Handles all model-related operations for the OpenWebUI client.
 
@@ -47,7 +48,7 @@ class ModelManager(ModelAccessMixin):
                 model.get("id", "") for model in models if model.get("id")
             ]
 
-    def list_models(self) -> Optional[List[Dict[str, Any]]]:
+    def list_models(self) -> Optional[List[ModelResponse]]:
         """
         Lists all available models for the user, including base models and user-created custom models. Excludes disabled base models. This corresponds to the model list shown in the top left of the chat page.
         """
@@ -70,7 +71,7 @@ class ModelManager(ModelAccessMixin):
                 return None
             models = data["data"]
             logger.info(f"Successfully listed {len(models)} models.")
-            return models
+            return [ModelResponse.model_validate(m) for m in models]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to list all models. Request error: {e}")
             if e.response is not None:
@@ -82,7 +83,7 @@ class ModelManager(ModelAccessMixin):
             )
             return None
 
-    def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
+    def list_base_models(self) -> Optional[List[ModelResponse]]:
         """
         Lists all base models that can be used to create variants. Includes disabled base models.
         Corresponds to the model list in the admin settings page, including PIPE type models.
@@ -106,7 +107,7 @@ class ModelManager(ModelAccessMixin):
                 return None
             models = data["data"]
             logger.info(f"Successfully listed {len(models)} base models.")
-            return models
+            return [ModelResponse.model_validate(m) for m in models]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to list base models. Request error: {e}")
             if e.response is not None:
@@ -118,7 +119,7 @@ class ModelManager(ModelAccessMixin):
             )
             return None
 
-    def list_custom_models(self) -> Optional[List[Dict[str, Any]]]:
+    def list_custom_models(self) -> Optional[List[ModelResponse]]:
         """
         Lists custom models that users can use or have created (not base models).
         A list of custom models available in the user's workspace, or None if the request fails.
@@ -137,7 +138,7 @@ class ModelManager(ModelAccessMixin):
                 )
                 return None
             logger.info(f"Successfully listed {len(data)} custom models.")
-            return data
+            return [ModelResponse.model_validate(m) for m in data]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to list custom models. Request error: {e}")
             if e.response is not None:
@@ -183,7 +184,7 @@ class ModelManager(ModelAccessMixin):
             )
             return None
 
-    def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
+    def get_model(self, model_id: str) -> Optional[ModelResponse]:
         """
         Fetches the details of a specific model by its ID.
         If the model ID is not found in the locally available models, it returns None.
@@ -241,7 +242,7 @@ class ModelManager(ModelAccessMixin):
             response.raise_for_status()
             model_data = response.json()
             logger.info(f"Successfully fetched details for model '{model_id}'.")
-            return model_data
+            return ModelResponse.model_validate(model_data)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to fetch model '{model_id}'. Request error: {e}")
             if e.response is not None:
@@ -268,7 +269,7 @@ class ModelManager(ModelAccessMixin):
         tags: Optional[List[str]] = None,
         capabilities: Optional[Dict[str, bool]] = None,
         is_active: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[ModelResponse]:
         """
         Creates a new model configuration with detailed metadata.
 
@@ -334,7 +335,7 @@ class ModelManager(ModelAccessMixin):
             created_model = response.json()
             logger.info(f"Successfully created model '{model_id}'.")
             self._refresh_available_models()
-            return created_model
+            return ModelResponse.model_validate(created_model)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create model '{model_id}'. Request error: {e}")
             if e.response is not None:
@@ -361,7 +362,7 @@ class ModelManager(ModelAccessMixin):
         tags: Optional[List[str]] = None,
         capabilities: Optional[Dict[str, bool]] = None,
         is_active: Optional[bool] = None,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[ModelResponse]:
         """
         Updates an existing model configuration with detailed metadata.
 
@@ -385,7 +386,8 @@ class ModelManager(ModelAccessMixin):
             return None
 
         # Build update payload by layering changes over the current state
-        update_data = current_model.copy()
+        # Use model_dump(exclude_none=False) to get a dict, ensuring we don't drop important fields
+        update_data = current_model.model_dump()
 
         # Update top-level fields
         if name is not None:
@@ -435,7 +437,7 @@ class ModelManager(ModelAccessMixin):
             response.raise_for_status()
             updated_model = response.json()
             logger.info(f"Successfully updated model '{model_id}'.")
-            return updated_model
+            return ModelResponse.model_validate(updated_model)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to update model '{model_id}'. Request error: {e}")
             if e.response is not None:

@@ -9,10 +9,10 @@ from typing import Any, Dict, List, Optional
 import requests
 
 logger = logging.getLogger(__name__)
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import NoteResponse
 
 
-class NotesManager(ModelAccessMixin):
+class NotesManager:
     """
     Handles all notes-related operations for the OpenWebUI client.
 
@@ -32,7 +32,7 @@ class NotesManager(ModelAccessMixin):
         """
         self.base_client = base_client
 
-    def get_notes(self) -> Optional[List[Dict[str, Any]]]:
+    def get_notes(self) -> Optional[List[NoteResponse]]:
         """
         Get all notes for the current user.
 
@@ -48,7 +48,7 @@ class NotesManager(ModelAccessMixin):
             response.raise_for_status()
             notes = response.json()
             logger.info(f"Successfully retrieved {len(notes)} notes.")
-            return notes
+            return [NoteResponse.model_validate(n) for n in notes]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get notes: {e}")
             return None
@@ -56,7 +56,7 @@ class NotesManager(ModelAccessMixin):
             logger.error(f"Unexpected error getting notes: {e}")
             return None
 
-    def get_notes_list(self) -> Optional[List[Dict[str, Any]]]:
+    def get_notes_list(self) -> Optional[List[NoteResponse]]:
         """
         Get a simplified list of notes with only id, title, and timestamps.
 
@@ -74,7 +74,7 @@ class NotesManager(ModelAccessMixin):
             logger.info(
                 f"Successfully retrieved notes list with {len(notes_list)} items."
             )
-            return notes_list
+            return [NoteResponse.model_validate(n) for n in notes_list]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get notes list: {e}")
             return None
@@ -123,11 +123,11 @@ class NotesManager(ModelAccessMixin):
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            created_note = response.json()
+            note_data_res = response.json()
             logger.info(
-                f"Successfully created note: {created_note.get('id', 'unknown')}"
+                f"Successfully created note: {note_data_res.get('id', 'unknown')}"
             )
-            return created_note
+            return NoteResponse.model_validate(note_data_res)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create note '{title}': {e}")
             if e.response is not None:
@@ -137,7 +137,7 @@ class NotesManager(ModelAccessMixin):
             logger.error(f"Unexpected error creating note '{title}': {e}")
             return None
 
-    def get_note_by_id(self, note_id: str) -> Optional[Dict[str, Any]]:
+    def get_note_by_id(self, note_id: str) -> Optional[NoteResponse]:
         """
         Get a specific note by its ID.
 
@@ -158,9 +158,9 @@ class NotesManager(ModelAccessMixin):
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            note = response.json()
+            note_data = response.json()
             logger.info(f"Successfully retrieved note: {note_id}")
-            return note
+            return NoteResponse.model_validate(note_data)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get note {note_id}: {e}")
             if e.response is not None and e.response.status_code == 404:
@@ -221,9 +221,9 @@ class NotesManager(ModelAccessMixin):
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            updated_note = response.json()
+            updated_note_data = response.json()
             logger.info(f"Successfully updated note: {note_id}")
-            return updated_note
+            return NoteResponse.model_validate(updated_note_data)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to update note {note_id}: {e}")
             if e.response is not None:

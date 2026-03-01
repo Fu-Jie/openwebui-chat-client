@@ -79,6 +79,7 @@ class ChatWorkflow:
         question: str,
         chat_id: Optional[ChatID] = None,
         model: Optional[str] = None,
+        chat_title: Optional[str] = None,
         parent_message_id: Optional[MessageID] = None,
         session_id: Optional[SessionID] = None,
         files: Optional[List[Dict[str, Any]]] = None,
@@ -148,9 +149,10 @@ class ChatWorkflow:
             # Official metadata structure from backend/open_webui/main.py:1638-1674
             if not chat_id:
                 try:
-                    # Create new chat if needed
+                    # Create new chat
+                    title = chat_title or kwargs.get("title", "New Chat")
                     chat_payload = ChatPayloads.build_chat_payload(
-                        title=kwargs.get("title", "New Chat"),
+                        title=title,
                         messages=[],
                         current_id="",
                         models=[model] if model else [],
@@ -231,15 +233,31 @@ class ChatWorkflow:
                 else:
                     # Extract content from OpenAI-format response
                     choices = completion_resp.get("choices", [])
-                    if not choices:
+
+                    if not choices and "task_id" in completion_resp:
+                        # Handle background task polling (discovered via browser)
+                        task_id = completion_resp["task_id"]
+                        logger.info(
+                            f"Completion returned task_id={task_id}, polling for completion..."
+                        )
+                        assistant_content = self._poll_chat_for_completion(
+                            chat_id, user_message_id
+                        )
+                        if assistant_content is None:
+                            logger.error(
+                                "Failed to retrieve completed message via polling"
+                            )
+                            return None
+                        assistant_message_id = f"msg_{int(time.time())}"  # We might need to extract the real one if needed
+                    elif not choices:
                         logger.error("No choices in completion response")
                         return None
-
-                    assistant_message = choices[0].get("message", {})
-                    assistant_content = assistant_message.get("content", "")
-                    assistant_message_id = completion_resp.get(
-                        "id", f"msg_{int(time.time())}"
-                    )
+                    else:
+                        assistant_message = choices[0].get("message", {})
+                        assistant_content = assistant_message.get("content", "")
+                        assistant_message_id = completion_resp.get(
+                            "id", f"msg_{int(time.time())}"
+                        )
 
                     # Update metadata with assistant message ID
                     metadata["message_id"] = assistant_message_id
@@ -287,6 +305,18 @@ class ChatWorkflow:
                 f"Executing workflow - Step 3: Persist chat state (chat_id={chat_id})"
             )
 
+            # Get existing history to avoid overwriting/wiping messages
+            all_messages = self._get_existing_messages(chat_id)
+
+            # Filter out any old versions of the new messages (shouldn't happen but safe)
+            new_ids = {user_msg["id"], assistant_message_id}
+            all_messages = [
+                m
+                for m in all_messages
+                if (m.get("id") if hasattr(m, "get") else getattr(m, "id", None))
+                not in new_ids
+            ]
+
             final_state = None
             max_persist_retries = 2
 
@@ -301,16 +331,13 @@ class ChatWorkflow:
                         done=True,
                     )
 
-                    # Build complete chat history
-                    chat_history = ChatPayloads.build_chat_history(
-                        messages=[user_msg, assistant_msg],
-                        current_id=assistant_msg["id"],
-                    )
+                    # Build combined messages list
+                    current_messages = all_messages + [user_msg, assistant_msg]
 
-                    # Update chat with new history
+                    # Update chat with complete history
                     chat_object = ChatPayloads.build_chat_object(
-                        title=kwargs.get("title", "Chat"),
-                        messages=[user_msg, assistant_msg],
+                        title=chat_title or kwargs.get("title", "New Chat"),
+                        messages=current_messages,
                         current_id=assistant_msg["id"],
                         models=[model] if model else [],
                     )
@@ -379,6 +406,190 @@ class ChatWorkflow:
                 "workflow_step_failed": workflow_step,
                 "chat_id": chat_id if "chat_id" in locals() else None,
             }
+
+    def _get_existing_messages(self, chat_id: Optional[ChatID]) -> List[MessageDict]:
+        """Helper to fetch and extract all existing messages from a chat."""
+        if not chat_id:
+            return []
+
+        details = self.api.get_chat(chat_id)
+        if not details:
+            return []
+
+        chat_data = (
+            details.get("chat", {})
+            if hasattr(details, "get")
+            else getattr(details, "chat", {})
+        )
+        history = (
+            chat_data.get("history", {})
+            if hasattr(chat_data, "get")
+            else getattr(chat_data, "history", {})
+        )
+        messages_dict = (
+            history.get("messages", {})
+            if hasattr(history, "get")
+            else getattr(history, "messages", {})
+        )
+
+        if hasattr(messages_dict, "values"):
+            return list(messages_dict.values())
+        return []
+
+    def regenerate_message(
+        self,
+        chat_id: ChatID,
+        parent_message_id: MessageID,
+        model: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Regenerate the assistant reply for an existing user message.
+
+        Fetches the current chat history, finds the user message identified by
+        parent_message_id, and calls execute_full_turn with that message content,
+        producing a fresh assistant response as a new branch.
+
+        Args:
+            chat_id:           The chat to regenerate in.
+            parent_message_id: The user message whose reply should be regenerated.
+            model:             Model override.
+
+        Returns:
+            WorkflowResultDict with the new assistant response, or None on failure.
+        """
+        # Fetch existing chat to find the user message content
+        details = self.api.get_chat(chat_id)
+        if not details:
+            logger.error(f"regenerate_message: cannot fetch chat {chat_id}")
+            return None
+
+        chat_data = (
+            details.get("chat", {})
+            if hasattr(details, "get")
+            else getattr(details, "chat", {})
+        )
+        history = (
+            chat_data.get("history", {})
+            if hasattr(chat_data, "get")
+            else getattr(chat_data, "history", {})
+        )
+        messages = (
+            history.get("messages", {})
+            if hasattr(history, "get")
+            else getattr(history, "messages", {})
+        )
+
+        parent_msg = (
+            messages.get(parent_message_id) if hasattr(messages, "get") else None
+        )
+        if parent_msg is None:
+            available_keys = (
+                list(messages.keys()) if hasattr(messages, "keys") else "unknown"
+            )
+            logger.error(
+                f"regenerate_message: message {parent_message_id} not found. "
+                f"Available messages: {available_keys}"
+            )
+            return None
+
+        content = (
+            parent_msg.get("content")
+            if isinstance(parent_msg, dict)
+            else getattr(parent_msg, "content", None)
+        )
+        if not content:
+            logger.error(
+                f"regenerate_message: no content in message {parent_message_id}"
+            )
+            return None
+
+        # Find parent of the user message (grandparent) to set as new parent
+        grandparent_id = (
+            parent_msg.get("parentId")
+            if isinstance(parent_msg, dict)
+            else getattr(parent_msg, "parentId", None)
+        )
+
+        return self.execute_full_turn(
+            question=content,
+            chat_id=chat_id,
+            model=model,
+            parent_message_id=grandparent_id,
+            **kwargs,
+        )
+
+    def edit_message(
+        self,
+        chat_id: ChatID,
+        message_id: MessageID,
+        new_content: str,
+        model: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Edit a user message and trigger a new assistant response.
+
+        Sends the edited content as a new user turn on the same chat (as a branch
+        from the edited message's parent), effectively replacing the conversation
+        from that point forward.
+
+        Args:
+            chat_id:     Chat to edit in.
+            message_id:  The user message to edit.
+            new_content: New text for the user message.
+            model:       Model override.
+
+        Returns:
+            WorkflowResultDict with the new assistant response, or None on failure.
+        """
+        # Fetch existing chat to find the message's parent
+        details = self.api.get_chat(chat_id)
+        if not details:
+            logger.error(f"edit_message: cannot fetch chat {chat_id}")
+            return None
+
+        chat_data = chat_data = (
+            details.get("chat", {})
+            if hasattr(details, "get")
+            else getattr(details, "chat", {})
+        )
+        history = (
+            chat_data.get("history", {})
+            if hasattr(chat_data, "get")
+            else getattr(chat_data, "history", {})
+        )
+        messages = (
+            history.get("messages", {})
+            if hasattr(history, "get")
+            else getattr(history, "messages", {})
+        )
+
+        target_msg = messages.get(message_id) if hasattr(messages, "get") else None
+        if target_msg is None:
+            available_keys = (
+                list(messages.keys()) if hasattr(messages, "keys") else "unknown"
+            )
+            logger.error(
+                f"edit_message: message {message_id} not found. "
+                f"Available messages: {available_keys}"
+            )
+            return None
+
+        # Use the original message's parent as new parent so the edit is a proper branch
+        parent_id = (
+            target_msg.get("parentId")
+            if isinstance(target_msg, dict)
+            else getattr(target_msg, "parentId", None)
+        )
+
+        return self.execute_full_turn(
+            question=new_content,
+            chat_id=chat_id,
+            model=model,
+            parent_message_id=parent_id,
+            **kwargs,
+        )
 
     def execute_streaming_turn(
         self,

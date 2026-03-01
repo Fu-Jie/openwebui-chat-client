@@ -3,7 +3,7 @@ import logging
 
 from openwebui_chat_client.core.base_manager import BaseManager
 from openwebui_chat_client.core.base_client import BaseClient
-from openwebui_chat_client.models import ActionResult, ChatResponse
+from openwebui_chat_client.models import ActionResult, ChatResponse, ChatDetails
 
 # Import orchestrated modules
 from .api import ChatAPI
@@ -31,10 +31,10 @@ class ChatManager(BaseManager):
         self._api = ChatAPI(base_client)
         self._workflow = ChatWorkflow(self._api)
         self._rag = ChatRAG()
-        
+
         # Expose properties for internal access BEFORE initializing dependent modules
         self.api = self._api
-        
+
         # Initialize modules that depend on exposed properties
         self._tasks = ChatTasks(self)
         self._actions = ChatActions(self)
@@ -54,29 +54,45 @@ class ChatManager(BaseManager):
     ) -> Optional[ChatResponse]:
         """
         Send a message using the full 3-step workflow.
-        
+
         Returns:
             ChatResponse object with response text, chat_id, message_id, etc.
             or None if the operation fails.
         """
+        # Find or create the chat context based on priority:
+        # 1. chat_id
+        # 2. chat_title (search)
+        # 3. New nameless chat
+        chat_id = self._get_or_create_chat_id(
+            chat_id=chat_id or self.base_client.chat_id,
+            chat_title=chat_title,
+            model=model,
+        )
+        if not chat_id:
+            logger.error("Failed to establish chat context.")
+            return None
+
+        # Update client state to maintain chat context
+        self.base_client.chat_id = chat_id
+
         result = self._workflow.execute_full_turn(
             question=question,
             chat_id=chat_id,
             model=model or self.base_client.default_model_id,
-            chat_title=chat_title,
+            chat_title=None,  # Already handled
             auto_title=auto_title,
             auto_followup=auto_followup,
             auto_tags=auto_tags,
             **kwargs,
         )
-        
+
         if not result:
             return None
-        
+
         # Convert workflow result to ChatResponse
         completion_resp = result.get("completion_response", {})
         metadata = result.get("metadata", {})
-        
+
         # Extract response text from completion
         response_text = None
         if completion_resp:
@@ -84,14 +100,11 @@ class ChatManager(BaseManager):
             if choices and len(choices) > 0:
                 message = choices[0].get("message", {})
                 response_text = message.get("content")
-        
+
         return ChatResponse(
-            response=response_text,
-            chat_id=metadata.get("chat_id"),
-            message_id=metadata.get("message_id"),
-            suggested_tags=None,  # TODO: Extract from result if available
-            suggested_title=None,  # TODO: Extract from result if available
-            follow_ups=None,  # TODO: Extract from result if available
+            content=response_text or "",
+            chat_id=metadata.get("chat_id", ""),
+            message_id=metadata.get("message_id", ""),
             sources=None,
         )
 
@@ -102,51 +115,146 @@ class ChatManager(BaseManager):
         model: Optional[str] = None,
         chat_title: Optional[str] = None,
         **kwargs,
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[str, None, None]:
         """
-        Stream a chat response.
-        
+        Stream a chat response, yielding plain text strings as they arrive.
+
+        Calls POST /api/chat/completions with stream=True, parses SSE
+        (Server-Sent Events) lines and yields the content delta as str.
+
+        Args:
+            question:   The user message.
+            chat_id:    Existing chat ID (takes priority over chat_title).
+            model:      Model override; uses default_model_id if not set.
+            chat_title: Title to find-or-create the chat session.
+
         Yields:
-            Dictionaries containing streaming chunks of the response.
+            str: Incremental text content from the model.
         """
-        import json
-        import uuid
-        
-        if not chat_id:
-            create_resp = self._api.create_chat(
-                {"chat": {"title": chat_title or "New Chat"}}
-            )
-            if create_resp and "id" in create_resp:
-                chat_id = create_resp["id"]
-            else:
-                return
+        import json as _json
 
         model = model or self.base_client.default_model_id
 
-        # Build streaming completion payload
+        # Find or create the chat context
+        chat_id = self._get_or_create_chat_id(
+            chat_id=chat_id or self.base_client.chat_id,
+            chat_title=chat_title,
+            model=model,
+        )
+        if not chat_id:
+            logger.error("Failed to create or find chat context for streaming.")
+            return
+
+        self.base_client.chat_id = chat_id
+
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": question}],
             "stream": True,
-            "session_id": str(uuid.uuid4()),
-            **kwargs,
+            "chat_id": chat_id,
+            **{k: v for k, v in kwargs.items() if v is not None},
         }
 
-        stream_resp = self._api.stream_completion(payload)
-        if not stream_resp:
+        stream_bytes = self.base_client._stream_request(
+            "POST", "/api/chat/completions", json_data=payload
+        )
+        if stream_bytes is None:
             return
-        
-        for chunk in stream_resp:
-            if chunk.startswith(b'data: '):
-                data_str = chunk[6:].decode('utf-8').strip()
-                if data_str == '[DONE]':
-                    break
 
-                try:
-                    data = json.loads(data_str)
-                    yield data
-                except json.JSONDecodeError:
-                    continue
+        for line in stream_bytes:
+            # Each line from _stream_request is bytes like b"data: {...}" or b"data: [DONE]"
+            if isinstance(line, bytes):
+                line = line.decode("utf-8", errors="replace")
+            line = line.strip()
+            if not line or not line.startswith("data:"):
+                continue
+            raw = line[len("data:") :].strip()
+            if raw == "[DONE]":
+                break
+            try:
+                parsed = _json.loads(raw)
+                delta = parsed.get("choices", [{}])[0].get("delta", {})
+                content = delta.get("content")
+                if content:
+                    yield content
+            except (_json.JSONDecodeError, IndexError, KeyError):
+                continue
+
+    # --- Regenerate & Edit ---
+
+    def regenerate_message(
+        self,
+        chat_id: str,
+        parent_message_id: str,
+        model: Optional[str] = None,
+        **kwargs,
+    ) -> Optional[ChatResponse]:
+        """
+        Regenerate the assistant response for a given user message.
+
+        Args:
+            chat_id:           The chat containing the message.
+            parent_message_id: ID of the user message to regenerate from.
+            model:             Model override.
+
+        Returns:
+            ChatResponse with the new assistant response, or None on failure.
+        """
+        result = self._workflow.regenerate_message(
+            chat_id=chat_id,
+            parent_message_id=parent_message_id,
+            model=model or self.base_client.default_model_id,
+            **kwargs,
+        )
+        return self._result_to_response(result)
+
+    def edit_message(
+        self,
+        chat_id: str,
+        message_id: str,
+        new_content: str,
+        model: Optional[str] = None,
+        **kwargs,
+    ) -> Optional[ChatResponse]:
+        """
+        Edit a user message and trigger a new assistant response.
+
+        Args:
+            chat_id:     Chat to edit in.
+            message_id:  The user message to edit.
+            new_content: Replacement text content.
+            model:       Model override.
+
+        Returns:
+            ChatResponse with the new reply, or None on failure.
+        """
+        result = self._workflow.edit_message(
+            chat_id=chat_id,
+            message_id=message_id,
+            new_content=new_content,
+            model=model or self.base_client.default_model_id,
+            **kwargs,
+        )
+        return self._result_to_response(result)
+
+    def _result_to_response(self, result: Optional[dict]) -> Optional[ChatResponse]:
+        """Convert a WorkflowResultDict to a ChatResponse object."""
+        if not result:
+            return None
+        completion_resp = result.get("completion_response", {})
+        metadata = result.get("metadata", {})
+        response_text = None
+        if completion_resp:
+            choices = completion_resp.get("choices", [])
+            if choices:
+                message = choices[0].get("message", {})
+                response_text = message.get("content")
+        return ChatResponse(
+            content=response_text or "",
+            chat_id=metadata.get("chat_id", ""),
+            message_id=metadata.get("message_id", ""),
+            sources=None,
+        )
 
     # --- Task Processing Delegation ---
 
@@ -214,22 +322,25 @@ class ChatManager(BaseManager):
         include_pinned: bool = False,
         include_folders: bool = False,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[ChatDetails]:
         """List chats."""
-        return self._api.list_chats(
+        chats = self._api.list_chats(
             page=page,
             include_pinned=include_pinned,
             include_folders=include_folders,
             **kwargs,
         )
+        return [ChatDetails.model_validate(c) for c in chats] if chats else []
 
-    def get_chat(self, chat_id: str) -> Optional[Dict[str, Any]]:
+    def get_chat(self, chat_id: str) -> Optional[ChatDetails]:
         """Get chat details."""
-        return self._api.get_chat(chat_id)
+        chat = self._api.get_chat(chat_id)
+        return ChatDetails.model_validate(chat) if chat else None
 
-    def search_chats(self, query: str, page: int = 1) -> List[Dict[str, Any]]:
+    def search_chats(self, query: str, page: int = 1) -> List[ChatDetails]:
         """Search chats."""
-        return self._api.search_chats(query, page)
+        chats = self._api.search_chats(query, page)
+        return [ChatDetails.model_validate(c) for c in chats] if chats else []
 
     # --- API Delegation (Write Operations) ---
 
@@ -256,15 +367,66 @@ class ChatManager(BaseManager):
     def archive_chat(self, chat_id: str, archive: bool = True) -> bool:
         """Archive or unarchive a chat."""
         return self._api.archive_chat(chat_id, archive)
-    
+
+    def _get_or_create_chat_id(
+        self,
+        chat_id: Optional[str] = None,
+        chat_title: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Helper to establish chat ID according to priority:
+        1. chat_id (if provided, use it directly)
+        2. chat_title (search for existing chat by title)
+        3. Create new nameless chat
+        """
+        if chat_id:
+            return chat_id
+
+        if chat_title:
+            # Search for existing chat by title
+            logger.info(f"Searching for existing chat with title: '{chat_title}'")
+            found = self.search_chats(chat_title)
+            if found:
+                for c in found:
+                    if c.get("title") == chat_title:
+                        cid = c.get("id")
+                        logger.info(f"Found existing chat: {chat_title} ({cid})")
+                        return cid
+
+        # Create new chat
+        model_id = model or self.base_client.default_model_id
+        title = chat_title or "New Chat"
+        logger.info(f"Creating new chat: '{title}'")
+
+        from .payloads import ChatPayloads
+
+        payload = ChatPayloads.build_chat_payload(
+            title=title,
+            messages=[],
+            current_id="",
+            models=[model_id] if model_id else [],
+        )
+
+        resp = self._api.create_chat(payload)
+        if resp:
+            cid = (
+                resp.get("id") if isinstance(resp, dict) else getattr(resp, "id", None)
+            )
+            if cid:
+                logger.info(f"Successfully created chat: {cid}")
+                return cid
+
+        return None
+
     def switch_chat_model(self, chat_id: str, new_model_id: str) -> bool:
         """
         Switch the model for an existing chat.
-        
+
         Args:
             chat_id: Chat ID to update
             new_model_id: New model ID to switch to
-        
+
         Returns:
             True if successful, False otherwise
         """
@@ -274,31 +436,35 @@ class ChatManager(BaseManager):
             if not chat:
                 logger.error(f"Chat {chat_id} not found")
                 return False
-            
+
             # Update the model in the chat object
             chat_inner = chat.get("chat", {})
             current_models = chat_inner.get("models", [])
-            
+
             # Replace or add the new model
             if not current_models:
                 new_models = [new_model_id]
             else:
                 new_models = [new_model_id]
-            
+
             chat_inner["models"] = new_models
-            
+
             # Update the chat
             update_payload = {"chat": chat_inner}
             result = self._api.update_chat(chat_id, update_payload)
-            
+
             if result:
-                logger.info(f"Successfully switched chat {chat_id} to model {new_model_id}")
+                logger.info(
+                    f"Successfully switched chat {chat_id} to model {new_model_id}"
+                )
                 return True
             else:
                 logger.error(f"Failed to update chat {chat_id} with new model")
                 return False
         except Exception as e:
-            logger.error(f"Error switching model for chat {chat_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error switching model for chat {chat_id}: {e}", exc_info=True
+            )
             return False
 
     # --- Folder & Metadata Operations ---
@@ -354,41 +520,67 @@ class ChatManager(BaseManager):
 
     def _find_or_create_chat_by_title(self, title: str) -> str:
         """Helper for tasks to ensure a chat exists."""
-        # Check current chat status from base_client
-        if self.base_client.chat_id:
-            return self.base_client.chat_id
-
-        # Try to find by title or create
-        # Simplified: just create or use existing
-        # But this method was expected by ChatTasks.
-        # Implem:
-        self.base_client.chat_id = None  # Reset
-
-        # Search for existing (Optional logic)
-        found = self.search_chats(title)
-        if found:
-            # Pick first?
-            # Ideally verify title match
-            for c in found:
-                if c.get("title") == title:
-                    self.base_client.chat_id = c["id"]
-                    return c["id"]
-
-        # Create
-        resp = self._api.create_chat({"chat": {"title": title}})
-        if resp and "id" in resp:
-            self.base_client.chat_id = resp["id"]
-            return resp["id"]
+        chat_id = self._get_or_create_chat_id(chat_title=title)
+        if chat_id:
+            self.base_client.chat_id = chat_id
+            return chat_id
         return ""
 
     # --- Parallel Chat ---
 
-    def parallel_chat(self, question: str, model_ids: List[str], **kwargs) -> Any:
+    def parallel_chat(self, question: str, model_ids: List[str], **kwargs) -> Optional['ParallelChatResponse']:
         """
         Execute parallel chat with multiple models.
         Load module lazily to avoid circular imports if any.
         """
-        from .parallel import ChatParallel
+        if not model_ids:
+            return None
 
-        parallel = ChatParallel(self._api, self._workflow)
-        return parallel.parallel_chat(question, model_ids, **kwargs)
+        from .parallel import ChatParallel
+        from .payloads import ChatPayloads
+        from openwebui_chat_client.models import ParallelChatResponse, ChatResponse
+
+        parallel = ChatParallel(self._api)
+        user_message = ChatPayloads.build_user_message(question)
+        
+        # Avoid duplicate chat_id in kwargs
+        chat_id = kwargs.pop("chat_id", None)
+        
+        raw_results = parallel.run_parallel(
+            chat_id=chat_id,
+            user_message=user_message,
+            model_ids=model_ids,
+            **kwargs
+        )
+
+        if not raw_results:
+            return None
+
+        # Format into ParallelChatResponse
+        responses = {}
+        message_ids = {}
+        final_chat_id = chat_id
+
+        for res in raw_results:
+            model_id = res["model"]
+            api_resp = res["response"]
+            
+            # Extract content from OpenAI-style response
+            content = ""
+            if api_resp.get("choices"):
+                content = api_resp["choices"][0].get("message", {}).get("content", "")
+            
+            msg_id = api_resp.get("id", "")
+            
+            responses[model_id] = ChatResponse(
+                content=content,
+                chat_id=final_chat_id or "",
+                message_id=msg_id
+            )
+            message_ids[model_id] = msg_id
+
+        return ParallelChatResponse(
+            responses=responses,
+            chat_id=final_chat_id or "",
+            message_ids=message_ids
+        )

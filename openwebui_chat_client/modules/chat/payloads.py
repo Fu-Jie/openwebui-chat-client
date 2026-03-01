@@ -481,9 +481,7 @@ class ChatPayloads:
 
             if not isinstance(current_id, str):
                 logger.error(f"Invalid current_id type: {type(current_id)}")
-                raise TypeError(
-                    f"current_id must be a string, got: {type(current_id)}"
-                )
+                raise TypeError(f"current_id must be a string, got: {type(current_id)}")
 
             # For new chats, empty messages and empty current_id are valid
             if len(messages) == 0:
@@ -855,10 +853,15 @@ class ChatPayloads:
             **extra_data: Additional completion data
 
         Official: backend/open_webui/main.py @app.post("/api/chat/completed")
-        
-        Note: Backend expects 'id' field, not 'chat_id'.
+
+        Note: Backend typically expects 'id' or 'chat_id'. We provide both for safety.
         """
-        return {"id": chat_id, "message_id": message_id, **extra_data}
+        return {
+            "id": chat_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            **extra_data,
+        }
 
     @staticmethod
     def convert_to_openai_format(

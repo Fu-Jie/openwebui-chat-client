@@ -9,10 +9,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 
 logger = logging.getLogger(__name__)
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import KnowledgeResponse
 
 
-class KnowledgeBaseManager(ModelAccessMixin):
+class KnowledgeBaseManager:
     """
     Handles all knowledge base operations for the OpenWebUI client.
 
@@ -32,7 +32,7 @@ class KnowledgeBaseManager(ModelAccessMixin):
         """
         self.base_client = base_client
 
-    def get_knowledge_base_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_knowledge_base_by_name(self, name: str) -> Optional[KnowledgeResponse]:
         """
         Get a knowledge base by its name.
 
@@ -64,7 +64,7 @@ class KnowledgeBaseManager(ModelAccessMixin):
             for kb in response.json():
                 if kb.get("name") == name:
                     logger.info("   ✅ Found knowledge base.")
-                    return kb
+                    return KnowledgeResponse.model_validate(kb)
             logger.info(f"   ℹ️ Knowledge base '{name}' not found.")
             return None
         except requests.exceptions.RequestException as e:
@@ -73,7 +73,7 @@ class KnowledgeBaseManager(ModelAccessMixin):
 
     def create_knowledge_base(
         self, name: str, description: str = ""
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[KnowledgeResponse]:
         """
         Create a new knowledge base.
 
@@ -109,7 +109,7 @@ class KnowledgeBaseManager(ModelAccessMixin):
             logger.info(
                 f"   ✅ Knowledge base created successfully. ID: {kb_data.get('id')}"
             )
-            return kb_data
+            return KnowledgeResponse.model_validate(kb_data)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create knowledge base '{name}': {e}")
             return None
@@ -588,7 +588,7 @@ class KnowledgeBaseManager(ModelAccessMixin):
 
         return {"success": successful_kbs, "failed": failed_kbs}
 
-    def get_knowledge_base_details(self, kb_id: str) -> Optional[Dict[str, Any]]:
+    def get_knowledge_base_details(self, kb_id: str) -> Optional[KnowledgeResponse]:
         """
         Get detailed information about a knowledge base.
 
@@ -607,12 +607,12 @@ class KnowledgeBaseManager(ModelAccessMixin):
             response.raise_for_status()
             kb_details = response.json()
             logger.info("   ✅ Retrieved knowledge base details")
-            return kb_details
+            return KnowledgeResponse.model_validate(kb_details)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get knowledge base details for {kb_id}: {e}")
             return None
 
-    def list_knowledge_bases(self) -> Optional[List[Dict[str, Any]]]:
+    def list_knowledge_bases(self) -> Optional[List[KnowledgeResponse]]:
         """
         List all knowledge bases for the current user.
 
@@ -628,7 +628,7 @@ class KnowledgeBaseManager(ModelAccessMixin):
             response.raise_for_status()
             knowledge_bases = response.json()
             logger.info(f"   ✅ Found {len(knowledge_bases)} knowledge bases")
-            return knowledge_bases
+            return [KnowledgeResponse.model_validate(kb) for kb in knowledge_bases]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to list knowledge bases: {e}")
             return None

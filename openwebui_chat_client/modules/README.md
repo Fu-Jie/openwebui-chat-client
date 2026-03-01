@@ -2,7 +2,7 @@
 
 ## 📁 Directory Structure
 
-```
+```text
 modules/
 ├── 💬 Chat Module (Modular Architecture)
 │   ├── chat_manager.py       # 🎯 Facade: Coordinates all chat operations
@@ -18,7 +18,7 @@ modules/
 │   ├── file_manager.py           # 📎 File uploads
 │   ├── knowledge_base_manager.py # 🗃️ Knowledge base CRUD
 │   ├── model_manager.py          # 🤖 Model management
-│   ├── notes_manager.py          # 📝 Notes API
+│   ├── notes_manager.py          # 📝 API: Notes
 │   ├── prompts_manager.py        # 💭 Prompts management
 │   └── user_manager.py           # 👤 User management (admin)
 │
@@ -33,6 +33,13 @@ modules/
 ```
 
 ## 🏗️ Architecture Principles
+
+### 0. **Type Safety & Pydantic**
+
+- **Purpose**: Strictly align with OpenWebUI backend data models.
+- **Implementation**: All managers return Pydantic V2 models (`ChatResponse`, `ChatDetails`, `NoteResponse`, etc.).
+- **Benefits**: Automatic validation, IDE completion, and reduced runtime errors.
+- **Compatibility**: Models support dictionary-like access (`obj["key"]`) for backward compatibility.
 
 ### 1. **Facade Pattern** (ChatManager)
 
@@ -83,7 +90,7 @@ class ChatManager(BaseManager):
 ### Chat Module Components
 
 | Module | Responsibility | Key Methods |
-|--------|---------------|-------------|
+| :--- | :--- | :--- |
 | `chat_manager.py` | 🎯 Facade & coordination | `chat()`, `stream_chat()`, `process_task()` |
 | `chat_api.py` | 🌐 HTTP communication | `completion()`, `completed()`, `update_chat()` |
 | `chat_workflow.py` | 🔄 3-step orchestration | `execute_full_turn()` |
@@ -96,7 +103,7 @@ class ChatManager(BaseManager):
 ### Feature Managers
 
 | Manager | Purpose | Async Version |
-|---------|---------|---------------|
+| :--- | :--- | :--- |
 | `file_manager.py` | File upload & management | `async_file_manager.py` |
 | `knowledge_base_manager.py` | KB CRUD operations | `async_knowledge_base_manager.py` |
 | `model_manager.py` | Model management | `async_model_manager.py` |
@@ -108,7 +115,7 @@ class ChatManager(BaseManager):
 
 ### Standard Chat Flow
 
-```
+```text
 User Request
     ↓
 ChatManager.chat()
@@ -124,7 +131,7 @@ Return ChatResult
 
 ### Task Processing Flow (ReAct)
 
-```
+```text
 User Task
     ↓
 ChatManager.process_task()
@@ -143,7 +150,7 @@ Return final solution
 
 ### Deep Research Flow
 
-```
+```text
 Research Topic
     ↓
 OpenWebUIClient.deep_research()
@@ -192,11 +199,10 @@ def test_execute_full_turn():
 
 ### From Mixin Architecture to Modular
 
-**Before** (Mixin Hell):
+**Before** (Previous Architecture):
 
 ```python
 class ChatManager(
-    ModelAccessMixin,
     ChatCoreMixin,
     ChatActionsMixin,
     ChatFoldersMixin,

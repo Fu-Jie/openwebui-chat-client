@@ -1,0 +1,14 @@
+# OpenWebUI Chat Client - AI Instructions
+
+> **MANDATORY INSTRUCTION FOR ALL AI ASSISTANTS (Gemini CLI, Cursor, Copilot, Antigravity, etc.)**
+> 
+> Before writing any code, analyzing any architecture, or answering complex user queries about this repository's structure:
+> 
+> **YOU MUST READ AND FOLLOW THE MASTER PLAN LOCATED AT:**
+> 👉 `docs/tracker/STATUS.md`
+> 
+> The project is undergoing a massive Sync/Async symmetry refactoring and architecture realignment. `docs/tracker/STATUS.md` acts as the single source of truth for what has been completed, what is in progress, and the known edge cases (e.g. `test_04` failure causing `message not found`). 
+> 
+> Ignoring the master tracker will result in breaking code, context divergence, or creating redundant ghost files. 
+
+For detailed module-specific rules, refer to `.agent/rules.md` and its subsequent chapters.

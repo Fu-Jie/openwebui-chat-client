@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
 
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import UserResponse
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncUserManager(ModelAccessMixin):
+class AsyncUserManager:
     """
     Handles async user management operations for the OpenWebUI client.
     """
@@ -23,17 +23,23 @@ class AsyncUserManager(ModelAccessMixin):
 
     async def get_users(
         self, skip: int = 0, limit: int = 50
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> Optional[List[UserResponse]]:
         """Get a list of all users."""
-        return await self.base_client._get_json_response(
+        users = await self.base_client._get_json_response(
             "GET", "/api/v1/users/", params={"skip": skip, "limit": limit}
         )
+        if isinstance(users, list):
+            return [UserResponse.model_validate(u) for u in users]
+        return None
 
-    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+    async def get_user_by_id(self, user_id: str) -> Optional[UserResponse]:
         """Get a specific user by their ID."""
-        return await self.base_client._get_json_response(
+        user_data = await self.base_client._get_json_response(
             "GET", f"/api/v1/users/{user_id}"
         )
+        if user_data:
+            return UserResponse.model_validate(user_data)
+        return None
 
     async def update_user_role(self, user_id: str, role: str) -> bool:
         """Update a user's role."""

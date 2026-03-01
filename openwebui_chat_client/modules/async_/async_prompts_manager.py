@@ -7,14 +7,18 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import PromptResponse
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncPromptsManager(ModelAccessMixin):
+class AsyncPromptsManager:
     def __init__(self, base_client: "AsyncBaseClient") -> None:
         self.base_client = base_client
 
-    async def get_prompts(self) -> Optional[List[Dict[str, Any]]]:
-        return await self.base_client._get_json_response("GET", "/api/v1/prompts/")
+    async def get_prompts(self) -> Optional[List[PromptResponse]]:
+        """Get all prompts for the current user."""
+        prompts = await self.base_client._get_json_response("GET", "/api/v1/prompts/")
+        if isinstance(prompts, list):
+            return [PromptResponse.model_validate(p) for p in prompts]
+        return None

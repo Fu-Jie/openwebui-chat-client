@@ -11,13 +11,15 @@ This package contains async manager classes for:
 - async_user_manager: Async user operations
 """
 
-from .async_chat_manager import AsyncChatManager
+from .chat import AsyncChatManager
 from .async_file_manager import AsyncFileManager
 from .async_knowledge_base_manager import AsyncKnowledgeBaseManager
 from .async_model_manager import AsyncModelManager
 from .async_notes_manager import AsyncNotesManager
 from .async_prompts_manager import AsyncPromptsManager
 from .async_user_manager import AsyncUserManager
+from .async_functions_manager import AsyncFunctionsManager
+from .async_tools_manager import AsyncToolsManager
 
 __all__ = [
     "AsyncChatManager",
@@ -27,4 +29,6 @@ __all__ = [
     "AsyncNotesManager",
     "AsyncPromptsManager",
     "AsyncUserManager",
+    "AsyncFunctionsManager",
+    "AsyncToolsManager",
 ]

@@ -11,12 +11,14 @@ import httpx
 
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import (
+    ModelResponse,  # Correcting the import name if needed, or keeping existing
+)
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncModelManager(ModelAccessMixin):
+class AsyncModelManager:
     """
     Handles async model-related operations for the OpenWebUI client.
     """
@@ -39,7 +41,7 @@ class AsyncModelManager(ModelAccessMixin):
                 model.get("id", "") for model in models if model.get("id")
             ]
 
-    async def list_models(self) -> Optional[List[Dict[str, Any]]]:
+    async def list_models(self) -> Optional[List[ModelResponse]]:
         """Lists all available models."""
         logger.info("Listing all available models for the user...")
         response = await self.base_client._make_request(
@@ -50,34 +52,37 @@ class AsyncModelManager(ModelAccessMixin):
             try:
                 data = response.json()
                 if isinstance(data, dict) and "data" in data:
-                    return data["data"]
+                    return [ModelResponse.model_validate(m) for m in data["data"]]
             except json.JSONDecodeError:
                 # Response is not valid JSON, return None
                 logger.warning("Failed to decode JSON response from list_models")
         return None
 
-    async def list_base_models(self) -> Optional[List[Dict[str, Any]]]:
+    async def list_base_models(self) -> Optional[List[ModelResponse]]:
         """Lists all base models."""
         response = await self.base_client._make_request("GET", "/api/models/base")
         if response:
             try:
                 data = response.json()
                 if isinstance(data, dict) and "data" in data:
-                    return data["data"]
+                    return [ModelResponse.model_validate(m) for m in data["data"]]
             except json.JSONDecodeError:
                 # Response is not valid JSON, return None
                 logger.warning("Failed to decode JSON response from list_base_models")
         return None
 
-    async def list_custom_models(self) -> Optional[List[Dict[str, Any]]]:
+    async def list_custom_models(self) -> Optional[List[ModelResponse]]:
         """Lists custom models."""
-        return await self.base_client._get_json_response("GET", "/api/v1/models")
+        data = await self.base_client._get_json_response("GET", "/api/v1/models")
+        if data and isinstance(data, list):
+            return [ModelResponse.model_validate(m) for m in data]
+        return None
 
     async def list_groups(self) -> Optional[List[Dict[str, Any]]]:
         """Lists all available groups."""
         return await self.base_client._get_json_response("GET", "/api/v1/groups/")
 
-    async def get_model(self, model_id: str) -> Optional[Dict[str, Any]]:
+    async def get_model(self, model_id: str) -> Optional[ModelResponse]:
         """Fetches details of a specific model."""
         if not model_id:
             return None
@@ -101,9 +106,9 @@ class AsyncModelManager(ModelAccessMixin):
                     "GET", "/api/v1/models/model", params={"id": model_id}
                 )
                 if response and response.status_code == 200:
-                    return response.json()
+                    return ModelResponse.model_validate(response.json())
             elif response.status_code == 200:
-                return response.json()
+                return ModelResponse.model_validate(response.json())
 
         return None
 
@@ -122,7 +127,7 @@ class AsyncModelManager(ModelAccessMixin):
         tags: Optional[List[str]] = None,
         capabilities: Optional[Dict[str, bool]] = None,
         is_active: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[ModelResponse]:
         """Creates a new model configuration."""
         access_control = await self._build_access_control(
             permission_type, group_identifiers, user_ids
@@ -155,7 +160,7 @@ class AsyncModelManager(ModelAccessMixin):
 
         if response:
             await self._refresh_available_models()
-            return response.json()
+            return ModelResponse.model_validate(response.json())
         return None
 
     async def update_model(
@@ -173,13 +178,14 @@ class AsyncModelManager(ModelAccessMixin):
         tags: Optional[List[str]] = None,
         capabilities: Optional[Dict[str, bool]] = None,
         is_active: Optional[bool] = None,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[ModelResponse]:
         """Updates an existing model."""
         current_model = await self.get_model(model_id)
         if not current_model:
             return None
 
-        update_data = current_model.copy()
+        # Use model_dump() to get a dict from the Pydantic object
+        update_data = current_model.model_dump()
 
         if name is not None:
             update_data["name"] = name
@@ -221,7 +227,7 @@ class AsyncModelManager(ModelAccessMixin):
         )
 
         if response:
-            return response.json()
+            return ModelResponse.model_validate(response.json())
         return None
 
     async def delete_model(self, model_id: str) -> bool:

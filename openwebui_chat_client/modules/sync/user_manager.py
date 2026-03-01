@@ -11,12 +11,12 @@ import requests
 if TYPE_CHECKING:
     from ..core.base_client import BaseClient
 
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import UserResponse
 
 logger = logging.getLogger(__name__)
 
 
-class UserManager(ModelAccessMixin):
+class UserManager:
     """
     Handles user management operations for the OpenWebUI client.
 
@@ -36,9 +36,7 @@ class UserManager(ModelAccessMixin):
         """
         self.base_client = base_client
 
-    def get_users(
-        self, skip: int = 0, limit: int = 50
-    ) -> Optional[List[Dict[str, Any]]]:
+    def get_users(self, skip: int = 0, limit: int = 50) -> Optional[List[UserResponse]]:
         """
         Get a list of all users.
 
@@ -59,7 +57,7 @@ class UserManager(ModelAccessMixin):
             response.raise_for_status()
             users = response.json()
             logger.info(f"Successfully retrieved {len(users)} users.")
-            return users
+            return [UserResponse.model_validate(u) for u in users]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get users: {e}")
             return None
@@ -67,7 +65,7 @@ class UserManager(ModelAccessMixin):
             logger.error(f"Unexpected error getting users: {e}")
             return None
 
-    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_user_by_id(self, user_id: str) -> Optional[UserResponse]:
         """
         Get a specific user by their ID.
 
@@ -84,9 +82,9 @@ class UserManager(ModelAccessMixin):
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            user = response.json()
+            user_data = response.json()
             logger.info(f"Successfully retrieved user details for {user_id}.")
-            return user
+            return UserResponse.model_validate(user_data)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get user {user_id}: {e}")
             return None

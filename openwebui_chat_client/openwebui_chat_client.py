@@ -23,7 +23,7 @@ from openwebui_chat_client.models import (
     ChatResponse,
     Function,
     ParallelChatResponse,
-    ModelAccessMixin,
+    ParallelChatResponse,
 )
 from .core.base_client import BaseClient
 from .modules.chat import ChatManager
@@ -39,7 +39,7 @@ from .modules.sync import (
 logger = logging.getLogger(__name__)
 
 
-class OpenWebUIClient(ModelAccessMixin):
+class OpenWebUIClient:
     """
     An intelligent, stateful Python client for the Open WebUI API.
     Supports single/multi-model chats, tagging, and RAG with both
@@ -208,8 +208,7 @@ class OpenWebUIClient(ModelAccessMixin):
         auto_tags: bool = False,
         **kwargs,
     ) -> Optional[ChatResponse]:
-        """Send a chat message with a single model."""
-        return self._chat_manager.chat(
+        response = self._chat_manager.chat(
             question=question,
             chat_id=chat_id,
             model=model,
@@ -219,6 +218,9 @@ class OpenWebUIClient(ModelAccessMixin):
             auto_tags=auto_tags,
             **kwargs,
         )
+        if response and response.chat_id:
+            self._base_client.chat_id = response.chat_id
+        return response
 
     def parallel_chat(
         self,
@@ -279,15 +281,78 @@ class OpenWebUIClient(ModelAccessMixin):
         model: Optional[str] = None,
         chat_title: Optional[str] = None,
         **kwargs,
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[str, None, None]:
         """
-        Initiates a streaming chat session. Yields content chunks as they are received.
+        Stream a chat response, yielding plain text strings as they arrive.
+
+        Unlike non-streaming chat(), this method intentionally bypasses the
+        Yields each chunk as a raw string.
+
+        Yields:
+            str: Incremental text content from the model.
         """
-        return self._chat_manager.stream_chat(
+        # Access the real method directly
+        raw_gen = ChatManager.stream_chat(
+            self._chat_manager,
             question=question,
             chat_id=chat_id,
             model=model,
             chat_title=chat_title,
+            **kwargs,
+        )
+        if raw_gen is not None:
+            yield from raw_gen
+
+    def regenerate_message(
+        self,
+        chat_id: str,
+        parent_message_id: str,
+        model: Optional[str] = None,
+        **kwargs,
+    ) -> Optional[ChatResponse]:
+        """
+        Regenerate the assistant response for a given user message.
+
+        Args:
+            chat_id:           The chat containing the message.
+            parent_message_id: ID of the user message whose reply should be regenerated.
+            model:             Model override.
+
+        Returns:
+            ChatResponse with the new assistant response, or None on failure.
+        """
+        return self._chat_manager.regenerate_message(
+            chat_id=chat_id,
+            parent_message_id=parent_message_id,
+            model=model,
+            **kwargs,
+        )
+
+    def edit_message(
+        self,
+        chat_id: str,
+        message_id: str,
+        new_content: str,
+        model: Optional[str] = None,
+        **kwargs,
+    ) -> Optional[ChatResponse]:
+        """
+        Edit a user message and trigger a fresh assistant response.
+
+        Args:
+            chat_id:     The chat to edit in.
+            message_id:  ID of the user message to edit.
+            new_content: New text for the user message.
+            model:       Model override.
+
+        Returns:
+            ChatResponse with the new reply, or None on failure.
+        """
+        return self._chat_manager.edit_message(
+            chat_id=chat_id,
+            message_id=message_id,
+            new_content=new_content,
+            model=model,
             **kwargs,
         )
 
@@ -621,6 +686,10 @@ class OpenWebUIClient(ModelAccessMixin):
     def archive_chat(self, chat_id: str) -> bool:
         """Archive a chat conversation."""
         return self._chat_manager.archive_chat(chat_id)
+
+    def delete_chat(self, chat_id: str) -> bool:
+        """Delete a specific chat by ID."""
+        return self._chat_manager.delete_chat(chat_id)
 
     def delete_all_chats(self) -> bool:
         """
@@ -1178,7 +1247,7 @@ class OpenWebUIClient(ModelAccessMixin):
     def _encode_image_to_base64(image_path: str) -> Optional[str]:
         """Encode an image file to base64 format for use in multimodal chat."""
         # Create a temporary file manager instance for static method compatibility
-        from .modules.file_manager import FileManager
+        from .modules.sync.file_manager import FileManager
 
         temp_manager = FileManager(None)
         return temp_manager.encode_image_to_base64(image_path)

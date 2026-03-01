@@ -704,73 +704,20 @@ class ChatAPI:
             )
             return None
 
-    def delete_chat(self, chat_id: ChatID) -> bool:
-        """Delete a single chat permanently.
+    def rename_chat(self, chat_id: str, new_title: str) -> bool:
+        """Rename a chat."""
+        payload = {"chat": {"title": new_title}}
+        resp = self.update_chat(chat_id, payload)
+        return resp is not None
 
-        Permanently removes a chat and performs cleanup:
-        - Deletes chat record from database
-        - Removes orphaned tags (tags used only by this chat)
-        - Cannot be undone (consider archive_chat for soft delete)
-
-        Official Backend Reference:
-            - routers/chats.py:203-227 @router.delete("/{id}")
-
-        Args:
-            chat_id (str): Chat identifier (UUID string)
-
-        Returns:
-            bool: True if deletion successful, False otherwise
-
-        Example:
-            ```python
-            # Delete a chat
-            success = chat_api.delete_chat("chat-uuid-123")
-            if success:
-                print("Chat deleted successfully")
-            else:
-                print("Failed to delete chat")
-
-            # Verify deletion
-            chat = chat_api.get_chat("chat-uuid-123")
-            assert chat is None  # Chat no longer exists
-            ```
-
-        Notes:
-            - Requires chat ownership or admin permissions
-            - Tags cleanup: If tag used only by this chat, tag is deleted
-            - Shared chats: Deletion removes share link
-            - Archived chats: Can still be deleted
-            - No undo: Consider archive_chat() for reversible hiding
-
-        See Also:
-            - delete_all_chats(): Bulk delete all user chats
-            - archive_chat(): Soft delete (reversible)
-        """
-        try:
-            if not chat_id or not isinstance(chat_id, str):
-                logger.error(f"Invalid chat_id: {chat_id}")
-                return False
-
-            resp = self.base_client._make_request("DELETE", f"/api/v1/chats/{chat_id}")
-            success = resp is not None and resp.status_code == 200
-
-            if not success:
-                logger.warning(
-                    f"Delete chat failed for chat_id={chat_id}, status_code={resp.status_code if resp else 'None'}"
-                )
-
-            return success
-        except requests.exceptions.RequestException as e:
-            logger.error(
-                f"Delete chat request failed for chat_id={chat_id}: {e}", exc_info=True
-            )
-            return False
-        except Exception as e:
-            logger.error(
-                f"Unexpected error in delete_chat for chat_id={chat_id}: {e}",
-                exc_info=True,
-            )
-            return False
+    def set_chat_tags(self, chat_id: str, tags: List[str]) -> bool:
+        """Set tags for a chat (replaces existing tags)."""
+        # First remove all tags, then add new ones
+        if self.delete_all_chat_tags(chat_id):
+            for tag in tags:
+                self.add_chat_tag(chat_id, tag)
+            return True
+        return False
 
     # =================================================================
     # Chat List & Query Operations

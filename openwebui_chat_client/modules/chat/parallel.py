@@ -24,6 +24,8 @@ class ChatParallel:
         self, chat_id: str, user_message: Dict[str, Any], model_ids: List[str], **kwargs
     ) -> List[Dict[str, Any]]:
         """Run completion on multiple models in parallel."""
+        if not model_ids:
+            return []
 
         results = []
         with ThreadPoolExecutor(max_workers=len(model_ids)) as executor:
@@ -34,7 +36,7 @@ class ChatParallel:
                 payload = ChatPayloads.build_completion_payload(
                     model=model_id,
                     chat_id=chat_id,
-                    user_message=user_message,
+                    messages=[user_message],
                     stream=False,
                     **kwargs,
                 )

@@ -12,7 +12,6 @@ from openwebui_chat_client.models import (
     ChatDetails,
     ChatResponse,
     Function,
-    ModelAccessMixin,
 )
 
 if TYPE_CHECKING:
@@ -21,7 +20,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AsyncChatManager(ModelAccessMixin):
+class AsyncChatManager:
     """
     Handles async chat operations.
     """
@@ -69,6 +68,98 @@ class AsyncChatManager(ModelAccessMixin):
             return [ChatDetails.from_dict(c) for c in chats]
         return None
 
+    async def search_chats(
+        self, query: str, page: Optional[int] = None
+    ) -> Optional[List[ChatDetails]]:
+        """Search chats by text query."""
+        if not query:
+            return []
+        params: Dict[str, Any] = {"text": query}
+        if page is not None:
+            params["page"] = page
+        chats = await self.base_client._get_json_response(
+            "GET", "/api/v1/chats/search", params=params
+        )
+        if chats and isinstance(chats, list):
+            return [ChatDetails.from_dict(c) for c in chats]
+        return []
+
+    async def delete_chat(self, chat_id: str) -> bool:
+        """Delete a single chat."""
+        response = await self.base_client._make_request(
+            "DELETE", f"/api/v1/chats/{chat_id}"
+        )
+        return bool(response and response.status_code == 200)
+
+    async def list_archived_chats(
+        self,
+        page: Optional[int] = None,
+        query: Optional[str] = None,
+        order_by: Optional[str] = None,
+        direction: Optional[str] = None,
+    ) -> Optional[List[ChatDetails]]:
+        """List archived chats."""
+        params: Dict[str, Any] = {}
+        if page is not None:
+            params["page"] = page
+        if query:
+            params["query"] = query
+        if order_by:
+            params["order_by"] = order_by
+        if direction:
+            params["direction"] = direction
+        chats = await self.base_client._get_json_response(
+            "GET", "/api/v1/chats/archived", params=params
+        )
+        if chats and isinstance(chats, list):
+            return [ChatDetails.from_dict(c) for c in chats]
+        return []
+
+    async def list_pinned_chats(self) -> Optional[List[ChatDetails]]:
+        """List pinned chats."""
+        chats = await self.base_client._get_json_response("GET", "/api/v1/chats/pinned")
+        if chats and isinstance(chats, list):
+            return [ChatDetails.from_dict(c) for c in chats]
+        return []
+
+    async def pin_chat(self, chat_id: str) -> Optional[ChatDetails]:
+        """Toggle pin status for a chat."""
+        chat = await self.base_client._get_json_response(
+            "POST", f"/api/v1/chats/{chat_id}/pin"
+        )
+        if chat and isinstance(chat, dict):
+            return ChatDetails.from_dict(chat)
+        return None
+
+    async def get_pinned_status(self, chat_id: str) -> Optional[bool]:
+        """Get pin status for a chat."""
+        return await self.base_client._get_json_response(
+            "GET", f"/api/v1/chats/{chat_id}/pinned"
+        )
+
+    async def archive_chat(self, chat_id: str) -> Optional[ChatDetails]:
+        """Toggle archive status for a chat."""
+        chat = await self.base_client._get_json_response(
+            "POST", f"/api/v1/chats/{chat_id}/archive"
+        )
+        if chat and isinstance(chat, dict):
+            return ChatDetails.from_dict(chat)
+        return None
+
+    async def archive_all_chats(self) -> bool:
+        """Archive all chats."""
+        response = await self.base_client._make_request(
+            "POST", "/api/v1/chats/archive/all"
+        )
+        return bool(response and response.status_code == 200)
+
+    async def unarchive_all_chats(self) -> bool:
+        """Unarchive all chats."""
+        response = await self.base_client._make_request(
+            "POST", "/api/v1/chats/unarchive/all"
+        )
+        return bool(response and response.status_code == 200)
+
     async def delete_all_chats(self) -> bool:
         """
         Delete ALL chat conversations for the current user.
@@ -115,8 +206,9 @@ class AsyncChatManager(ModelAccessMixin):
     async def chat(
         self,
         question: str,
-        chat_title: str,
+        chat_title: Optional[str] = None,
         model_id: Optional[str] = None,
+        chat_id: Optional[str] = None,
         image_paths: Optional[List[str]] = None,
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
@@ -142,8 +234,15 @@ class AsyncChatManager(ModelAccessMixin):
         """
         current_model_id = model_id or self.base_client.default_model_id
 
-        # Find or create chat - get local copies for concurrency safety
-        chat_id, chat_object = await self._find_or_create_chat_by_title(chat_title)
+        # Find existing or create new chat - get local copies for concurrency safety
+        if chat_id:
+            chat_id, chat_object = await self._load_chat_details(chat_id)
+        elif chat_title:
+            # Fallback to search/create by title
+            chat_id, chat_object = await self._find_or_create_chat_by_title(chat_title)
+        else:
+            # Create a brand new nameless chat for this model context
+            chat_id, chat_object = await self._create_new_chat("New Chat")
 
         if not chat_id or not chat_object:
             return None
@@ -160,11 +259,110 @@ class AsyncChatManager(ModelAccessMixin):
             tool_ids=tool_ids,
         )
 
+    async def regenerate_message(
+        self,
+        chat_id: str,
+        parent_message_id: str,
+        model_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[ChatResponse]:
+        """
+        Regenerate a message response in an existing chat asynchronously.
+
+        Args:
+            chat_id: The ID of the chat
+            parent_message_id: The ID of the parent user message
+            model_id: Model identifier (optional)
+        """
+        chat_object = await self._load_chat_details(chat_id)
+        if not chat_object or not chat_object[1]:
+            logger.error(f"Chat {chat_id} not found for regeneration.")
+            return None
+
+        chat_data = chat_object[1]
+        messages_dict = chat_data.get("chat", {}).get("history", {}).get("messages", {})
+        parent_msg = messages_dict.get(parent_message_id)
+
+        if not parent_msg:
+            logger.error(f"Parent message {parent_message_id} not found.")
+            return None
+
+        question = parent_msg.get("content")
+        current_model_id = (
+            model_id
+            or parent_msg.get("model")
+            or chat_data.get("chat", {}).get("models", [""])[0]
+        )
+
+        logger.info(
+            f"Regenerating async response for parent {parent_message_id} in {chat_id}"
+        )
+
+        # We need to construct linear history dropping everything after the parent message
+        # But _ask appends the user question. Here the user question already exists.
+        # Actually, _ask does: api_messages.append({"role": "user", "content": question})
+        # So we should just re-ask it. Oh wait, if we re-ask, it creates a NEW user message!
+        # The frontend regenerate literally just calls completions with the exact history UP TO the parent_message.
+        # Let's bypass _ask creating a new user message. We need a targeted _regenerate_ask.
+        # However, to keep it simple and similar to workflow.py, we can just use _ask but pass parent_message_id.
+        # Since _ask doesn't support specific parent_message_id binding right now, we will add support to it.
+        return await self._ask(
+            question,
+            chat_id,
+            chat_data,
+            current_model_id,
+            parent_message_id=parent_msg.get(
+                "parentId"
+            ),  # Reuse the parent of the original user message
+            **kwargs,
+        )
+
+    async def edit_message(
+        self,
+        chat_id: str,
+        message_id: str,
+        new_content: str,
+        model_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[ChatResponse]:
+        """
+        Edit a user message and trigger a new completion asynchronously.
+        """
+        chat_object = await self._load_chat_details(chat_id)
+        if not chat_object or not chat_object[1]:
+            logger.error(f"Chat {chat_id} not found for edit.")
+            return None
+
+        chat_data = chat_object[1]
+        messages_dict = chat_data.get("chat", {}).get("history", {}).get("messages", {})
+        msg_to_edit = messages_dict.get(message_id)
+
+        if not msg_to_edit:
+            logger.error(f"Message {message_id} not found.")
+            return None
+
+        if msg_to_edit.get("role") != "user":
+            logger.error("Only user messages can be edited to trigger a new workflow.")
+            return None
+
+        current_model_id = model_id or chat_data.get("chat", {}).get("models", [""])[0]
+
+        logger.info(f"Editing async message {message_id} in {chat_id}")
+        return await self._ask(
+            new_content,
+            chat_id,
+            chat_data,
+            current_model_id,
+            parent_message_id=msg_to_edit.get("parentId"),
+            **kwargs,
+        )
+
     async def stream_chat(
         self,
         question: str,
-        chat_title: str,
+        chat_title: Optional[str] = None,
         model_id: Optional[str] = None,
+        chat_id: Optional[str] = None,
         folder_name: Optional[str] = None,
         image_paths: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
@@ -224,8 +422,15 @@ class AsyncChatManager(ModelAccessMixin):
             logger.info(f"Using tools: {tool_ids}")
         logger.info("=" * 60)
 
-        # Find or create chat - get local copies for concurrency safety
-        chat_id, chat_object = await self._find_or_create_chat_by_title(chat_title)
+        # Find existing or create new chat - get local copies for concurrency safety
+        if chat_id:
+            chat_id, chat_object = await self._load_chat_details(chat_id)
+        elif chat_title:
+            # Fallback to search/create by title
+            chat_id, chat_object = await self._find_or_create_chat_by_title(chat_title)
+        else:
+            # Create a brand new nameless chat for this model context
+            chat_id, chat_object = await self._create_new_chat("New Chat")
 
         if not chat_id or not chat_object:
             return
@@ -317,19 +522,27 @@ class AsyncChatManager(ModelAccessMixin):
 
     async def _find_or_create_chat_by_title(self, title: str) -> tuple:
         """Find or create chat. Returns (chat_id, chat_object) tuple for concurrency safety."""
-        # Search
-        response = await self.base_client._make_request(
-            "GET", "/api/v1/chats/search", params={"text": title}
-        )
-
         found_id = None
-        if response:
-            chats = response.json()
-            matching = [c for c in chats if c.get("title") == title]
-            if matching:
-                # Sort by updated_at desc
-                matching.sort(key=lambda x: x.get("updated_at", 0), reverse=True)
-                found_id = matching[0]["id"]
+
+        # Prefer list endpoint instead of search endpoint to avoid FTS indexing delay.
+        all_matching = []
+        for page in (1, 2):
+            chats = await self.base_client._get_json_response(
+                "GET", "/api/v1/chats/list", params={"page": page}
+            )
+            if not chats or not isinstance(chats, list):
+                break
+
+            page_matches = [
+                c
+                for c in chats
+                if isinstance(c, dict) and c.get("title") == title and c.get("id")
+            ]
+            all_matching.extend(page_matches)
+
+        if all_matching:
+            all_matching.sort(key=lambda x: x.get("updated_at", 0), reverse=True)
+            found_id = all_matching[0]["id"]
 
         if found_id:
             return await self._load_chat_details(found_id)
@@ -388,10 +601,11 @@ class AsyncChatManager(ModelAccessMixin):
 
                 details = response.json()
                 if details:
+                    chat_obj = ChatDetails.model_validate(details)
                     # Also update shared state for backward compatibility
                     self.base_client.chat_id = chat_id
                     self.base_client.chat_object_from_server = details
-                    return (chat_id, details)
+                    return (chat_id, chat_obj)
                 return (None, None)
 
             except httpx.TimeoutException as e:
@@ -430,6 +644,7 @@ class AsyncChatManager(ModelAccessMixin):
         rag_files: Optional[List[str]] = None,
         rag_collections: Optional[List[str]] = None,
         tool_ids: Optional[List[str]] = None,
+        parent_message_id: Optional[str] = None,
     ) -> Optional[ChatResponse]:
         import time
         import uuid
@@ -481,11 +696,25 @@ class AsyncChatManager(ModelAccessMixin):
             return None
 
         data = response.json()
-        assistant_content = data["choices"][0]["message"]["content"]
+        choices = data.get("choices", [])
+
+        if not choices and "task_id" in data:
+            task_id = data["task_id"]
+            logger.info(
+                f"Completion returned task_id={task_id}, polling for completion..."
+            )
+            # We must know the user message ID first so we can poll for its child
+            pass  # Deferred until we create user message
+            assistant_content = ""
+        elif choices:
+            assistant_content = choices[0]["message"]["content"]
+        else:
+            logger.error("No choices in completion response")
+            return None
 
         # Build and store messages
         user_message_id = str(uuid.uuid4())
-        last_message_id = chat_core["history"].get("currentId")
+        last_message_id = parent_message_id or chat_core["history"].get("currentId")
 
         storage_user_message = {
             "id": user_message_id,
@@ -513,6 +742,16 @@ class AsyncChatManager(ModelAccessMixin):
             chat_core["history"]["messages"][last_message_id]["childrenIds"].append(
                 user_message_id
             )
+
+        # Now that we have user_message_id, if we are in task polling mode
+        if not choices and "task_id" in data:
+            polled_content = await self._poll_chat_for_completion(
+                chat_id, user_message_id
+            )
+            if polled_content is None:
+                logger.error("Failed to retrieve completed message via polling")
+                return None
+            assistant_content = polled_content
 
         assistant_message_id = str(uuid.uuid4())
         storage_assistant_message = {
@@ -839,6 +1078,12 @@ class AsyncChatManager(ModelAccessMixin):
         return linear_messages
 
     # --- Placeholder Message Management ---
+
+    def _is_placeholder_message(self, message: Dict[str, Any]) -> bool:
+        """Check whether a message behaves like an unused placeholder."""
+        if not isinstance(message, dict):
+            return False
+        return message.get("content", "") == "" and message.get("done") is False
 
     async def trigger_action(
         self,
@@ -1602,3 +1847,33 @@ class AsyncChatManager(ModelAccessMixin):
             folder_id = await self._create_folder(folder_name)
         if folder_id:
             await self._move_chat_to_folder(chat_id, folder_id)
+
+    async def _poll_chat_for_completion(
+        self,
+        chat_id: str,
+        parent_message_id: str,
+        max_attempts: int = 60,
+        delay: int = 2,
+    ) -> Optional[str]:
+        """Poll the chat via get_chat until the response is completed."""
+        start_time = asyncio.get_event_loop().time()
+        for attempt in range(max_attempts):
+            chat = await self.get_chat(chat_id)
+            if chat and hasattr(chat, "chat") and chat.chat and "history" in chat.chat:
+                messages = chat.chat["history"].get("messages", {})
+
+                # Find the assistant message whose parent is parent_message_id
+                for msg_id, msg in messages.items():
+                    if (
+                        msg.get("parentId") == parent_message_id
+                        and msg.get("role") == "assistant"
+                    ):
+                        if msg.get("done") is True or msg.get("error") is True:
+                            return msg.get("content", "")
+
+            await asyncio.sleep(delay)
+
+        logger.error(
+            f"Polling timeout after {asyncio.get_event_loop().time() - start_time}s"
+        )
+        return None

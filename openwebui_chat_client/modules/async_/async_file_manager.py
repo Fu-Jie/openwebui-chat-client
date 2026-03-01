@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 if TYPE_CHECKING:
     from ..core.async_base_client import AsyncBaseClient
 
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import FileResponse
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncFileManager(ModelAccessMixin):
+class AsyncFileManager:
     """
     Handles async file-related operations for the OpenWebUI client.
     """
@@ -23,9 +23,12 @@ class AsyncFileManager(ModelAccessMixin):
     def __init__(self, base_client: "AsyncBaseClient") -> None:
         self.base_client = base_client
 
-    async def upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+    async def upload_file(self, file_path: str) -> Optional[FileResponse]:
         """Upload a file to the OpenWebUI server."""
-        return await self.base_client._upload_file(file_path)
+        data = await self.base_client._upload_file(file_path)
+        if data:
+            return FileResponse.model_validate(data)
+        return None
 
     def encode_image_to_base64(self, image_path: str) -> Optional[str]:
         """

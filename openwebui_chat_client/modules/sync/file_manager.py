@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Optional
 import requests
 
 logger = logging.getLogger(__name__)
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import FileResponse
 
 
-class FileManager(ModelAccessMixin):
+class FileManager:
     """
     Handles all file-related operations for the OpenWebUI client.
 
@@ -33,7 +33,7 @@ class FileManager(ModelAccessMixin):
         """
         self.base_client = base_client
 
-    def upload_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+    def upload_file(self, file_path: str) -> Optional[FileResponse]:
         """
         Upload a file to the OpenWebUI server.
 
@@ -65,7 +65,7 @@ class FileManager(ModelAccessMixin):
             response_data = response.json()
             if file_id := response_data.get("id"):
                 logger.info(f"  > Upload successful. File ID: {file_id}")
-                return response_data
+                return FileResponse.model_validate(response_data)
             logger.error(f"File upload response did not contain an ID: {response_data}")
             return None
         except requests.exceptions.RequestException as e:
@@ -172,7 +172,7 @@ class FileManager(ModelAccessMixin):
 
     def batch_upload_files(
         self, file_paths: List[str]
-    ) -> Dict[str, Optional[Dict[str, Any]]]:
+    ) -> Dict[str, Optional[FileResponse]]:
         """
         Upload multiple files and return results.
 

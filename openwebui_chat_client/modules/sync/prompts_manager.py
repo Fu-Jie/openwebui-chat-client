@@ -12,10 +12,10 @@ from urllib.parse import quote
 import requests
 
 logger = logging.getLogger(__name__)
-from openwebui_chat_client.models import ModelAccessMixin
+from openwebui_chat_client.models import PromptResponse
 
 
-class PromptsManager(ModelAccessMixin):
+class PromptsManager:
     """
     Handles all prompts-related operations for the OpenWebUI client.
 
@@ -36,7 +36,7 @@ class PromptsManager(ModelAccessMixin):
         """
         self.base_client = base_client
 
-    def get_prompts(self) -> Optional[List[Dict[str, Any]]]:
+    def get_prompts(self) -> Optional[List[PromptResponse]]:
         """
         Get all prompts for the current user.
 
@@ -52,7 +52,7 @@ class PromptsManager(ModelAccessMixin):
             response.raise_for_status()
             prompts = response.json()
             logger.info(f"Successfully retrieved {len(prompts)} prompts.")
-            return prompts
+            return [PromptResponse.model_validate(p) for p in prompts]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get prompts: {e}")
             return None
@@ -60,7 +60,7 @@ class PromptsManager(ModelAccessMixin):
             logger.error(f"Unexpected error getting prompts: {e}")
             return None
 
-    def get_prompts_list(self) -> Optional[List[Dict[str, Any]]]:
+    def get_prompts_list(self) -> Optional[List[PromptResponse]]:
         """
         Get a detailed list of prompts with user information.
 
@@ -78,7 +78,7 @@ class PromptsManager(ModelAccessMixin):
             logger.info(
                 f"Successfully retrieved prompts list with {len(prompts_list)} items."
             )
-            return prompts_list
+            return [PromptResponse.model_validate(p) for p in prompts_list]
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to get prompts list: {e}")
             return None
@@ -92,7 +92,7 @@ class PromptsManager(ModelAccessMixin):
         title: str,
         content: str,
         access_control: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[PromptResponse]:
         """
         Create a new prompt.
 
@@ -123,11 +123,11 @@ class PromptsManager(ModelAccessMixin):
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            prompt = response.json()
+            prompt_data = response.json()
             logger.info(
                 f"Successfully created prompt '{command}' with title '{title}'."
             )
-            return prompt
+            return PromptResponse.model_validate(prompt_data)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to create prompt '{command}': {e}")
             if hasattr(e, "response") and e.response is not None:
@@ -137,7 +137,7 @@ class PromptsManager(ModelAccessMixin):
             logger.error(f"Unexpected error creating prompt '{command}': {e}")
             return None
 
-    def get_prompt_by_command(self, command: str) -> Optional[Dict[str, Any]]:
+    def get_prompt_by_command(self, command: str) -> Optional[PromptResponse]:
         """
         Get a specific prompt by its command.
 
@@ -164,9 +164,9 @@ class PromptsManager(ModelAccessMixin):
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            prompt = response.json()
+            prompt_data = response.json()
             logger.info(f"Successfully retrieved prompt for command '{command}'.")
-            return prompt
+            return PromptResponse.model_validate(prompt_data)
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 logger.warning(f"Prompt with command '{command}' not found.")
@@ -217,16 +217,14 @@ class PromptsManager(ModelAccessMixin):
         # Build update payload with provided values or existing ones
         payload = {
             "command": command,
-            "title": title if title is not None else current_prompt.get("title", ""),
-            "content": (
-                content if content is not None else current_prompt.get("content", "")
-            ),
+            "title": title if title is not None else current_prompt.title,
+            "content": (content if content is not None else current_prompt.content),
         }
 
         if access_control is not None:
             payload["access_control"] = access_control
-        elif "access_control" in current_prompt:
-            payload["access_control"] = current_prompt["access_control"]
+        elif current_prompt.access_control:
+            payload["access_control"] = current_prompt.access_control
 
         # Remove leading "/" for API call as the endpoint expects command without it
         api_command = command[1:] if command.startswith("/") else command
@@ -240,9 +238,9 @@ class PromptsManager(ModelAccessMixin):
                 headers=self.base_client.json_headers,
             )
             response.raise_for_status()
-            prompt = response.json()
+            prompt_data = response.json()
             logger.info(f"Successfully updated prompt '{command}'.")
-            return prompt
+            return PromptResponse.model_validate(prompt_data)
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to update prompt '{command}': {e}")
             if hasattr(e, "response") and e.response is not None:

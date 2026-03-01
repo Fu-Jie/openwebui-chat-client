@@ -6,6 +6,7 @@ Provides core authentication, session management, and common utilities for async
 import json
 import logging
 import os
+import asyncio
 from typing import Any, Dict, Optional
 
 import httpx
@@ -134,50 +135,73 @@ class AsyncBaseClient:
         if headers:
             request_headers.update(headers)
 
-        try:
-            if method.upper() == "GET":
-                response = await self.client.get(
-                    url, params=params, headers=request_headers, timeout=timeout
-                )
-            elif method.upper() == "POST":
-                if files:
-                    response = await self.client.post(
-                        url,
-                        data=json_data,
-                        files=files,
-                        headers=request_headers,
-                        timeout=timeout,
+        max_retries = 3
+        backoff_factor = 1.0
+        retryable_statuses = {408, 429, 500, 502, 503, 504}
+
+        for attempt in range(max_retries + 1):
+            try:
+                if method.upper() == "GET":
+                    response = await self.client.get(
+                        url, params=params, headers=request_headers, timeout=timeout
                     )
-                else:
-                    response = await self.client.post(
+                elif method.upper() == "POST":
+                    if files:
+                        response = await self.client.post(
+                            url,
+                            data=json_data,
+                            files=files,
+                            headers=request_headers,
+                            timeout=timeout,
+                        )
+                    else:
+                        response = await self.client.post(
+                            url,
+                            json=json_data,
+                            headers=request_headers,
+                            timeout=timeout,
+                        )
+                elif method.upper() == "PUT":
+                    response = await self.client.put(
                         url, json=json_data, headers=request_headers, timeout=timeout
                     )
-            elif method.upper() == "PUT":
-                response = await self.client.put(
-                    url, json=json_data, headers=request_headers, timeout=timeout
+                elif method.upper() == "DELETE":
+                    response = await self.client.delete(
+                        url, headers=request_headers, timeout=timeout
+                    )
+                else:
+                    logger.error(f"Unsupported HTTP method: {method}")
+                    return None
+
+                response.raise_for_status()
+                return response
+
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                if status in retryable_statuses and attempt < max_retries:
+                    wait_time = backoff_factor * (2**attempt)
+                    logger.warning(
+                        f"HTTP {status} for {method} {endpoint}. Retrying in {wait_time}s (Attempt {attempt + 1}/{max_retries})..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                logger.error(
+                    f"HTTP error for {method} {endpoint}: {status} - {e.response.text}"
                 )
-            elif method.upper() == "DELETE":
-                response = await self.client.delete(
-                    url, headers=request_headers, timeout=timeout
-                )
-            else:
-                logger.error(f"Unsupported HTTP method: {method}")
                 return None
-
-            response.raise_for_status()
-            return response
-
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"HTTP error for {method} {endpoint}: {e.response.status_code} - {e.response.text}"
-            )
-            return None
-        except httpx.RequestError as e:
-            logger.error(f"Request error for {method} {endpoint}: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error for {method} {endpoint}: {e}")
-            return None
+            except httpx.RequestError as e:
+                if attempt < max_retries:
+                    wait_time = backoff_factor * (2**attempt)
+                    logger.warning(
+                        f"Request error for {method} {endpoint}: {e}. Retrying in {wait_time}s (Attempt {attempt + 1}/{max_retries})..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                logger.error(f"Request error for {method} {endpoint}: {e}")
+                return None
+            except Exception as e:
+                logger.error(f"Unexpected error for {method} {endpoint}: {e}")
+                return None
 
     async def _get_json_response(
         self,

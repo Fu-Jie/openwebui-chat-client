@@ -261,7 +261,7 @@ class CompletedPayloadDict(TypedDict, total=False):
     Used in POST /api/chat/completed
 
     Sent after completion to trigger outlet filters and background tasks.
-    
+
     Note: Backend uses 'id' field for chat_id, not 'chat_id'.
     """
 

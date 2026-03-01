@@ -67,7 +67,7 @@ class ChatActions:
         # ... (Include logic for loading chat details if needed) ...
         # For brevity in refactoring, we assume chat details are handled or we use a simplified flow
         # But `trigger_action` logic was complex regarding message merging.
-        
+
         # Let's use the API endpoint directly as the core action.
         encoded_action_id = urllib.parse.quote(action_id)
         url = f"{self.client.base_url}/api/chat/actions/{encoded_action_id}"
@@ -78,13 +78,13 @@ class ChatActions:
             )
             response.raise_for_status()
             result = response.json()
-            
+
             # Post-processing (merging messages back to chat history)
             # This logic is complex and was in the mixin.
             # If we skip it, the action works but UI might not update immediately if we don't push update.
             # Ideally `ChatWorkflow` or `ChatAPI` handles chat updates.
-            # But the mixin did it manually. 
-            
+            # But the mixin did it manually.
+
             # Assuming for now we just return the result.
             return ActionResult.from_dict(result)
 
