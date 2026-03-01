@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Async Client Feature Parity**: Implemented `AsyncFunctionsManager`, `AsyncToolsManager`, and `AsyncKnowledgeBaseManager` bringing the async client to full feature parity with the sync client.
+- **Server Plugins Management**: Added `diff_tools` and `diff_functions` tracking methods to detect differences between local files and remote tools/functions, plus `upsert_tool_from_file` and `upsert_function_from_file` for seamless local plugin deployment.
+- **Continuous Synchronization**: Added `scripts/watch_plugins.py` to continuously monitor local plugin scripts and push updates to the backend API automatically.
+- **Resilient HTTP Requests**: Implemented rigorous exponential backoff and retry logic in `AsyncBaseClient` to smoothly handle transient network errors (e.g., 429, 502, 503, 504).
+- **Unified Logging Configuration**: Introduced the `setup_logging` functionality via `utils.logging_config` to standardize application-wide log prints.
+
+### Changed
+
+- Expanded `AsyncChatAPI` and `AsyncChatManager` with asynchronous search, multi-chat pinning, unarchiving, single and bulk archiving operations.
+
 ### Removed
 
 - **Continuous Conversation**: Removed `continuous_chat`, `continuous_parallel_chat`, and `continuous_stream_chat` along with related implementation, tests, and examples.

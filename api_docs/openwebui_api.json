@@ -1,0 +1,3978 @@
+{
+  "meta": {
+    "generated_date": "2026-03-01",
+    "source": "backend/open_webui/routers/",
+    "total_routes": 394,
+    "modules": [
+      "analytics",
+      "audio",
+      "auths",
+      "channels",
+      "chats",
+      "configs",
+      "evaluations",
+      "files",
+      "folders",
+      "functions",
+      "groups",
+      "images",
+      "knowledge",
+      "memories",
+      "models",
+      "notes",
+      "ollama",
+      "openai",
+      "pipelines",
+      "prompts",
+      "retrieval",
+      "scim",
+      "skills",
+      "tasks",
+      "tools",
+      "users",
+      "utils"
+    ]
+  },
+  "routes": [
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/models",
+      "handler": "get_model_analytics",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get message counts per model.",
+      "streaming": false
+    },
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/users",
+      "handler": "get_user_analytics",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get message counts and token usage per user with user info.",
+      "streaming": false
+    },
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/messages",
+      "handler": "get_messages",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Query messages with filters.",
+      "streaming": false
+    },
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/summary",
+      "handler": "get_summary",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get summary statistics for the dashboard.",
+      "streaming": false
+    },
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/daily",
+      "handler": "get_daily_stats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get message counts grouped by model for time-series chart.",
+      "streaming": false
+    },
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/tokens",
+      "handler": "get_token_usage",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get token usage aggregated by model.",
+      "streaming": false
+    },
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/models/{model_id}/chats",
+      "handler": "get_model_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get chats that used a specific model, with preview and feedback info.",
+      "streaming": false
+    },
+    {
+      "module": "analytics",
+      "method": "GET",
+      "path": "/api/v1/analytics/models/{model_id}/overview",
+      "handler": "get_model_overview",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get model overview with feedback history and chat tags.",
+      "streaming": false
+    },
+    {
+      "module": "audio",
+      "method": "GET",
+      "path": "/api/v1/audio/config",
+      "handler": "get_audio_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "audio",
+      "method": "POST",
+      "path": "/api/v1/audio/config/update",
+      "handler": "update_audio_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "audio",
+      "method": "POST",
+      "path": "/api/v1/audio/speech",
+      "handler": "speech",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "audio",
+      "method": "POST",
+      "path": "/api/v1/audio/transcriptions",
+      "handler": "transcription",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "audio",
+      "method": "GET",
+      "path": "/api/v1/audio/models",
+      "handler": "get_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "audio",
+      "method": "GET",
+      "path": "/api/v1/audio/voices",
+      "handler": "get_voices",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "GET",
+      "path": "/api/v1/auths/",
+      "handler": "get_session_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/update/profile",
+      "handler": "update_profile",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/update/timezone",
+      "handler": "update_timezone",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/update/password",
+      "handler": "update_password",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/ldap",
+      "handler": "ldap_auth",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/signin",
+      "handler": "signin",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/signup",
+      "handler": "signup",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "GET",
+      "path": "/api/v1/auths/signout",
+      "handler": "signout",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/add",
+      "handler": "add_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "GET",
+      "path": "/api/v1/auths/admin/details",
+      "handler": "get_admin_details",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "GET",
+      "path": "/api/v1/auths/admin/config",
+      "handler": "get_admin_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/admin/config",
+      "handler": "update_admin_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "GET",
+      "path": "/api/v1/auths/admin/config/ldap/server",
+      "handler": "get_ldap_server",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/admin/config/ldap/server",
+      "handler": "update_ldap_server",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "GET",
+      "path": "/api/v1/auths/admin/config/ldap",
+      "handler": "get_ldap_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/admin/config/ldap",
+      "handler": "update_ldap_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/api_key",
+      "handler": "generate_api_key",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "DELETE",
+      "path": "/api/v1/auths/api_key",
+      "handler": "delete_api_key",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "GET",
+      "path": "/api/v1/auths/api_key",
+      "handler": "get_api_key",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/oauth/{provider}/token/exchange",
+      "handler": "token_exchange",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Exchange an external OAuth provider token for an OpenWebUI JWT.",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/",
+      "handler": "get_channels",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/list",
+      "handler": "get_all_channels",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/users/{user_id}",
+      "handler": "get_dm_channel_by_user_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/create",
+      "handler": "create_new_channel",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}",
+      "handler": "get_channel_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/members",
+      "handler": "get_channel_members_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/members/active",
+      "handler": "update_is_active_member_by_id_and_user_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/update/members/add",
+      "handler": "add_members_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/update/members/remove",
+      "handler": "remove_members_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/update",
+      "handler": "update_channel_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "DELETE",
+      "path": "/api/v1/channels/{id}/delete",
+      "handler": "delete_channel_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/messages",
+      "handler": "get_channel_messages",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/messages/pinned",
+      "handler": "get_pinned_channel_messages",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/messages/post",
+      "handler": "post_new_message",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/messages/{message_id}",
+      "handler": "get_channel_message",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/messages/{message_id}/data",
+      "handler": "get_channel_message_data",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/messages/{message_id}/pin",
+      "handler": "pin_channel_message",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/messages/{message_id}/thread",
+      "handler": "get_channel_thread_messages",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/messages/{message_id}/update",
+      "handler": "update_message_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/messages/{message_id}/reactions/add",
+      "handler": "add_reaction_to_message",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/messages/{message_id}/reactions/remove",
+      "handler": "remove_reaction_by_id_and_user_id_and_name",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "DELETE",
+      "path": "/api/v1/channels/{id}/messages/{message_id}/delete",
+      "handler": "delete_message_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/webhooks/{webhook_id}/profile/image",
+      "handler": "get_webhook_profile_image",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get webhook profile image by webhook ID.",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "GET",
+      "path": "/api/v1/channels/{id}/webhooks",
+      "handler": "get_channel_webhooks",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/webhooks/create",
+      "handler": "create_channel_webhook",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/{id}/webhooks/{webhook_id}/update",
+      "handler": "update_channel_webhook",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "DELETE",
+      "path": "/api/v1/channels/{id}/webhooks/{webhook_id}/delete",
+      "handler": "delete_channel_webhook",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "channels",
+      "method": "POST",
+      "path": "/api/v1/channels/webhooks/{webhook_id}/{token}",
+      "handler": "post_webhook_message",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Public endpoint to post messages via webhook",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/",
+      "handler": "get_session_user_chat_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/list",
+      "handler": "get_session_user_chat_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/stats/usage",
+      "handler": "get_session_user_chat_usage_stats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/stats/export",
+      "handler": "export_chat_stats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/stats/export/{chat_id}",
+      "handler": "export_single_chat_stats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Export stats for exactly one chat by ID.",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "DELETE",
+      "path": "/api/v1/chats/",
+      "handler": "delete_all_user_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/list/user/{user_id}",
+      "handler": "get_user_chat_list_by_user_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/new",
+      "handler": "create_new_chat",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/import",
+      "handler": "import_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/search",
+      "handler": "search_user_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/folder/{folder_id}",
+      "handler": "get_chats_by_folder_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/folder/{folder_id}/list",
+      "handler": "get_chat_list_by_folder_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/pinned",
+      "handler": "get_user_pinned_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/all",
+      "handler": "get_user_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/all/archived",
+      "handler": "get_user_archived_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/all/tags",
+      "handler": "get_all_user_tags",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/all/db",
+      "handler": "get_all_user_chats_in_db",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/archived",
+      "handler": "get_archived_session_user_chat_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/archive/all",
+      "handler": "archive_all_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/unarchive/all",
+      "handler": "unarchive_all_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/shared",
+      "handler": "get_shared_session_user_chat_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/share/{share_id}",
+      "handler": "get_shared_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/tags",
+      "handler": "get_user_chat_list_by_tag_name",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/{id}",
+      "handler": "get_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}",
+      "handler": "update_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/messages/{message_id}",
+      "handler": "update_chat_message_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/messages/{message_id}/event",
+      "handler": "send_chat_message_event_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "DELETE",
+      "path": "/api/v1/chats/{id}",
+      "handler": "delete_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/{id}/pinned",
+      "handler": "get_pinned_status_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/pin",
+      "handler": "pin_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/clone",
+      "handler": "clone_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/clone/shared",
+      "handler": "clone_shared_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/archive",
+      "handler": "archive_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/share",
+      "handler": "share_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "DELETE",
+      "path": "/api/v1/chats/{id}/share",
+      "handler": "delete_shared_chat_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/folder",
+      "handler": "update_chat_folder_id_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "GET",
+      "path": "/api/v1/chats/{id}/tags",
+      "handler": "get_chat_tags_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "POST",
+      "path": "/api/v1/chats/{id}/tags",
+      "handler": "add_tag_by_id_and_tag_name",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "DELETE",
+      "path": "/api/v1/chats/{id}/tags",
+      "handler": "delete_tag_by_id_and_tag_name",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "chats",
+      "method": "DELETE",
+      "path": "/api/v1/chats/{id}/tags/all",
+      "handler": "delete_all_tags_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/import",
+      "handler": "import_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "GET",
+      "path": "/api/v1/configs/export",
+      "handler": "export_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "GET",
+      "path": "/api/v1/configs/connections",
+      "handler": "get_connections_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/connections",
+      "handler": "set_connections_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/oauth/clients/register",
+      "handler": "register_oauth_client",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "GET",
+      "path": "/api/v1/configs/tool_servers",
+      "handler": "get_tool_servers_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/tool_servers",
+      "handler": "set_tool_servers_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/tool_servers/verify",
+      "handler": "verify_tool_servers_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Verify the connection to the tool server.",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "GET",
+      "path": "/api/v1/configs/code_execution",
+      "handler": "get_code_execution_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/code_execution",
+      "handler": "set_code_execution_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "GET",
+      "path": "/api/v1/configs/models",
+      "handler": "get_models_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/models",
+      "handler": "set_models_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/suggestions",
+      "handler": "set_default_suggestions",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "POST",
+      "path": "/api/v1/configs/banners",
+      "handler": "set_banners",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "configs",
+      "method": "GET",
+      "path": "/api/v1/configs/banners",
+      "handler": "get_banners",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/leaderboard",
+      "handler": "get_leaderboard",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get model leaderboard with Elo ratings",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/leaderboard/{model_id}/history",
+      "handler": "get_model_history",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get daily win/loss history for a specific model.",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/config",
+      "handler": "get_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "POST",
+      "path": "/api/v1/evaluations/config",
+      "handler": "update_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/feedbacks/all",
+      "handler": "get_all_feedbacks",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/feedbacks/all/ids",
+      "handler": "get_all_feedback_ids",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "DELETE",
+      "path": "/api/v1/evaluations/feedbacks/all",
+      "handler": "delete_all_feedbacks",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/feedbacks/all/export",
+      "handler": "export_all_feedbacks",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/feedbacks/user",
+      "handler": "get_feedbacks",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "DELETE",
+      "path": "/api/v1/evaluations/feedbacks",
+      "handler": "delete_feedbacks",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/feedbacks/list",
+      "handler": "get_feedbacks",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "POST",
+      "path": "/api/v1/evaluations/feedback",
+      "handler": "create_feedback",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "GET",
+      "path": "/api/v1/evaluations/feedback/{id}",
+      "handler": "get_feedback_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "POST",
+      "path": "/api/v1/evaluations/feedback/{id}",
+      "handler": "update_feedback_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "evaluations",
+      "method": "DELETE",
+      "path": "/api/v1/evaluations/feedback/{id}",
+      "handler": "delete_feedback_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "POST",
+      "path": "/api/v1/files/",
+      "handler": "upload_file",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/",
+      "handler": "list_files",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/search",
+      "handler": "search_files",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Search for files by filename with support for wildcard patterns.",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "DELETE",
+      "path": "/api/v1/files/all",
+      "handler": "delete_all_files",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/{id}",
+      "handler": "get_file_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/{id}/process/status",
+      "handler": "get_file_process_status",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/{id}/data/content",
+      "handler": "get_file_data_content_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "POST",
+      "path": "/api/v1/files/{id}/data/content/update",
+      "handler": "update_file_data_content_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/{id}/content",
+      "handler": "get_file_content_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/{id}/content/html",
+      "handler": "get_html_file_content_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "GET",
+      "path": "/api/v1/files/{id}/content/{file_name}",
+      "handler": "get_file_content_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "files",
+      "method": "DELETE",
+      "path": "/api/v1/files/{id}",
+      "handler": "delete_file_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "folders",
+      "method": "GET",
+      "path": "/api/v1/folders/",
+      "handler": "get_folders",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "folders",
+      "method": "POST",
+      "path": "/api/v1/folders/",
+      "handler": "create_folder",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "folders",
+      "method": "GET",
+      "path": "/api/v1/folders/{id}",
+      "handler": "get_folder_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "folders",
+      "method": "POST",
+      "path": "/api/v1/folders/{id}/update",
+      "handler": "update_folder_name_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "folders",
+      "method": "POST",
+      "path": "/api/v1/folders/{id}/update/parent",
+      "handler": "update_folder_parent_id_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "folders",
+      "method": "POST",
+      "path": "/api/v1/folders/{id}/update/expanded",
+      "handler": "update_folder_is_expanded_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "folders",
+      "method": "DELETE",
+      "path": "/api/v1/folders/{id}",
+      "handler": "delete_folder_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/",
+      "handler": "get_functions",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/list",
+      "handler": "get_function_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/export",
+      "handler": "get_functions",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/load/url",
+      "handler": "load_function_from_url",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/sync",
+      "handler": "sync_functions",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/create",
+      "handler": "create_new_function",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/id/{id}",
+      "handler": "get_function_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/id/{id}/toggle",
+      "handler": "toggle_function_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/id/{id}/toggle/global",
+      "handler": "toggle_global_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/id/{id}/update",
+      "handler": "update_function_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "DELETE",
+      "path": "/api/v1/functions/id/{id}/delete",
+      "handler": "delete_function_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/id/{id}/valves",
+      "handler": "get_function_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/id/{id}/valves/spec",
+      "handler": "get_function_valves_spec_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/id/{id}/valves/update",
+      "handler": "update_function_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/id/{id}/valves/user",
+      "handler": "get_function_user_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "GET",
+      "path": "/api/v1/functions/id/{id}/valves/user/spec",
+      "handler": "get_function_user_valves_spec_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "functions",
+      "method": "POST",
+      "path": "/api/v1/functions/id/{id}/valves/user/update",
+      "handler": "update_function_user_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "GET",
+      "path": "/api/v1/groups/",
+      "handler": "get_groups",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "POST",
+      "path": "/api/v1/groups/create",
+      "handler": "create_new_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "GET",
+      "path": "/api/v1/groups/id/{id}",
+      "handler": "get_group_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "GET",
+      "path": "/api/v1/groups/id/{id}/info",
+      "handler": "get_group_info_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "GET",
+      "path": "/api/v1/groups/id/{id}/export",
+      "handler": "export_group_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "POST",
+      "path": "/api/v1/groups/id/{id}/users",
+      "handler": "get_users_in_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "POST",
+      "path": "/api/v1/groups/id/{id}/update",
+      "handler": "update_group_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "POST",
+      "path": "/api/v1/groups/id/{id}/users/add",
+      "handler": "add_user_to_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "POST",
+      "path": "/api/v1/groups/id/{id}/users/remove",
+      "handler": "remove_users_from_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "groups",
+      "method": "DELETE",
+      "path": "/api/v1/groups/id/{id}/delete",
+      "handler": "delete_group_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "images",
+      "method": "GET",
+      "path": "/api/v1/images/config",
+      "handler": "get_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "images",
+      "method": "POST",
+      "path": "/api/v1/images/config/update",
+      "handler": "update_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "images",
+      "method": "GET",
+      "path": "/api/v1/images/config/url/verify",
+      "handler": "verify_url",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "images",
+      "method": "GET",
+      "path": "/api/v1/images/models",
+      "handler": "get_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "images",
+      "method": "POST",
+      "path": "/api/v1/images/generations",
+      "handler": "generate_images",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "images",
+      "method": "POST",
+      "path": "/api/v1/images/edit",
+      "handler": "image_edits",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "GET",
+      "path": "/api/v1/knowledge/",
+      "handler": "get_knowledge_bases",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "GET",
+      "path": "/api/v1/knowledge/search",
+      "handler": "search_knowledge_bases",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "GET",
+      "path": "/api/v1/knowledge/search/files",
+      "handler": "search_knowledge_files",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/create",
+      "handler": "create_new_knowledge",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/reindex",
+      "handler": "reindex_knowledge_files",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/metadata/reindex",
+      "handler": "reindex_knowledge_base_metadata_embeddings",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Batch embed all existing knowledge bases",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "GET",
+      "path": "/api/v1/knowledge/{id}",
+      "handler": "get_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/{id}/update",
+      "handler": "update_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/{id}/access/update",
+      "handler": "update_knowledge_access_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "GET",
+      "path": "/api/v1/knowledge/{id}/files",
+      "handler": "get_knowledge_files_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/{id}/file/add",
+      "handler": "add_file_to_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/{id}/file/update",
+      "handler": "update_file_from_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/{id}/file/remove",
+      "handler": "remove_file_from_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "DELETE",
+      "path": "/api/v1/knowledge/{id}/delete",
+      "handler": "delete_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/{id}/reset",
+      "handler": "reset_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "POST",
+      "path": "/api/v1/knowledge/{id}/files/batch/add",
+      "handler": "add_files_to_knowledge_batch",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Add multiple files to a knowledge base",
+      "streaming": false
+    },
+    {
+      "module": "knowledge",
+      "method": "GET",
+      "path": "/api/v1/knowledge/{id}/export",
+      "handler": "export_knowledge_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Export a knowledge base as a zip file containing .txt files.",
+      "streaming": false
+    },
+    {
+      "module": "memories",
+      "method": "GET",
+      "path": "/api/v1/memories/",
+      "handler": "get_memories",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "memories",
+      "method": "POST",
+      "path": "/api/v1/memories/add",
+      "handler": "add_memory",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "memories",
+      "method": "POST",
+      "path": "/api/v1/memories/query",
+      "handler": "query_memory",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "memories",
+      "method": "POST",
+      "path": "/api/v1/memories/reset",
+      "handler": "reset_memory_from_vector_db",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Reset user's memory vector embeddings.",
+      "streaming": false
+    },
+    {
+      "module": "memories",
+      "method": "DELETE",
+      "path": "/api/v1/memories/delete/user",
+      "handler": "delete_memory_by_user_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "memories",
+      "method": "POST",
+      "path": "/api/v1/memories/{memory_id}/update",
+      "handler": "update_memory_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "memories",
+      "method": "DELETE",
+      "path": "/api/v1/memories/{memory_id}",
+      "handler": "delete_memory_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "GET",
+      "path": "/api/v1/models/list",
+      "handler": "get_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "GET",
+      "path": "/api/v1/models/base",
+      "handler": "get_base_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "GET",
+      "path": "/api/v1/models/tags",
+      "handler": "get_model_tags",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "POST",
+      "path": "/api/v1/models/create",
+      "handler": "create_new_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "GET",
+      "path": "/api/v1/models/export",
+      "handler": "export_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "POST",
+      "path": "/api/v1/models/import",
+      "handler": "import_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "POST",
+      "path": "/api/v1/models/sync",
+      "handler": "sync_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "GET",
+      "path": "/api/v1/models/model",
+      "handler": "get_model_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "GET",
+      "path": "/api/v1/models/model/profile/image",
+      "handler": "get_model_profile_image",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "POST",
+      "path": "/api/v1/models/model/toggle",
+      "handler": "toggle_model_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "POST",
+      "path": "/api/v1/models/model/update",
+      "handler": "update_model_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "POST",
+      "path": "/api/v1/models/model/access/update",
+      "handler": "update_model_access_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "POST",
+      "path": "/api/v1/models/model/delete",
+      "handler": "delete_model_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "models",
+      "method": "DELETE",
+      "path": "/api/v1/models/delete/all",
+      "handler": "delete_all_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "notes",
+      "method": "GET",
+      "path": "/api/v1/notes/",
+      "handler": "get_notes",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "notes",
+      "method": "GET",
+      "path": "/api/v1/notes/search",
+      "handler": "search_notes",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "notes",
+      "method": "POST",
+      "path": "/api/v1/notes/create",
+      "handler": "create_new_note",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "notes",
+      "method": "GET",
+      "path": "/api/v1/notes/{id}",
+      "handler": "get_note_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "notes",
+      "method": "POST",
+      "path": "/api/v1/notes/{id}/update",
+      "handler": "update_note_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "notes",
+      "method": "POST",
+      "path": "/api/v1/notes/{id}/access/update",
+      "handler": "update_note_access_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "notes",
+      "method": "DELETE",
+      "path": "/api/v1/notes/{id}/delete",
+      "handler": "delete_note_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/",
+      "handler": "get_status",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/verify",
+      "handler": "verify_connection",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/config",
+      "handler": "get_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/config/update",
+      "handler": "update_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/api/tags",
+      "handler": "get_ollama_tags",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/api/tags/{url_idx}",
+      "handler": "get_ollama_tags",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/api/ps",
+      "handler": "get_ollama_loaded_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "List models that are currently loaded into Ollama memory, and which node they are loaded on.",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/api/version",
+      "handler": "get_ollama_versions",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/api/version/{url_idx}",
+      "handler": "get_ollama_versions",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/unload",
+      "handler": "unload_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/pull",
+      "handler": "pull_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/pull/{url_idx}",
+      "handler": "pull_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "DELETE",
+      "path": "/ollama/api/push",
+      "handler": "push_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "DELETE",
+      "path": "/ollama/api/push/{url_idx}",
+      "handler": "push_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/create",
+      "handler": "create_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/create/{url_idx}",
+      "handler": "create_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/copy",
+      "handler": "copy_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/copy/{url_idx}",
+      "handler": "copy_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "DELETE",
+      "path": "/ollama/api/delete",
+      "handler": "delete_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "DELETE",
+      "path": "/ollama/api/delete/{url_idx}",
+      "handler": "delete_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/show",
+      "handler": "show_model_info",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/embed",
+      "handler": "embed",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/embed/{url_idx}",
+      "handler": "embed",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/embeddings",
+      "handler": "embeddings",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/embeddings/{url_idx}",
+      "handler": "embeddings",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/generate",
+      "handler": "generate_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/generate/{url_idx}",
+      "handler": "generate_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/chat",
+      "handler": "generate_chat_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/api/chat/{url_idx}",
+      "handler": "generate_chat_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/v1/completions",
+      "handler": "generate_openai_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/v1/completions/{url_idx}",
+      "handler": "generate_openai_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/v1/chat/completions",
+      "handler": "generate_openai_chat_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/v1/chat/completions/{url_idx}",
+      "handler": "generate_openai_chat_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/v1/models",
+      "handler": "get_openai_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "GET",
+      "path": "/ollama/v1/models/{url_idx}",
+      "handler": "get_openai_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/models/download",
+      "handler": "download_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/models/download/{url_idx}",
+      "handler": "download_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/models/upload",
+      "handler": "upload_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "ollama",
+      "method": "POST",
+      "path": "/ollama/models/upload/{url_idx}",
+      "handler": "upload_model",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "openai",
+      "method": "GET",
+      "path": "/openai/config",
+      "handler": "get_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "openai",
+      "method": "POST",
+      "path": "/openai/config/update",
+      "handler": "update_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "openai",
+      "method": "POST",
+      "path": "/openai/audio/speech",
+      "handler": "speech",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "openai",
+      "method": "GET",
+      "path": "/openai/models",
+      "handler": "get_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "openai",
+      "method": "GET",
+      "path": "/openai/models/{url_idx}",
+      "handler": "get_models",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "openai",
+      "method": "POST",
+      "path": "/openai/verify",
+      "handler": "verify_connection",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "openai",
+      "method": "POST",
+      "path": "/openai/chat/completions",
+      "handler": "generate_chat_completion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": true
+    },
+    {
+      "module": "openai",
+      "method": "POST",
+      "path": "/openai/responses",
+      "handler": "responses",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Forward requests to the OpenAI Responses API endpoint.",
+      "streaming": true
+    },
+    {
+      "module": "pipelines",
+      "method": "GET",
+      "path": "/api/v1/pipelines/list",
+      "handler": "get_pipelines_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "pipelines",
+      "method": "POST",
+      "path": "/api/v1/pipelines/upload",
+      "handler": "upload_pipeline",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "pipelines",
+      "method": "POST",
+      "path": "/api/v1/pipelines/add",
+      "handler": "add_pipeline",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "pipelines",
+      "method": "DELETE",
+      "path": "/api/v1/pipelines/delete",
+      "handler": "delete_pipeline",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "pipelines",
+      "method": "GET",
+      "path": "/api/v1/pipelines/",
+      "handler": "get_pipelines",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "pipelines",
+      "method": "GET",
+      "path": "/api/v1/pipelines/{pipeline_id}/valves",
+      "handler": "get_pipeline_valves",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "pipelines",
+      "method": "GET",
+      "path": "/api/v1/pipelines/{pipeline_id}/valves/spec",
+      "handler": "get_pipeline_valves_spec",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "pipelines",
+      "method": "POST",
+      "path": "/api/v1/pipelines/{pipeline_id}/valves/update",
+      "handler": "update_pipeline_valves",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/",
+      "handler": "get_prompts",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/tags",
+      "handler": "get_prompt_tags",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/list",
+      "handler": "get_prompt_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "POST",
+      "path": "/api/v1/prompts/create",
+      "handler": "create_new_prompt",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/command/{command}",
+      "handler": "get_prompt_by_command",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/id/{prompt_id}",
+      "handler": "get_prompt_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "POST",
+      "path": "/api/v1/prompts/id/{prompt_id}/update",
+      "handler": "update_prompt_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "POST",
+      "path": "/api/v1/prompts/id/{prompt_id}/update/meta",
+      "handler": "update_prompt_metadata",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Update prompt name and command only (no history created).",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "POST",
+      "path": "/api/v1/prompts/id/{prompt_id}/update/version",
+      "handler": "set_prompt_version",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "POST",
+      "path": "/api/v1/prompts/id/{prompt_id}/access/update",
+      "handler": "update_prompt_access_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "POST",
+      "path": "/api/v1/prompts/id/{prompt_id}/toggle",
+      "handler": "toggle_prompt_active",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "DELETE",
+      "path": "/api/v1/prompts/id/{prompt_id}/delete",
+      "handler": "delete_prompt_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/id/{prompt_id}/history",
+      "handler": "get_prompt_history",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get version history for a prompt.",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/id/{prompt_id}/history/{history_id}",
+      "handler": "get_prompt_history_entry",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get a specific version from history.",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "DELETE",
+      "path": "/api/v1/prompts/id/{prompt_id}/history/{history_id}",
+      "handler": "delete_prompt_history_entry",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Delete a history entry",
+      "streaming": false
+    },
+    {
+      "module": "prompts",
+      "method": "GET",
+      "path": "/api/v1/prompts/id/{prompt_id}/history/diff",
+      "handler": "get_prompt_diff",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get diff between two versions.",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "GET",
+      "path": "/api/v1/retrieval/",
+      "handler": "get_status",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "GET",
+      "path": "/api/v1/retrieval/embedding",
+      "handler": "get_embedding_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/embedding/update",
+      "handler": "update_embedding_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "GET",
+      "path": "/api/v1/retrieval/config",
+      "handler": "get_rag_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/config/update",
+      "handler": "update_rag_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/process/file",
+      "handler": "process_file",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Process a file and save its content to the vector database.",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/process/text",
+      "handler": "process_text",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/process/youtube",
+      "handler": "process_web",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/process/web",
+      "handler": "process_web",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/process/web/search",
+      "handler": "process_web_search",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/query/doc",
+      "handler": "query_doc_handler",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/query/collection",
+      "handler": "query_collection_handler",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/delete",
+      "handler": "delete_entries_from_collection",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/reset/db",
+      "handler": "reset_vector_db",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/reset/uploads",
+      "handler": "reset_upload_dir",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "GET",
+      "path": "/api/v1/retrieval/ef/{text}",
+      "handler": "get_embeddings",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "retrieval",
+      "method": "POST",
+      "path": "/api/v1/retrieval/process/files/batch",
+      "handler": "process_files_batch",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Process a batch of files and save them to the vector database.",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "GET",
+      "path": "/api/v1/scim/v2/ServiceProviderConfig",
+      "handler": "get_service_provider_config",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "Get SCIM Service Provider Configuration",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "GET",
+      "path": "/api/v1/scim/v2/ResourceTypes",
+      "handler": "get_resource_types",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "Get SCIM Resource Types",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "GET",
+      "path": "/api/v1/scim/v2/Schemas",
+      "handler": "get_schemas",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "Get SCIM Schemas",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "GET",
+      "path": "/api/v1/scim/v2/Users",
+      "handler": "get_users",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "List SCIM Users",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "GET",
+      "path": "/api/v1/scim/v2/Users/{user_id}",
+      "handler": "get_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get SCIM User by ID",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "POST",
+      "path": "/api/v1/scim/v2/Users",
+      "handler": "create_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Create SCIM User",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "PUT",
+      "path": "/api/v1/scim/v2/Users/{user_id}",
+      "handler": "update_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Update SCIM User (full update)",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "PATCH",
+      "path": "/api/v1/scim/v2/Users/{user_id}",
+      "handler": "patch_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Update SCIM User (partial update)",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "DELETE",
+      "path": "/api/v1/scim/v2/Users/{user_id}",
+      "handler": "delete_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Delete SCIM User",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "GET",
+      "path": "/api/v1/scim/v2/Groups",
+      "handler": "get_groups",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "List SCIM Groups",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "GET",
+      "path": "/api/v1/scim/v2/Groups/{group_id}",
+      "handler": "get_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Get SCIM Group by ID",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "POST",
+      "path": "/api/v1/scim/v2/Groups",
+      "handler": "create_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Create SCIM Group",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "PUT",
+      "path": "/api/v1/scim/v2/Groups/{group_id}",
+      "handler": "update_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Update SCIM Group (full update)",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "PATCH",
+      "path": "/api/v1/scim/v2/Groups/{group_id}",
+      "handler": "patch_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Update SCIM Group (partial update)",
+      "streaming": false
+    },
+    {
+      "module": "scim",
+      "method": "DELETE",
+      "path": "/api/v1/scim/v2/Groups/{group_id}",
+      "handler": "delete_group",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Delete SCIM Group",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "GET",
+      "path": "/api/v1/skills/",
+      "handler": "get_skills",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "GET",
+      "path": "/api/v1/skills/list",
+      "handler": "get_skill_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "GET",
+      "path": "/api/v1/skills/export",
+      "handler": "export_skills",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "POST",
+      "path": "/api/v1/skills/create",
+      "handler": "create_new_skill",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "GET",
+      "path": "/api/v1/skills/id/{id}",
+      "handler": "get_skill_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "POST",
+      "path": "/api/v1/skills/id/{id}/update",
+      "handler": "update_skill_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "POST",
+      "path": "/api/v1/skills/id/{id}/access/update",
+      "handler": "update_skill_access_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "POST",
+      "path": "/api/v1/skills/id/{id}/toggle",
+      "handler": "toggle_skill_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "skills",
+      "method": "DELETE",
+      "path": "/api/v1/skills/id/{id}/delete",
+      "handler": "delete_skill_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/active/chats",
+      "handler": "check_active_chats",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "Check which chat IDs have active tasks.",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "GET",
+      "path": "/api/v1/tasks/config",
+      "handler": "get_task_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/config/update",
+      "handler": "update_task_config",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/title/completions",
+      "handler": "generate_title",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/follow_up/completions",
+      "handler": "generate_follow_ups",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/tags/completions",
+      "handler": "generate_chat_tags",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/image_prompt/completions",
+      "handler": "generate_image_prompt",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/queries/completions",
+      "handler": "generate_queries",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/auto/completions",
+      "handler": "generate_autocompletion",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/emoji/completions",
+      "handler": "generate_emoji",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tasks",
+      "method": "POST",
+      "path": "/api/v1/tasks/moa/completions",
+      "handler": "generate_moa_response",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/",
+      "handler": "get_tools",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/list",
+      "handler": "get_tool_list",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "POST",
+      "path": "/api/v1/tools/load/url",
+      "handler": "load_tool_from_url",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/export",
+      "handler": "export_tools",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "POST",
+      "path": "/api/v1/tools/create",
+      "handler": "create_new_tools",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/id/{id}",
+      "handler": "get_tools_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "POST",
+      "path": "/api/v1/tools/id/{id}/update",
+      "handler": "update_tools_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "POST",
+      "path": "/api/v1/tools/id/{id}/access/update",
+      "handler": "update_tool_access_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "DELETE",
+      "path": "/api/v1/tools/id/{id}/delete",
+      "handler": "delete_tools_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/id/{id}/valves",
+      "handler": "get_tools_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/id/{id}/valves/spec",
+      "handler": "get_tools_valves_spec_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "POST",
+      "path": "/api/v1/tools/id/{id}/valves/update",
+      "handler": "update_tools_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/id/{id}/valves/user",
+      "handler": "get_tools_user_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "GET",
+      "path": "/api/v1/tools/id/{id}/valves/user/spec",
+      "handler": "get_tools_user_valves_spec_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "tools",
+      "method": "POST",
+      "path": "/api/v1/tools/id/{id}/valves/user/update",
+      "handler": "update_tools_user_valves_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/",
+      "handler": "get_users",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/all",
+      "handler": "get_all_users",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/search",
+      "handler": "search_users",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/groups",
+      "handler": "get_user_groups",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/permissions",
+      "handler": "get_user_permissisions",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/default/permissions",
+      "handler": "get_default_user_permissions",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "POST",
+      "path": "/api/v1/users/default/permissions",
+      "handler": "update_default_user_permissions",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/user/settings",
+      "handler": "get_user_settings_by_session_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "POST",
+      "path": "/api/v1/users/user/settings/update",
+      "handler": "update_user_settings_by_session_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/user/status",
+      "handler": "get_user_status_by_session_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "POST",
+      "path": "/api/v1/users/user/status/update",
+      "handler": "update_user_status_by_session_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/user/info",
+      "handler": "get_user_info_by_session_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "POST",
+      "path": "/api/v1/users/user/info/update",
+      "handler": "update_user_info_by_session_user",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/{user_id}",
+      "handler": "get_user_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/{user_id}/info",
+      "handler": "get_user_info_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/{user_id}/oauth/sessions",
+      "handler": "get_user_oauth_sessions_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/{user_id}/profile/image",
+      "handler": "get_user_profile_image_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/{user_id}/active",
+      "handler": "get_user_active_status_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "POST",
+      "path": "/api/v1/users/{user_id}/update",
+      "handler": "update_user_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "DELETE",
+      "path": "/api/v1/users/{user_id}",
+      "handler": "delete_user_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "users",
+      "method": "GET",
+      "path": "/api/v1/users/{user_id}/groups",
+      "handler": "get_user_groups_by_id",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "utils",
+      "method": "GET",
+      "path": "/api/v1/utils/gravatar",
+      "handler": "get_gravatar",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "utils",
+      "method": "POST",
+      "path": "/api/v1/utils/code/format",
+      "handler": "format_code",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "utils",
+      "method": "POST",
+      "path": "/api/v1/utils/code/execute",
+      "handler": "execute_code",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "utils",
+      "method": "POST",
+      "path": "/api/v1/utils/markdown",
+      "handler": "get_html_from_markdown",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "utils",
+      "method": "POST",
+      "path": "/api/v1/utils/pdf",
+      "handler": "download_chat_as_pdf",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    },
+    {
+      "module": "utils",
+      "method": "GET",
+      "path": "/api/v1/utils/db/download",
+      "handler": "download_db",
+      "auth_required": true,
+      "auth_type": "private",
+      "summary": "",
+      "streaming": false
+    }
+  ]
+}

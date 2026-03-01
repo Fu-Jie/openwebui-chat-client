@@ -543,6 +543,7 @@ print(f"摘要: {result['response']}")
 `AsyncOpenWebUIClient` 为所有操作提供异步接口，适用于高性能异步应用（FastAPI、Sanic 等）。所有方法的签名与同步版本相同，但需要使用 `async`/`await` 前缀。
 
 **主要区别：**
+
 - 所有方法都是 `async` 的，必须使用 `await` 调用
 - 使用 `httpx.AsyncClient` 进行 HTTP 操作，而不是 `requests`
 - 支持异步上下文管理器（`async with`）
@@ -776,6 +777,7 @@ encoded = await asyncio.to_thread(
 完整文档可在以下网址获取：**[https://fu-jie.github.io/openwebui-chat-client/](https://fu-jie.github.io/openwebui-chat-client/)**
 
 文档包括：
+
 - 详细的安装和设置指南
 - 全面的使用示例
 - 完整的 API 参考
@@ -803,5 +805,51 @@ mkdocs serve
 3. 保存设置
 
 详细说明请参阅 [docs/github-pages-setup.md](docs/github-pages-setup.md)。
+
+---
+
+## 🛠️ 故障排除
+
+- **认证错误**：确保你的 Bearer Token 是有效的。
+- **找不到模型**：检查模型 ID 是否正确（例如 `"gpt-4.1"`, `"gemini-2.5-flash"`）并且在你的 Open WebUI 实例上可用。
+- **找不到工具**：确保你提供的 `tool_ids` 与在 Open WebUI 设置中配置的工具 ID 匹配。
+- **文件/图片上传问题**：确保文件路径正确，并且应用程序有读取这些文件的必要权限。
+- **Web UI 未更新**：刷新页面或检查服务器日志以获取任何潜在的错误信息。
+
+---
+
+## 🧪 集成冒烟测试 (可选)
+
+轻量级的实时检查位于 `examples/integration/` 目录下，并受环境变量控制，因此在没有配置凭据时可以自动跳过。
+
+**前置条件:**
+
+- `OUI_BASE_URL` (例如：`http://localhost:3000`)
+- `OUI_AUTH_TOKEN` (具有聊天访问权限的 Bearer token；用户/模型操作需要管理员 token)
+- `OUI_DEFAULT_MODEL` (如果省略，默认使用 `gpt-4.1`)
+
+**运行选定的测试分类:**
+
+```bash
+python run_integration_tests.py --category sync_live_stream --verbose
+```
+
+常见的分类包括 `sync_live_stream`, `async_live_stream`, `model_management`, `notes_api`, 和 `prompts_api`。请查看 `examples/integration/` 目录获取完整列表。
+
+> 这些测试在本地运行是可选且安全的；当未配置 secrets 时，CI 会自动跳过它们。
+
+---
+
+## 🤝 贡献代码
+
+欢迎提交代码、反馈问题和功能请求！  
+随时查看 [Issues 页面](https://github.com/Fu-Jie/openwebui-chat-client/issues) 或是提交 Pull Request。
+
+---
+
+## 📄 用户协议
+
+本项目遵循 **GNU General Public License v3.0 (GPLv3)** 协议。  
+了解更多细节，请查看 [LICENSE](https://www.gnu.org/licenses/gpl-3.0.html) 文件。
 
 ---
