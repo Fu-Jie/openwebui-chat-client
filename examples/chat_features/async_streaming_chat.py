@@ -320,57 +320,36 @@ async def multi_turn_streaming_example(client: AsyncOpenWebUIClient) -> bool:
 
 
 async def streaming_with_metadata_example(client: AsyncOpenWebUIClient) -> bool:
-    """Demonstrate capturing the return value (metadata) from async streaming."""
-    logger.info("\n📦 Streaming with Metadata Example")
+    """Demonstrate async streaming chat functionality with clean output."""
+    logger.info("\n📦 Streaming with Improved DX Example")
     logger.info("=" * 40)
 
-    print("\n🤖 Streaming Response: ", end="", flush=True)
+    print("\n🤖 Assistant: ", end="", flush=True)
 
     full_response = ""
     chunk_count = 0
 
-    # 1. Create the generator
-    generator = client.stream_chat(
+    # Using the standard async for loop which is the best practice for most cases
+    async for chunk in client.stream_chat(
         question="What is the capital of France? Answer briefly.",
-        chat_title="Async Streaming Demo - Metadata",
-    )
-
-    # 2. Key Step: Manual iteration to capture the return value
-    # Standard 'async for' loops suppress the return value of generators.
-    # To get the ChatResponse object returned at the end, we must iterate manually.
-    chat_response = None
-    try:
-        while True:
-            # Get the next chunk
-            # Use __anext__() for Python 3.8+ compatibility
-            chunk = await generator.__anext__()
-
-            print(chunk, end="", flush=True)
-            full_response += chunk
-            chunk_count += 1
-
-    except StopAsyncIteration as e:
-        # The return value is carried in the exception
-        chat_response = e.value
+        chat_title="Async Streaming Demo - Basic",
+    ):
+        print(chunk, end="", flush=True)
+        full_response += chunk
+        chunk_count += 1
 
     print()  # New line
 
-    # 3. Process the results
-    if chat_response:
-        logger.info("✅ Conversation Metadata Captured:")
-        logger.info(f"   Chat ID: {chat_response.chat_id}")
-        logger.info(f"   Model: {chat_response.model_id}")
-        logger.info(f"   Message ID: {chat_response.message_id}")
-
-        # Verify content matches
-        if chat_response.content == full_response:
-            logger.info("   ✅ Streamed content matches returned content")
-        else:
-            logger.warning("   ⚠️ Content mismatch!")
-
+    if full_response:
+        logger.info(f"✅ Received {len(full_response)} characters in {chunk_count} chunks")
+        # In the current async implementation, metadata is managed internally by the client context.
+        # To get specific chat details, use client.get_chat()
+        chat_id = client._base_client.chat_id
+        if chat_id:
+            logger.info(f"   Chat ID: {chat_id}")
         return True
     else:
-        logger.error("❌ Failed to capture chat response metadata")
+        logger.error("❌ Failed to capture chat response")
         return False
 
 

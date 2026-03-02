@@ -1,225 +1,73 @@
 # API Reference
 
-This page provides the complete API reference for `openwebui-chat-client`, automatically generated from the source code docstrings.
+This document provides a detailed reference for all classes and methods in the `openwebui-chat-client` library.
 
 ---
 
-## OpenWebUIClient
+## OpenWebUIClient (Synchronous)
 
-The main client class for synchronous operations.
-
-::: openwebui_chat_client.OpenWebUIClient
-    options:
-      show_root_heading: true
-      show_source: false
-      members:
-        - __init__
-        - chat
-        - stream_chat
-        - parallel_chat
-        - continuous_chat
-        - continuous_parallel_chat
-        - continuous_stream_chat
-        - deep_research
-        - process_task
-        - stream_process_task
-        - rename_chat
-        - set_chat_tags
-        - update_chat_metadata
-        - switch_chat_model
-        - list_chats
-        - get_chats_by_folder
-        - archive_chat
-        - archive_chats_by_age
-        - delete_all_chats
-        - create_folder
-        - get_folder_id_by_name
-        - move_chat_to_folder
-        - list_models
-        - list_base_models
-        - list_custom_models
-        - list_groups
-        - get_model
-        - create_model
-        - update_model
-        - delete_model
-        - batch_update_model_permissions
-        - get_knowledge_base_by_name
-        - create_knowledge_base
-        - add_file_to_knowledge_base
-        - delete_knowledge_base
-        - delete_all_knowledge_bases
-        - delete_knowledge_bases_by_keyword
-        - create_knowledge_bases_with_files
-        - get_notes
-        - get_notes_list
-        - create_note
-        - get_note_by_id
-        - update_note_by_id
-        - delete_note_by_id
-        - get_prompts
-        - get_prompts_list
-        - create_prompt
-        - get_prompt_by_command
-        - update_prompt_by_command
-        - replace_prompt_by_command
-        - delete_prompt_by_command
-        - search_prompts
-        - extract_variables
-        - substitute_variables
-        - get_system_variables
-        - batch_create_prompts
-        - batch_delete_prompts
-        - get_users
-        - get_user_by_id
-        - update_user_role
-        - delete_user
-
----
-
-## AsyncOpenWebUIClient
-
-The async client class for asynchronous operations.
-
-::: openwebui_chat_client.AsyncOpenWebUIClient
-    options:
-      show_root_heading: true
-      show_source: false
-
----
-
-## Return Value Examples
+The main facade for interacting with Open WebUI services synchronously.
 
 ### Chat Operations
 
-```python
-{
-    "response": "Generated response text",
-    "chat_id": "chat-uuid-string",
-    "message_id": "message-uuid-string",
-    "sources": [...]  # For RAG operations
-}
-```
+#### `chat(question, chat_id=None, model=None, chat_title=None, **kwargs)`
+Send a message to an AI model and receive a response.
+- **Returns**: `ChatResponse` object.
+- **Key Attributes**: `.content` (the text), `.chat_id`, `.message_id`.
 
-### Parallel Chat
+#### `parallel_chat(question, model_ids, **kwargs)`
+Query multiple models simultaneously.
+- **Returns**: `ParallelChatResponse` object.
+- **Key Attributes**: `.responses` (dict of ChatResponse), `.chat_id`.
 
-```python
-{
-    "responses": {
-        "model-1": "Response from model 1",
-        "model-2": "Response from model 2"
-    },
-    "chat_id": "chat-uuid-string",
-    "message_ids": {
-        "model-1": "message-uuid-1",
-        "model-2": "message-uuid-2"
-    }
-}
-```
+#### `stream_chat(question, **kwargs)`
+Send a message and receive a generator for real-time streaming.
+- **Yields**: `str` (text chunks).
 
-### Knowledge Base / Notes
+### Action Management & Execution
 
-```python
-{
-    "id": "resource-uuid",
-    "name": "Resource Name",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z",
-    ...
-}
-```
+#### `get_actions()`
+Retrieve a list of all triggerable functions of type `action`.
+- **Returns**: `List[Function]`.
 
-### Process Task
+#### `trigger_action(action_id, chat_id, message_id, params=None)`
+Executes a server-side action and automatically synchronizes the UI state.
 
-```python
-{
-    "solution": "Final solution text",
-    "conversation_history": [...],  # or summarized string
-    "todo_list": [
-        {"task": "Research topic", "status": "completed"},
-        {"task": "Write summary", "status": "completed"}
-    ]
-}
-```
+The SDK includes a **Smart Synchronization Engine** that handles the following formats:
+
+| Format | Detection | SDK Sync Strategy | UI Result |
+| :--- | :--- | :--- | :--- |
+| **Artifacts Mode** | Raw HTML string response | Wraps HTML in Markdown block and appends to message `content`. | Triggers the **Artifacts panel** on the right side of the UI. |
+| **Embeds Mode** | JSON containing `embeds` | Injects the data into the message's `embeds` list. | Displays **RichUI components** (buttons, cards, etc.) inside the chat. |
+| **Legacy Mode** | JSON containing `messages` | Surgically merges updated message objects into the chat history. | Updates text or metadata of existing messages. |
 
 ---
 
-## Quick Reference Tables
+## Models (Pydantic V2)
 
-### Chat Operations
+All data returned by the client is encapsulated in Pydantic V2 models for type safety and validation.
 
-| Method | Description |
-|--------|-------------|
-| `chat()` | Single-model conversation with optional features |
-| `stream_chat()` | Streaming conversation with real-time updates |
-| `parallel_chat()` | Multi-model parallel conversation |
-| `process_task()` | Autonomous multi-step task processing |
-| `deep_research()` | Multi-step research agent |
+### `ChatResponse`
+- `content`: str (The assistant's reply)
+- `text`: str (Alias for content)
+- `chat_id`: str
+- `message_id`: str
+- `sources`: List[dict] (Optional)
+- `embeds`: List[dict] (Optional)
 
-### Chat Management
+### `Function`
+- `id`: str
+- `name`: str
+- `type`: str ('action', 'filter', or 'pipe')
+- `is_action`: bool (Helper property)
 
-| Method | Description |
-|--------|-------------|
-| `rename_chat()` | Rename an existing chat |
-| `set_chat_tags()` | Apply tags to a chat |
-| `update_chat_metadata()` | Regenerate tags and/or title |
-| `switch_chat_model()` | Switch model for existing chat |
-| `list_chats()` | Get list of user's chats |
-| `archive_chat()` | Archive a specific chat |
-| `archive_chats_by_age()` | Bulk archive old chats |
-| `create_folder()` | Create a chat folder |
+---
 
-### Model Management
+## Managers
 
-| Method | Description |
-|--------|-------------|
-| `list_models()` | List available models |
-| `list_base_models()` | List base models |
-| `list_custom_models()` | List custom models |
-| `get_model()` | Get model details |
-| `create_model()` | Create a custom model |
-| `update_model()` | Update a model |
-| `delete_model()` | Delete a model |
-| `batch_update_model_permissions()` | Batch update permissions |
+Advanced users can access sub-managers directly via `client._manager_name`.
 
-### Knowledge Base Operations
-
-| Method | Description |
-|--------|-------------|
-| `create_knowledge_base()` | Create a knowledge base |
-| `add_file_to_knowledge_base()` | Add file to KB |
-| `get_knowledge_base_by_name()` | Get KB by name |
-| `delete_knowledge_base()` | Delete a KB |
-| `delete_all_knowledge_bases()` | Delete all KBs |
-| `create_knowledge_bases_with_files()` | Batch create KBs |
-
-### Notes API
-
-| Method | Description |
-|--------|-------------|
-| `get_notes()` | Get all notes |
-| `create_note()` | Create a note |
-| `get_note_by_id()` | Get note by ID |
-| `update_note_by_id()` | Update a note |
-| `delete_note_by_id()` | Delete a note |
-
-### Prompts API
-
-| Method | Description |
-|--------|-------------|
-| `get_prompts()` | Get all prompts |
-| `create_prompt()` | Create a prompt |
-| `get_prompt_by_command()` | Get prompt by command |
-| `update_prompt_by_command()` | Update a prompt |
-| `delete_prompt_by_command()` | Delete a prompt |
-| `extract_variables()` | Extract prompt variables |
-| `substitute_variables()` | Replace variables |
-
-### User Management
-
-| Method | Description |
-|--------|-------------|
-| `get_users()` | List users |
-| `get_user_by_id()` | Get user details |
-| `update_user_role()` | Update user role |
-| `delete_user()` | Delete a user |
+- `_functions_manager`: For plugin and action management.
+- `_model_manager`: For listing and checking model availability.
+- `_file_manager`: For direct file uploads and encoding.
+- `_knowledge_base_manager`: For RAG collection operations.

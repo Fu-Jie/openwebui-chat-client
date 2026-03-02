@@ -8,6 +8,7 @@
 
 ## 📅 文档变更日志 (Changelog)
 
+| **2026-03-02 15:10** | Phase 3 核心功能攻克。实现 `trigger_action` 智能同步引擎，支持 Embeds（RichUI）与 Artifacts（HTML 追加）双模式，解决触发 Action 后页面不更新的顽疾。补齐同步版 `FunctionsManager`。 | Antigravity Engine | [ Action 自动化闭环 ] |
 | **2026-03-02 02:25** | Phase 2 异步客户端全线贯通。全面修复 `AsyncOpenWebUIClient` 测试断言、模型兼容性 (Optional 字段) 及过时方法名问题，实现同步/异步测试集 100% 绿灯 (57/57)。 | Antigravity Engine | [ 异步测试修复与稳定 ] |
 | **2026-03-02 01:55** | 全面推行 Pydantic V2 模型化。修复了 `ChatResponse` 字段对齐（`content`）与会话状态 (`chat_id`) 持久化丢失问题。 | Antigravity Engine | [ 核心架构升级 ] |
 | 2026-03-01 01:20 | Phase 1 全线贯通。解决了 `edit_message` 拓扑错误与历史擦除 BUG，清理了僵尸文件。 | Antigravity Engine | [ 集成测试全线绿灯 ] |
@@ -71,10 +72,20 @@
   - 细节: 修复了 `chat()` 方法调用后未更新 `base_client.chat_id` 的状态丢失问题，确保上下文连续性。
 - [x] **测试建设 2.4: 增补异步与集成测试集**
   - 状态: 已完成 100% 修复。解决了 Pydantic V2 严格模式下的可选字段问题（`UserResponse`, `ChatResponse` 向后兼容），同步与异步测试集（57个）全面达成绿灯。
+### Phase 3: RAG、提示词与插件自动化 (RAG & Action Engine) - [ ✅ 已完成 (Completed) ]
 
-### Phase 3: RAG、提示词与模型拓展 (RAG & Advanced Tooling) - 【预留规划区】
+**目标**: 深度集成 Open WebUI 的高级特性，实现从单纯的聊天到复杂插件驱动的应用闭环。
 
-**目标**: 将开放平台的特性潜力（比如文库挂载，知识内化，Deep Research）完美带入 SDK。
+- [x] **重制任务 3.1: 同步版 `FunctionsManager` 与 `ToolsManager` 补完**
+  - 细节: 补齐了重构中遗漏的同步组件，打通了后端插件的管理与调用链路。
+- [x] **重制任务 3.2: `trigger_action` 智能同步引擎 (Auto-Sync)**
+  - 细节: SDK 能够自动识别 Action 返回的 HTML 或 JSON 负载，并执行精准的“手术式同步”。
+- [x] **特色功能 3.3: Artifacts 模式定义与实现**
+  - 细节: 确立了将纯 HTML 响应自动追加至消息正文的机制，成功触发前端侧边栏渲染面板。
+- [x] **特色功能 3.4: 异步流式数据清洗 (SSE Refinement)**
+  - 细节: 优化了 `stream_chat` 的数据管道，确保 yield 的始终是清洁的文本字符串而非原始 JSON。
+
+### Phase 4: 开发体验闭环 (DX & Ecosystem) - 【预留规划区】
 
 - [ ] **专家任务 3.1: `#v1/knowledge` 强校验重构**
   - 要求: `KnowledgeBaseManager` 应该与新版分离出来的 Document 管理隔离。添加 `upsert_knowledge` 操作，在内部打断成两步（上传物理 File + Bind 知识库 ID）完成，且对外表现为一个简单的原子操作。
