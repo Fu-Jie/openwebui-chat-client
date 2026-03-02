@@ -16,6 +16,8 @@ from .model_manager import ModelManager
 from .notes_manager import NotesManager
 from .prompts_manager import PromptsManager
 from .user_manager import UserManager
+from .functions_manager import FunctionsManager
+from .tools_manager import ToolsManager
 
 __all__ = [
     "FileManager",
@@ -24,4 +26,6 @@ __all__ = [
     "NotesManager",
     "PromptsManager",
     "UserManager",
+    "FunctionsManager",
+    "ToolsManager",
 ]

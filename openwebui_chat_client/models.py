@@ -218,7 +218,7 @@ class ChatResponse(BaseWebUIModel):
 
 
 class ActionResult(BaseWebUIModel):
-    status: bool
+    status: bool = True
     message: Optional[str] = None
     data: Optional[Any] = None
 
@@ -234,11 +234,28 @@ class ParallelChatResponse(BaseWebUIModel):
 class Function(BaseWebUIModel):
     """
     Function/Action/Tool representation.
+    In Open WebUI, functions can be of type 'action', 'filter', or 'pipe'.
     """
 
     id: str
     name: Optional[str] = None
+    type: Optional[str] = "action"  # 'action', 'filter', or 'pipe'
     meta: Optional[Dict[str, Any]] = None
     user_id: Optional[str] = None
     created_at: Optional[int] = None
     updated_at: Optional[int] = None
+
+    @property
+    def is_action(self) -> bool:
+        """Check if this function is an action."""
+        return self.type == "action"
+
+    @property
+    def is_filter(self) -> bool:
+        """Check if this function is a filter."""
+        return self.type == "filter"
+
+    @property
+    def is_pipe(self) -> bool:
+        """Check if this function is a pipe."""
+        return self.type == "pipe"

@@ -34,6 +34,8 @@ from .modules.sync import (
     NotesManager,
     PromptsManager,
     UserManager,
+    FunctionsManager,
+    ToolsManager,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,6 +83,8 @@ class OpenWebUIClient:
         self._chat_manager = ChatManager(self._base_client)
         self._prompts_manager = PromptsManager(self._base_client)
         self._user_manager = UserManager(self._base_client)
+        self._functions_manager = FunctionsManager(self._base_client)
+        self._tools_manager = ToolsManager(self._base_client)
 
         # Set up available model IDs from model manager
         self._base_client.available_model_ids = self._model_manager.available_model_ids
@@ -661,7 +665,16 @@ class OpenWebUIClient:
         Returns:
             List of function definitions or None if failed
         """
-        return self._chat_manager.get_functions()
+        return self._functions_manager.get_functions()
+
+    def get_actions(self) -> List[Function]:
+        """
+        Get only functions of type 'action' that can be triggered.
+
+        Returns:
+            List of action functions
+        """
+        return self._functions_manager.get_actions()
 
     def get_chat(self, chat_id: str) -> Optional[ChatDetails]:
         """
